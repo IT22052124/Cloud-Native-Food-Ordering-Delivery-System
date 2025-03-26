@@ -1,0 +1,19 @@
+{
+  "name": "order",
+  "version": "1.0.0",
+  "description": "Micro Service Api for Order Service",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IT22052124/Cloud-Native-Food-Ordering-Delivery-System/order"
+  },
+  "keywords": [
+    "order",
+    "microservice"
+  ],
+  "author": "Shukry FA",
+  "license": "ISC"
+}
