@@ -9,6 +9,7 @@
 - `GET /api/auth/me` - Get current user profile (protected)
 - `POST /api/auth/forgot-password` - Request password reset
 - `POST /api/auth/reset-password/:token` - Reset password with token
+- `Get /api/auth/validate-token` - Validate token (for internal service use)
 
 ### User Management
 
