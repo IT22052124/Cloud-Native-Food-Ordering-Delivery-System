@@ -9,6 +9,14 @@
     "dev": "nodemon index.js",
     "seed:admin": "node utils/seedAdmin.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IT22052124/Cloud-Native-Food-Ordering-Delivery-System/tree/main/auth"
+  },
+  "keywords": [
+    "auth",
+    "microservice"
+  ],
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
