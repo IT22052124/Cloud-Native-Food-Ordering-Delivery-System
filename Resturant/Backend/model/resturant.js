@@ -1,4 +1,11 @@
-import mongoose,{Types} from "mongoose";
+import mongoose,{Types , Schema} from "mongoose";
+
+
+const MediaSchema = new Schema({
+  url: String,
+  alt_text: String,
+});
+
 
 const RestaurantSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -20,31 +27,22 @@ const RestaurantSchema = new mongoose.Schema({
     phone: String,
     email: String,
   },
-  openingHours: [
+  openingHours: 
     {
-      day: {
-        type: String,
-        enum: [
-          "Monday",
-          "Tuesday",
-          "Wednesday",
-          "Thursday",
-          "Friday",
-          "Saturday",
-          "Sunday",
-        ],
-      },
       open: String,
       close: String,
       isClosed: Boolean,
     },
-  ],
+  
   isActive: { type: Boolean, default: true },
 
   restaurantAdmin: {
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
   },
+  media: [MediaSchema],
+  dishes: [Types.ObjectId],
+
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

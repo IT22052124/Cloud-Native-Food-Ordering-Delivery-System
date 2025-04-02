@@ -1,16 +1,12 @@
 import { Restaurant } from "../model/resturant.js";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-
-
 export const addRestaurant = async (req, res) => {
   try {
-
-    const ownerId = req.owner // From JWT
+    const ownerId = req.owner; // From JWT
     const {
       name,
       description,
@@ -29,7 +25,7 @@ export const addRestaurant = async (req, res) => {
     // Hash restaurant admin password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const restaurant  = {
+    const restaurant = {
       ownerId: ownerId, // Owner ID from JWT
       name,
       description,
@@ -69,8 +65,13 @@ export const addRestaurant = async (req, res) => {
  */
 export const getMyRestaurants = async (req, res) => {
   try {
-    const restaurants = await Restaurant.find({ owner: req.owner });
+    const restaurants = await Restaurant.find({ ownerId: req.owner });
+
+    if (!restaurants || restaurants.length === 0) {
+      return res.status(404).json({ message: "No restaurants found!" });
+    }
     res.json(restaurants);
+
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }
@@ -84,8 +85,11 @@ export const getMyRestaurants = async (req, res) => {
 export const getRestaurantById = async (req, res) => {
   try {
     const restaurant = await Restaurant.findById(req.params.id);
-    if (!restaurant || restaurant.owner.toString() !== req.owner) {
+    if (!restaurant || restaurant.ownerId.toString() !== req.owner) {
       return res.status(403).json({ message: "Access denied!" });
+    }
+    if (!restaurant) {
+      return res.status(404).json({ message: "Restaurant not found!" });
     }
     res.json(restaurant);
   } catch (error) {
@@ -111,7 +115,7 @@ export const updateRestaurant = async (req, res) => {
     } = req.body;
     const restaurant = await Restaurant.findById(req.params.id);
 
-    if (!restaurant || restaurant.owner.toString() !== req.owner) {
+    if (!restaurant || restaurant.ownerId.toString() !== req.owner) {
       return res.status(403).json({ message: "Access denied!" });
     }
 
@@ -143,12 +147,13 @@ export const updateRestaurant = async (req, res) => {
  */
 export const deleteRestaurant = async (req, res) => {
   try {
-    const restaurant = await Restaurant.findById(req.params.id);
-    if (!restaurant || restaurant.owner.toString() !== req.owner) {
+    const restaurant = await Restaurant.findByIdAndDelete(req.params.id);
+    if (!restaurant || restaurant.ownerId.toString() !== req.owner) {
       return res.status(403).json({ message: "Access denied!" });
     }
-
-    await restaurant.remove();
+    if (!restaurant) {
+      return res.status(404).json({ message: "Restaurant not found!" });
+    }
     res.json({ message: "Restaurant deleted successfully!" });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
