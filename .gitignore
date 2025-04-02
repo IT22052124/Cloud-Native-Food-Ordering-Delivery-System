@@ -87,3 +87,4 @@ debug/
 # Temporary files
 tmp/
 temp/ 
+.qodo
