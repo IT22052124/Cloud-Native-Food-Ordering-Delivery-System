@@ -46,16 +46,8 @@ Retrieves all items in the customer's cart with restaurant and item details.
       "price": 9.99,
       "image": "image_url",
       "description": "Item description",
-      "specialInstructions": "Extra spicy",
-      "options": [
-        {
-          "name": "Size",
-          "value": "Large",
-          "price": 2.0
-        }
-      ],
       "itemPrice": 9.99,
-      "totalPrice": 23.98
+      "totalPrice": 19.98
     }
   ],
   "restaurants": [
@@ -66,7 +58,7 @@ Retrieves all items in the customer's cart with restaurant and item details.
     }
   ],
   "totalItems": 1,
-  "totalAmount": 23.98
+  "totalAmount": 19.98
 }
 ```
 
@@ -84,14 +76,7 @@ Adds a new item to the cart or increases quantity if already exists.
   "itemId": "menu_item_id",
   "restaurantId": "restaurant_id",
   "quantity": 1,
-  "specialInstructions": "Extra spicy",
-  "options": [
-    {
-      "name": "Size",
-      "value": "Large",
-      "price": 2.0
-    }
-  ]
+  "itemPrice": 9.99
 }
 ```
 
@@ -106,16 +91,8 @@ Adds a new item to the cart or increases quantity if already exists.
     "itemId": "menu_item_id",
     "restaurantId": "restaurant_id",
     "quantity": 1,
-    "specialInstructions": "Extra spicy",
-    "options": [
-      {
-        "name": "Size",
-        "value": "Large",
-        "price": 2.0
-      }
-    ],
     "itemPrice": 9.99,
-    "totalPrice": 11.99
+    "totalPrice": 9.99
   }
 }
 ```
@@ -132,15 +109,7 @@ Updates the quantity of an item in the cart.
 
 ```json
 {
-  "quantity": 3,
-  "specialInstructions": "Medium spicy",
-  "options": [
-    {
-      "name": "Size",
-      "value": "Medium",
-      "price": 1.0
-    }
-  ]
+  "quantity": 3
 }
 ```
 
@@ -155,16 +124,8 @@ Updates the quantity of an item in the cart.
     "itemId": "menu_item_id",
     "restaurantId": "restaurant_id",
     "quantity": 3,
-    "specialInstructions": "Medium spicy",
-    "options": [
-      {
-        "name": "Size",
-        "value": "Medium",
-        "price": 1.0
-      }
-    ],
     "itemPrice": 9.99,
-    "totalPrice": 32.97
+    "totalPrice": 29.97
   }
 }
 ```
@@ -217,8 +178,7 @@ Updates multiple cart items at once (for order review page).
   "items": [
     {
       "id": "cart_item_id_1",
-      "quantity": 2,
-      "specialInstructions": "No onions"
+      "quantity": 2
     },
     {
       "id": "cart_item_id_2",
@@ -264,16 +224,15 @@ Creates an order from the current cart items, supporting multiple restaurants.
     "city": "Anytown",
     "state": "CA",
     "zipCode": "12345",
-    "country": "USA"
+    "country": "USA",
+    "coordinates": {
+      "lat": 37.7749,
+      "lng": -122.4194
+    }
   },
   "paymentMethod": "CARD",
-  "paymentStatus": "PENDING",
   "paymentDetails": {
     "cardId": "saved_card_id"
-  },
-  "restaurantInstructions": {
-    "restaurant_id_1": "Extra napkins please",
-    "restaurant_id_2": "Ring doorbell on arrival"
   }
 }
 ```
@@ -300,41 +259,36 @@ Creates an order from the current cart items, supporting multiple restaurants.
             "itemId": "menu_item_id",
             "name": "Item Name",
             "price": 9.99,
-            "quantity": 2,
-            "specialInstructions": "Extra spicy"
+            "quantity": 2
           }
         ],
         "subtotal": 19.98,
-        "tax": 1.60,
+        "tax": 1.6,
         "deliveryFee": 2.99,
         "status": "PLACED",
         "statusHistory": [
           {
             "status": "PLACED",
             "timestamp": "2023-01-01T12:00:00Z",
-            "updatedBy": "user_id",
-            "notes": "Order placed by customer"
+            "updatedBy": "user_id"
           }
-        ],
-        "specialInstructions": "Extra napkins please"
-      },
-      {
-        "restaurantId": "restaurant_id_2",
-        "restaurantName": "Restaurant Two",
-        "items": [...],
-        "subtotal": 15.99,
-        "tax": 1.28,
-        "deliveryFee": 2.99,
-        "status": "PLACED",
-        "statusHistory": [...],
-        "specialInstructions": "Ring doorbell on arrival"
+        ]
       }
     ],
-    "deliveryAddress": {...},
+    "deliveryAddress": {
+      "street": "123 Main St",
+      "city": "Anytown",
+      "state": "CA",
+      "zipCode": "12345",
+      "country": "USA",
+      "coordinates": {
+        "lat": 37.7749,
+        "lng": -122.4194
+      }
+    },
+    "totalAmount": 24.57,
     "paymentMethod": "CARD",
     "paymentStatus": "PENDING",
-    "paymentDetails": {...},
-    "totalAmount": 44.83,
     "createdAt": "2023-01-01T12:00:00Z"
   }
 }
@@ -364,8 +318,10 @@ Retrieves a specific order by ID.
     "deliveryAddress": {...},
     "paymentMethod": "CARD",
     "paymentStatus": "PENDING",
-    "totalAmount": 44.83,
-    "createdAt": "2023-01-01T12:00:00Z"
+    "totalAmount": 24.57,
+    "createdAt": "2023-01-01T12:00:00Z",
+    "overallStatus": "PLACED",
+    "estimatedDeliveryTime": "2023-01-01T12:45:00Z"
   }
 }
 ```
@@ -392,10 +348,10 @@ Retrieves all orders for the authenticated user.
     {
       "orderId": "ORD-230101-1234",
       "createdAt": "2023-01-01T12:00:00Z",
-      "totalAmount": 44.83,
-      "status": "PROCESSING",
-      "restaurants": ["Restaurant One", "Restaurant Two"],
-      "totalItems": 5,
+      "totalAmount": 24.57,
+      "status": "PLACED",
+      "restaurants": ["Restaurant One"],
+      "totalItems": 2,
       "type": "DELIVERY"
     },
     ...
@@ -427,14 +383,12 @@ Retrieves all orders for the authenticated restaurant.
       "customerPhone": "+1234567890",
       "type": "DELIVERY",
       "deliveryAddress": {...},
-      "paymentMethod": "CARD",
       "status": "PLACED",
       "items": [...],
       "subtotal": 19.98,
       "tax": 1.60,
       "deliveryFee": 2.99,
-      "total": 24.57,
-      "specialInstructions": "Extra napkins please"
+      "estimatedReadyTime": null
     },
     ...
   ]
@@ -472,8 +426,7 @@ Updates the status of a specific restaurant's part of an order.
     "restaurantName": "Restaurant Name",
     "status": "CONFIRMED",
     "statusHistory": [...],
-    "estimatedReadyTime": "2023-01-01T12:25:00Z",
-    ...
+    "estimatedReadyTime": "2023-01-01T12:25:00Z"
   }
 }
 ```
@@ -528,12 +481,11 @@ Retrieves all orders with filtering options (admin only).
       "orderId": "ORD-230101-1234",
       "createdAt": "2023-01-01T12:00:00Z",
       "customerName": "John Doe",
-      "restaurantCount": 2,
-      "statuses": ["CONFIRMED", "PREPARING"],
-      "itemCount": 5,
-      "totalAmount": 44.83,
+      "restaurantCount": 1,
+      "itemCount": 2,
+      "totalAmount": 24.57,
       "type": "DELIVERY",
-      "paymentStatus": "PAID"
+      "paymentStatus": "PENDING"
     },
     ...
   ]
@@ -568,6 +520,11 @@ Restaurant orders can have the following status values:
 - `OUT_FOR_DELIVERY` - Order is being delivered
 - `DELIVERED` - Order has been delivered
 - `CANCELLED` - Order has been cancelled
+
+Additional overall statuses for multi-restaurant orders:
+
+- `PARTIALLY_CANCELLED` - Some restaurant orders were cancelled
+- `COMPLETED` - All restaurant orders have been delivered or cancelled
 
 ## Payment Methods
 
