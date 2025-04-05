@@ -1,8 +1,8 @@
 {
   "name": "order",
   "version": "1.0.0",
-  "description": "Micro Service Api for Order Service",
-  "main": "server.js",
+  "description": "Order management service for a food delivery platform",
+  "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "nodemon server.js",
@@ -21,6 +21,7 @@
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "body-parser": "^2.2.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
