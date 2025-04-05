@@ -1,7 +1,6 @@
 # Order Service API Documentation
 
-The Order Service manages the customer ordering process, from shopping cart to order placement and tracking in the food delivery platform.
-
+The Order Service manages the customer ordering process, from shopping cart to order placement and tracking in the food delivery platform. This service now supports multi-restaurant orders, allowing customers to place a single order from multiple restaurants.
 
 ## Authentication
 
@@ -46,16 +45,28 @@ Retrieves all items in the customer's cart with restaurant and item details.
       "name": "Item Name",
       "price": 9.99,
       "image": "image_url",
-      "description": "Item description"
+      "description": "Item description",
+      "specialInstructions": "Extra spicy",
+      "options": [
+        {
+          "name": "Size",
+          "value": "Large",
+          "price": 2.0
+        }
+      ],
+      "itemPrice": 9.99,
+      "totalPrice": 23.98
     }
   ],
-  "restaurant": {
-    "id": "restaurant_id",
-    "name": "Restaurant Name",
-    "image": "restaurant_image_url"
-  },
+  "restaurants": [
+    {
+      "id": "restaurant_id",
+      "name": "Restaurant Name",
+      "image": "restaurant_image_url"
+    }
+  ],
   "totalItems": 1,
-  "totalAmount": 19.98
+  "totalAmount": 23.98
 }
 ```
 
@@ -72,7 +83,15 @@ Adds a new item to the cart or increases quantity if already exists.
 {
   "itemId": "menu_item_id",
   "restaurantId": "restaurant_id",
-  "quantity": 1
+  "quantity": 1,
+  "specialInstructions": "Extra spicy",
+  "options": [
+    {
+      "name": "Size",
+      "value": "Large",
+      "price": 2.0
+    }
+  ]
 }
 ```
 
@@ -86,7 +105,17 @@ Adds a new item to the cart or increases quantity if already exists.
     "_id": "cart_item_id",
     "itemId": "menu_item_id",
     "restaurantId": "restaurant_id",
-    "quantity": 1
+    "quantity": 1,
+    "specialInstructions": "Extra spicy",
+    "options": [
+      {
+        "name": "Size",
+        "value": "Large",
+        "price": 2.0
+      }
+    ],
+    "itemPrice": 9.99,
+    "totalPrice": 11.99
   }
 }
 ```
@@ -103,7 +132,15 @@ Updates the quantity of an item in the cart.
 
 ```json
 {
-  "quantity": 3
+  "quantity": 3,
+  "specialInstructions": "Medium spicy",
+  "options": [
+    {
+      "name": "Size",
+      "value": "Medium",
+      "price": 1.0
+    }
+  ]
 }
 ```
 
@@ -117,7 +154,17 @@ Updates the quantity of an item in the cart.
     "_id": "cart_item_id",
     "itemId": "menu_item_id",
     "restaurantId": "restaurant_id",
-    "quantity": 3
+    "quantity": 3,
+    "specialInstructions": "Medium spicy",
+    "options": [
+      {
+        "name": "Size",
+        "value": "Medium",
+        "price": 1.0
+      }
+    ],
+    "itemPrice": 9.99,
+    "totalPrice": 32.97
   }
 }
 ```
@@ -170,7 +217,8 @@ Updates multiple cart items at once (for order review page).
   "items": [
     {
       "id": "cart_item_id_1",
-      "quantity": 2
+      "quantity": 2,
+      "specialInstructions": "No onions"
     },
     {
       "id": "cart_item_id_2",
@@ -199,186 +247,9 @@ _Note: Items with quantity 0 will be removed from the cart._
 
 ### Order Management
 
-#### Get Cart Review
+#### Create Order
 
-Creates a review of the cart contents without creating an order.
-
-- **URL**: `/orders/cart-review`
-- **Method**: `GET`
-- **Auth required**: Yes
-- **Response (200)**:
-
-```json
-{
-  "status": 200,
-  "message": "Cart review created successfully",
-  "orderSummary": {
-    "customerId": "user_id",
-    "restaurantId": "restaurant_id",
-    "restaurantName": "Restaurant Name",
-    "items": [
-      {
-        "itemId": "menu_item_id",
-        "name": "Item Name",
-        "price": 9.99,
-        "quantity": 2
-      }
-    ],
-    "totalAmount": 19.98,
-    "deliveryAddress": {
-      "street": "123 Main St",
-      "city": "Anytown",
-      "state": "CA",
-      "zipCode": "12345",
-      "country": "USA"
-    },
-    "paymentMethod": "CARD"
-  },
-  "cartItems": [...]
-}
-```
-
-#### Create Draft Order
-
-Creates a draft order (INIT status) from the current cart items.
-
-- **URL**: `/orders/draft`
-- **Method**: `POST`
-- **Auth required**: Yes
-- **Request body**:
-
-```json
-{
-  "deliveryAddress": {
-    "street": "123 Main St",
-    "city": "Anytown",
-    "state": "CA",
-    "zipCode": "12345",
-    "country": "USA"
-  },
-  "paymentMethod": "CARD",
-  "specialInstructions": "Leave at door"
-}
-```
-
-- **Response (201)**:
-
-```json
-{
-  "status": 201,
-  "message": "Draft order created successfully",
-  "order": {
-    "_id": "order_id",
-    "customerId": "user_id",
-    "restaurantId": "restaurant_id",
-    "restaurantName": "Restaurant Name",
-    "items": [...],
-    "totalAmount": 19.98,
-    "deliveryAddress": {...},
-    "paymentMethod": "CARD",
-    "paymentStatus": "PENDING",
-    "status": "INIT",
-    "specialInstructions": "Leave at door",
-    "statusHistory": [...]
-  }
-}
-```
-
-#### Get User's Draft Orders
-
-Retrieves all draft orders (INIT status) for the authenticated user.
-
-- **URL**: `/orders/draft`
-- **Method**: `GET`
-- **Auth required**: Yes
-- **Response (200)**:
-
-```json
-{
-  "status": 200,
-  "count": 2,
-  "orders": [...]
-}
-```
-
-#### Update Draft Order
-
-Updates a draft order before placing it.
-
-- **URL**: `/orders/draft/:id`
-- **Method**: `PUT`
-- **Auth required**: Yes
-- **URL Parameters**: `id=[string]` - Order ID
-- **Request body**:
-
-```json
-{
-  "deliveryAddress": {
-    "street": "456 New St",
-    "city": "Othertown",
-    "state": "NY",
-    "zipCode": "54321",
-    "country": "USA"
-  },
-  "paymentMethod": "CASH",
-  "specialInstructions": "Call when arriving",
-  "items": [
-    {
-      "itemId": "menu_item_id",
-      "name": "Item Name",
-      "price": 9.99,
-      "quantity": 3
-    }
-  ]
-}
-```
-
-- **Response (200)**:
-
-```json
-{
-  "status": 200,
-  "message": "Draft order updated successfully",
-  "order": {...}
-}
-```
-
-#### Place Order
-
-Converts a draft order (INIT status) to a placed order (PLACED status).
-
-- **URL**: `/orders/draft/:id/place`
-- **Method**: `POST`
-- **Auth required**: Yes
-- **URL Parameters**: `id=[string]` - Order ID
-- **Request body**:
-
-```json
-{
-  "deliveryAddress": {...},
-  "paymentMethod": "CARD",
-  "specialInstructions": "Ring doorbell"
-}
-```
-
-- **Response (200)**:
-
-```json
-{
-  "status": 200,
-  "message": "Order placed successfully",
-  "order": {
-    "_id": "order_id",
-    "status": "PLACED",
-    "statusHistory": [...],
-    ...
-  }
-}
-```
-
-#### Create Order (Direct)
-
-Creates and places an order directly (legacy endpoint).
+Creates an order from the current cart items, supporting multiple restaurants.
 
 - **URL**: `/orders`
 - **Method**: `POST`
@@ -387,9 +258,23 @@ Creates and places an order directly (legacy endpoint).
 
 ```json
 {
-  "deliveryAddress": {...},
-  "paymentMethod": "CASH",
-  "specialInstructions": "Contactless delivery"
+  "type": "DELIVERY",
+  "deliveryAddress": {
+    "street": "123 Main St",
+    "city": "Anytown",
+    "state": "CA",
+    "zipCode": "12345",
+    "country": "USA"
+  },
+  "paymentMethod": "CARD",
+  "paymentStatus": "PENDING",
+  "paymentDetails": {
+    "cardId": "saved_card_id"
+  },
+  "restaurantInstructions": {
+    "restaurant_id_1": "Extra napkins please",
+    "restaurant_id_2": "Ring doorbell on arrival"
+  }
 }
 ```
 
@@ -399,7 +284,59 @@ Creates and places an order directly (legacy endpoint).
 {
   "status": 201,
   "message": "Order placed successfully",
-  "order": {...}
+  "order": {
+    "orderId": "ORD-230101-1234",
+    "customerId": "user_id",
+    "customerName": "John Doe",
+    "customerEmail": "john@example.com",
+    "customerPhone": "+1234567890",
+    "type": "DELIVERY",
+    "restaurantOrders": [
+      {
+        "restaurantId": "restaurant_id_1",
+        "restaurantName": "Restaurant One",
+        "items": [
+          {
+            "itemId": "menu_item_id",
+            "name": "Item Name",
+            "price": 9.99,
+            "quantity": 2,
+            "specialInstructions": "Extra spicy"
+          }
+        ],
+        "subtotal": 19.98,
+        "tax": 1.60,
+        "deliveryFee": 2.99,
+        "status": "PLACED",
+        "statusHistory": [
+          {
+            "status": "PLACED",
+            "timestamp": "2023-01-01T12:00:00Z",
+            "updatedBy": "user_id",
+            "notes": "Order placed by customer"
+          }
+        ],
+        "specialInstructions": "Extra napkins please"
+      },
+      {
+        "restaurantId": "restaurant_id_2",
+        "restaurantName": "Restaurant Two",
+        "items": [...],
+        "subtotal": 15.99,
+        "tax": 1.28,
+        "deliveryFee": 2.99,
+        "status": "PLACED",
+        "statusHistory": [...],
+        "specialInstructions": "Ring doorbell on arrival"
+      }
+    ],
+    "deliveryAddress": {...},
+    "paymentMethod": "CARD",
+    "paymentStatus": "PENDING",
+    "paymentDetails": {...},
+    "totalAmount": 44.83,
+    "createdAt": "2023-01-01T12:00:00Z"
+  }
 }
 ```
 
@@ -416,9 +353,24 @@ Retrieves a specific order by ID.
 ```json
 {
   "status": 200,
-  "order": {...}
+  "order": {
+    "orderId": "ORD-230101-1234",
+    "customerId": "user_id",
+    "customerName": "John Doe",
+    "customerEmail": "john@example.com",
+    "customerPhone": "+1234567890",
+    "type": "DELIVERY",
+    "restaurantOrders": [...],
+    "deliveryAddress": {...},
+    "paymentMethod": "CARD",
+    "paymentStatus": "PENDING",
+    "totalAmount": 44.83,
+    "createdAt": "2023-01-01T12:00:00Z"
+  }
 }
 ```
+
+_Note: For restaurant users, only their part of the order is returned._
 
 #### Get User Orders
 
@@ -436,11 +388,18 @@ Retrieves all orders for the authenticated user.
 ```json
 {
   "status": 200,
-  "count": 5,
-  "total": 12,
-  "page": 1,
-  "pages": 2,
-  "orders": [...]
+  "orders": [
+    {
+      "orderId": "ORD-230101-1234",
+      "createdAt": "2023-01-01T12:00:00Z",
+      "totalAmount": 44.83,
+      "status": "PROCESSING",
+      "restaurants": ["Restaurant One", "Restaurant Two"],
+      "totalItems": 5,
+      "type": "DELIVERY"
+    },
+    ...
+  ]
 }
 ```
 
@@ -460,27 +419,45 @@ Retrieves all orders for the authenticated restaurant.
 ```json
 {
   "status": 200,
-  "count": 8,
-  "total": 25,
-  "page": 1,
-  "pages": 3,
-  "orders": [...]
+  "orders": [
+    {
+      "orderId": "ORD-230101-1234",
+      "createdAt": "2023-01-01T12:00:00Z",
+      "customerName": "John Doe",
+      "customerPhone": "+1234567890",
+      "type": "DELIVERY",
+      "deliveryAddress": {...},
+      "paymentMethod": "CARD",
+      "status": "PLACED",
+      "items": [...],
+      "subtotal": 19.98,
+      "tax": 1.60,
+      "deliveryFee": 2.99,
+      "total": 24.57,
+      "specialInstructions": "Extra napkins please"
+    },
+    ...
+  ]
 }
 ```
 
-#### Update Order Status
+#### Update Restaurant Order Status
 
-Updates the status of an order.
+Updates the status of a specific restaurant's part of an order.
 
-- **URL**: `/orders/:id/status`
+- **URL**: `/orders/:id/restaurant/:restaurantId/status`
 - **Method**: `PATCH`
-- **Auth required**: Yes (restaurant or admin role)
-- **URL Parameters**: `id=[string]` - Order ID
+- **Auth required**: Yes (restaurant role)
+- **URL Parameters**:
+  - `id=[string]` - Order ID
+  - `restaurantId=[string]` - Restaurant ID
 - **Request body**:
 
 ```json
 {
-  "status": "CONFIRMED"
+  "status": "CONFIRMED",
+  "notes": "We'll prepare your order right away",
+  "estimatedReadyMinutes": 25
 }
 ```
 
@@ -490,13 +467,82 @@ Updates the status of an order.
 {
   "status": 200,
   "message": "Order status updated successfully",
+  "restaurantOrder": {
+    "restaurantId": "restaurant_id",
+    "restaurantName": "Restaurant Name",
+    "status": "CONFIRMED",
+    "statusHistory": [...],
+    "estimatedReadyTime": "2023-01-01T12:25:00Z",
+    ...
+  }
+}
+```
+
+#### Update Order Status (Admin)
+
+Updates the status of all restaurant orders at once (admin only).
+
+- **URL**: `/orders/:id/status`
+- **Method**: `PATCH`
+- **Auth required**: Yes (admin role)
+- **URL Parameters**: `id=[string]` - Order ID
+- **Request body**:
+
+```json
+{
+  "status": "CONFIRMED",
+  "notes": "Updating all restaurants' status"
+}
+```
+
+- **Response (200)**:
+
+```json
+{
+  "status": 200,
+  "message": "Order status updated successfully for all restaurants",
   "order": {...}
+}
+```
+
+#### Get All Orders (Admin)
+
+Retrieves all orders with filtering options (admin only).
+
+- **URL**: `/orders/admin/all`
+- **Method**: `GET`
+- **Auth required**: Yes (admin role)
+- **Query Parameters**:
+  - `status=[string]` - Filter by order status
+  - `startDate=[date]` - Filter orders placed after this date
+  - `endDate=[date]` - Filter orders placed before this date
+  - `restaurant=[string]` - Filter by restaurant ID
+- **Response (200)**:
+
+```json
+{
+  "status": 200,
+  "count": 5,
+  "orders": [
+    {
+      "orderId": "ORD-230101-1234",
+      "createdAt": "2023-01-01T12:00:00Z",
+      "customerName": "John Doe",
+      "restaurantCount": 2,
+      "statuses": ["CONFIRMED", "PREPARING"],
+      "itemCount": 5,
+      "totalAmount": 44.83,
+      "type": "DELIVERY",
+      "paymentStatus": "PAID"
+    },
+    ...
+  ]
 }
 ```
 
 #### Delete Order
 
-Deletes an order (only allowed for draft orders or completed/cancelled orders).
+Deletes an order (only allowed for placed orders or if admin).
 
 - **URL**: `/orders/:id`
 - **Method**: `DELETE`
@@ -513,9 +559,8 @@ Deletes an order (only allowed for draft orders or completed/cancelled orders).
 
 ## Order Status Values
 
-Orders can have the following status values:
+Restaurant orders can have the following status values:
 
-- `INIT` - Draft order, not yet placed
 - `PLACED` - Order has been placed by customer
 - `CONFIRMED` - Order has been confirmed by restaurant
 - `PREPARING` - Restaurant is preparing the order
