@@ -21,7 +21,7 @@ export const addRestaurant = async (req, res) => {
       username,
       password,
     } = req.body;
-    
+
      // First check if username already exists in any restaurant
      const existingAdmin = await Restaurant.findOne({
       "restaurantAdmin.username": username
@@ -98,14 +98,13 @@ export const getMyRestaurants = async (req, res) => {
 export const getRestaurantById = async (req, res) => {
   try {
     const restaurant = await Restaurant.findById(req.params.id);
-    if (!restaurant || restaurant.ownerId.toString() !== req.owner) {
-      return res.status(403).json({ message: "Access denied!" });
-    }
+   
     if (!restaurant) {
       return res.status(404).json({ message: "Restaurant not found!" });
     }
     res.json(restaurant);
   } catch (error) {
+    console.log("Error in getting restaurant by ID", error);
     res.status(500).json({ message: "Server error", error });
   }
 };
