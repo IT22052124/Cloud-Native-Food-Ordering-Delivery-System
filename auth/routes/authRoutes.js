@@ -8,8 +8,9 @@ import {
   logout,
   getCurrentUser,
   validateToken,
+  registerWorker,
 } from "../controller/authController.js";
-import { protect } from "../middleware/auth.js";
+import { authorize, protect } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -19,6 +20,9 @@ router.post("/login", login);
 router.post("/refresh-token", refreshToken);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password/:token", resetPassword);
+
+//Private route for restaurant owner to create workers
+router.post("/registerWorker", authorize("restaurant"), registerWorker);
 
 // Token validation endpoint (for internal service use)
 router.get("/validate-token", validateToken);

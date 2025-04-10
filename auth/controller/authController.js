@@ -71,6 +71,68 @@ const register = async (req, res) => {
 };
 
 /**
+ * Register a new user
+ * @route POST /api/auth/registerWorker
+ * @access Private/Restaurant
+ */
+const registerWorker = async (req, res) => {
+  try {
+    const { email, password, name, phone } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "User already exists with this email, please login",
+      });
+    }
+
+    // Create new user
+    const user = await User.create({
+      email,
+      password,
+      name,
+      phone,
+      role: "worker",
+      status,
+      ...req.body,
+    });
+
+    const token = user.generateAuthToken();
+    const refreshToken = user.generateRefreshToken();
+
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    const userResponse = user.toObject();
+    delete userResponse.password;
+    delete userResponse.refreshToken;
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Worker registered successfully",
+      token,
+      user: userResponse,
+    });
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error during registration",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * Login a user
  * @route POST /api/auth/login
  * @access Public
@@ -447,6 +509,7 @@ const validateToken = async (req, res) => {
 
 export {
   register,
+  registerWorker,
   login,
   refreshToken,
   logout,
