@@ -1,5 +1,8 @@
 import express from "express";
-import { createDish ,restaurantAdminLogin} from "../Controller/ResturantAdmin.js";
+import {
+  createDish,
+  restaurantAdminLogin,
+} from "../Controller/ResturantAdmin.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import authMiddlewareAdmin from "../middleware/getToken.js";
 const router = express.Router();
@@ -11,6 +14,5 @@ router.post("/login", restaurantAdminLogin);
 // router.get("/:id", authMiddleware, getRestaurantById);
 // router.put("/:id", authMiddleware, updateRestaurant);
 // router.delete("/:id", authMiddleware, deleteRestaurant);
-
 
 export default router;

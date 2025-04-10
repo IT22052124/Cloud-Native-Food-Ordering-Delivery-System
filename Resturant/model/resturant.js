@@ -1,11 +1,9 @@
-import mongoose,{Types , Schema} from "mongoose";
-
+import mongoose, { Types, Schema } from "mongoose";
 
 const MediaSchema = new Schema({
   url: String,
   alt_text: String,
 });
-
 
 const RestaurantSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -27,19 +25,20 @@ const RestaurantSchema = new mongoose.Schema({
     phone: String,
     email: String,
   },
-  openingHours: 
-    {
-      open: String,
-      close: String,
-      isClosed: Boolean,
-    },
-  
+  openingHours: {
+    open: String,
+    close: String,
+    isClosed: Boolean,
+  },
+
   isActive: { type: Boolean, default: true },
 
-  restaurantAdmin: {
-    username: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-  },
+  restaurantAdmin: [
+    {
+      username: { type: String, required: true, unique: true },
+      password: { type: String, required: true },
+    },
+  ],
   media: [MediaSchema],
   dishes: [Types.ObjectId],
 
@@ -47,5 +46,4 @@ const RestaurantSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-
-export const  Restaurant = mongoose.model("Restaurant", RestaurantSchema);
+export const Restaurant = mongoose.model("Restaurant", RestaurantSchema);
