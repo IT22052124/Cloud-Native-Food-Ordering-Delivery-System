@@ -171,3 +171,18 @@ export const deleteRestaurant = async (req, res) => {
     res.status(500).json({ message: "Server error", error });
   }
 };
+
+export const restaurants = async (req, res)=>{
+  try{
+    const restaurants = await Restaurant.find({});
+    if (!restaurants || restaurants.length === 0) {
+      return res.status(404).json({ message: "No restaurants found!" });
+    }
+    return res.json( {count : restaurants.length , restaurants});
+
+  }
+  catch(error){
+    console.log("Error in getting all restaurants", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+}

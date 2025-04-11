@@ -5,11 +5,11 @@ import authMiddleware from "../middleware/authMiddleware.js";
 const router = express.Router();
 
 // Owner Routes
-router.post("/resturants/add", authMiddleware, addRestaurant);
- router.get("/resturants/", authMiddleware, getMyRestaurants);
-router.get("/resturants/:id", authMiddleware, getRestaurantById);
-router.put("/resturants/:id", authMiddleware, updateRestaurant);
-router.delete("/resturants/:id", authMiddleware, deleteRestaurant);
+router.post("/restaurants/add", authMiddleware, addRestaurant);
+ router.get("/restaurants/", authMiddleware, getMyRestaurants);
+router.get("/restaurants/:id", authMiddleware, getRestaurantById);
+router.put("/restaurants/:id", authMiddleware, updateRestaurant);
+router.delete("/restaurants/:id", authMiddleware, deleteRestaurant);
 
 
 export default router;

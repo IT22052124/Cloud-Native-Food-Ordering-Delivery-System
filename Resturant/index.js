@@ -21,7 +21,7 @@ app.use(express.json());
 app.use(BodyParser.json());
 app.use(express.urlencoded({ extended: false }));
 
-app.use("/owner", Owner);
+app.use("/api", Owner);
 app.use("/admin", Admin);
 
 
