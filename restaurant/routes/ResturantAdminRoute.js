@@ -2,7 +2,7 @@ import express from "express";
 import {
   createDish,
   restaurantAdminLogin,
-} from "../Controller/ResturantAdmin.js";
+} from "../controller/ResturantAdmin.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import authMiddlewareAdmin from "../middleware/getToken.js";
 const router = express.Router();
