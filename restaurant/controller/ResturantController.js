@@ -27,6 +27,15 @@ export const addRestaurant = async (req, res) => {
       "restaurantAdmin.username": username,
     });
 
+    const exist = await Restaurant.findOne({"address.street":street , "address.city":city});
+    if(exist){
+      return res.status(400).json({
+        message: "Restaurant already exists in this location.",
+      });
+    }
+
+    
+
     if (existingAdmin) {
       return res.status(400).json({
         message: "Username already exists. Please choose a different one.",
