@@ -5,7 +5,7 @@ import mongoose from "mongoose";
 import {MONGOURL,PORT} from "./config.js";
 import dotenv from "dotenv";
 import Owner from "./Routes/ResturantOwnerRoute.js";
-import Admin from "./Routes/ResturantAdminRoute.js";
+import Admin from "./routes/branchAdminRoute.js";
 
 const app = express();
 
@@ -22,7 +22,7 @@ app.use(BodyParser.json());
 app.use(express.urlencoded({ extended: false }));
 
 app.use("/api", Owner);
-app.use("/admin", Admin);
+app.use("/api/branch", Admin);
 
 
 const startServer = async () => {
