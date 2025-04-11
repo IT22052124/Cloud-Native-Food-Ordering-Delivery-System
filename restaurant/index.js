@@ -4,8 +4,8 @@ import BodyParser from "body-parser";
 import mongoose from "mongoose";
 import {MONGOURL,PORT} from "./config.js";
 import dotenv from "dotenv";
-import Owner from "./routes/ResturantOwnerRoute.js";
-import Admin from "./routes/ResturantAdminRoute.js";
+import Owner from "./Routes/ResturantOwnerRoute.js";
+import Admin from "./Routes/ResturantAdminRoute.js";
 
 const app = express();
 

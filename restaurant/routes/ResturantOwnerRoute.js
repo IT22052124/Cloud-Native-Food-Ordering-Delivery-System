@@ -5,7 +5,7 @@ import {
   getMyRestaurants,
   updateRestaurant,
   deleteRestaurant,
-} from "../controller/ResturantController.js";
+} from "../Controller/ResturantController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 
 const router = express.Router();
