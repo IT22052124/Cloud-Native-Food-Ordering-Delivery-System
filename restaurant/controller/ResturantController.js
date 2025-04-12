@@ -22,17 +22,25 @@ export const addRestaurant = async (req, res) => {
       password,
     } = req.body;
 
-     // First check if username already exists in any restaurant
-     const existingAdmin = await Restaurant.findOne({
-      "restaurantAdmin.username": username
+    // First check if username already exists in any restaurant
+    const existingAdmin = await Restaurant.findOne({
+      "restaurantAdmin.username": username,
     });
 
-    if (existingAdmin) {
-      return res.status(400).json({ 
-        message: "Username already exists. Please choose a different one." 
+    const exist = await Restaurant.findOne({"address.street":street , "address.city":city});
+    if(exist){
+      return res.status(400).json({
+        message: "Restaurant already exists in this location.",
       });
     }
 
+    
+
+    if (existingAdmin) {
+      return res.status(400).json({
+        message: "Username already exists. Please choose a different one.",
+      });
+    }
 
     // Hash restaurant admin password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -83,8 +91,8 @@ export const getMyRestaurants = async (req, res) => {
     if (!restaurants || restaurants.length === 0) {
       return res.status(404).json({ message: "No restaurants found!" });
     }
-    
-    res.json( {count : restaurants.length , restaurants});
+
+    res.json({ count: restaurants.length, restaurants });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }
@@ -98,7 +106,7 @@ export const getMyRestaurants = async (req, res) => {
 export const getRestaurantById = async (req, res) => {
   try {
     const restaurant = await Restaurant.findById(req.params.id);
-   
+
     if (!restaurant) {
       return res.status(404).json({ message: "Restaurant not found!" });
     }
@@ -168,6 +176,19 @@ export const deleteRestaurant = async (req, res) => {
     }
     res.json({ message: "Restaurant deleted successfully!" });
   } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+export const restaurants = async (req, res) => {
+  try {
+    const restaurants = await Restaurant.find({});
+    if (!restaurants || restaurants.length === 0) {
+      return res.status(404).json({ message: "No restaurants found!" });
+    }
+    return res.json({ count: restaurants.length, restaurants });
+  } catch (error) {
+    console.log("Error in getting all restaurants", error);
     res.status(500).json({ message: "Server error", error });
   }
 };
