@@ -1,6 +1,6 @@
 # Order Service API Documentation
 
-The Order Service manages the customer ordering process, from shopping cart to order placement and tracking in the food delivery platform. This service now supports multi-restaurant orders, allowing customers to place a single order from multiple restaurants.
+The Order Service manages the customer ordering process, from shopping cart to order placement and tracking in the food delivery platform. The cart system allows items from only one restaurant at a time.
 
 ## Authentication
 
@@ -50,13 +50,11 @@ Retrieves all items in the customer's cart with restaurant and item details.
       "totalPrice": 19.98
     }
   ],
-  "restaurants": [
-    {
-      "id": "restaurant_id",
-      "name": "Restaurant Name",
-      "image": "restaurant_image_url"
-    }
-  ],
+  "restaurant": {
+    "id": "restaurant_id",
+    "name": "Restaurant Name",
+    "image": "restaurant_image_url"
+  },
   "totalItems": 1,
   "totalAmount": 19.98
 }
@@ -64,7 +62,7 @@ Retrieves all items in the customer's cart with restaurant and item details.
 
 #### Add Item to Cart
 
-Adds a new item to the cart or increases quantity if already exists.
+Adds a new item to the cart or increases quantity if already exists. Note: Only items from one restaurant can be in the cart at a time.
 
 - **URL**: `/cart`
 - **Method**: `POST`
@@ -94,6 +92,15 @@ Adds a new item to the cart or increases quantity if already exists.
     "itemPrice": 9.99,
     "totalPrice": 9.99
   }
+}
+```
+
+- **Error Response (400)** - When trying to add items from a different restaurant:
+
+```json
+{
+  "status": 400,
+  "message": "Cannot add items from different restaurants. Please clear your cart first."
 }
 ```
 
@@ -209,7 +216,7 @@ _Note: Items with quantity 0 will be removed from the cart._
 
 #### Create Order
 
-Creates an order from the current cart items, supporting multiple restaurants.
+Creates an order from the current cart items.
 
 - **URL**: `/orders`
 - **Method**: `POST`
@@ -250,31 +257,29 @@ Creates an order from the current cart items, supporting multiple restaurants.
     "customerEmail": "john@example.com",
     "customerPhone": "+1234567890",
     "type": "DELIVERY",
-    "restaurantOrders": [
-      {
-        "restaurantId": "restaurant_id_1",
-        "restaurantName": "Restaurant One",
-        "items": [
-          {
-            "itemId": "menu_item_id",
-            "name": "Item Name",
-            "price": 9.99,
-            "quantity": 2
-          }
-        ],
-        "subtotal": 19.98,
-        "tax": 1.6,
-        "deliveryFee": 2.99,
-        "status": "PLACED",
-        "statusHistory": [
-          {
-            "status": "PLACED",
-            "timestamp": "2023-01-01T12:00:00Z",
-            "updatedBy": "user_id"
-          }
-        ]
-      }
-    ],
+    "restaurantOrder": {
+      "restaurantId": "restaurant_id",
+      "restaurantName": "Restaurant Name",
+      "items": [
+        {
+          "itemId": "menu_item_id",
+          "name": "Item Name",
+          "price": 9.99,
+          "quantity": 2
+        }
+      ],
+      "subtotal": 19.98,
+      "tax": 1.6,
+      "deliveryFee": 2.99,
+      "status": "PLACED",
+      "statusHistory": [
+        {
+          "status": "PLACED",
+          "timestamp": "2023-01-01T12:00:00Z",
+          "updatedBy": "user_id"
+        }
+      ]
+    },
     "deliveryAddress": {
       "street": "123 Main St",
       "city": "Anytown",
@@ -314,13 +319,22 @@ Retrieves a specific order by ID.
     "customerEmail": "john@example.com",
     "customerPhone": "+1234567890",
     "type": "DELIVERY",
-    "restaurantOrders": [...],
+    "restaurantOrder": {...},
     "deliveryAddress": {...},
+    "deliveryPerson": {
+      "name": "Driver Name",
+      "phone": "+1234567890",
+      "vehicleDetails": "Blue Honda Civic",
+      "vehicleNumber": "ABC123",
+      "rating": 4.8,
+      "profileImage": "profile_image_url"
+    },
+    "estimatedDeliveryTime": "2023-01-01T13:00:00Z",
     "paymentMethod": "CARD",
     "paymentStatus": "PENDING",
     "totalAmount": 24.57,
     "createdAt": "2023-01-01T12:00:00Z",
-    "overallStatus": "PLACED",
+    "status": "PLACED",
     "estimatedDeliveryTime": "2023-01-01T12:45:00Z"
   }
 }
@@ -350,7 +364,7 @@ Retrieves all orders for the authenticated user.
       "createdAt": "2023-01-01T12:00:00Z",
       "totalAmount": 24.57,
       "status": "PLACED",
-      "restaurants": ["Restaurant One"],
+      "restaurant": "Restaurant Name",
       "totalItems": 2,
       "type": "DELIVERY"
     },
@@ -395,16 +409,14 @@ Retrieves all orders for the authenticated restaurant.
 }
 ```
 
-#### Update Restaurant Order Status
+#### Update Order Status
 
-Updates the status of a specific restaurant's part of an order.
+Updates the status of an order.
 
-- **URL**: `/orders/:id/restaurant/:restaurantId/status`
+- **URL**: `/orders/:id/status`
 - **Method**: `PATCH`
 - **Auth required**: Yes (restaurant role)
-- **URL Parameters**:
-  - `id=[string]` - Order ID
-  - `restaurantId=[string]` - Restaurant ID
+- **URL Parameters**: `id=[string]` - Order ID
 - **Request body**:
 
 ```json
@@ -421,9 +433,8 @@ Updates the status of a specific restaurant's part of an order.
 {
   "status": 200,
   "message": "Order status updated successfully",
-  "restaurantOrder": {
-    "restaurantId": "restaurant_id",
-    "restaurantName": "Restaurant Name",
+  "order": {
+    "orderId": "ORD-230101-1234",
     "status": "CONFIRMED",
     "statusHistory": [...],
     "estimatedReadyTime": "2023-01-01T12:25:00Z"
@@ -431,20 +442,25 @@ Updates the status of a specific restaurant's part of an order.
 }
 ```
 
-#### Update Order Status (Admin)
+#### Assign Delivery Person
 
-Updates the status of all restaurant orders at once (admin only).
+Assigns a delivery person to an order.
 
-- **URL**: `/orders/:id/status`
+- **URL**: `/orders/:id/delivery-person`
 - **Method**: `PATCH`
-- **Auth required**: Yes (admin role)
+- **Auth required**: Yes (admin or delivery_service role)
 - **URL Parameters**: `id=[string]` - Order ID
 - **Request body**:
 
 ```json
 {
-  "status": "CONFIRMED",
-  "notes": "Updating all restaurants' status"
+  "deliveryPersonId": "delivery_person_id",
+  "name": "John Driver",
+  "phone": "+1234567890",
+  "vehicleDetails": "Blue Honda Civic",
+  "vehicleNumber": "ABC123",
+  "rating": 4.8,
+  "profileImage": "profile_image_url"
 }
 ```
 
@@ -453,8 +469,47 @@ Updates the status of all restaurant orders at once (admin only).
 ```json
 {
   "status": 200,
-  "message": "Order status updated successfully for all restaurants",
-  "order": {...}
+  "message": "Delivery person assigned successfully",
+  "order": {
+    "orderId": "ORD-230101-1234",
+    "deliveryPerson": {
+      "id": "delivery_person_id",
+      "name": "John Driver",
+      "phone": "+1234567890",
+      "vehicleDetails": "Blue Honda Civic",
+      "vehicleNumber": "ABC123",
+      "rating": 4.8,
+      "profileImage": "profile_image_url",
+      "assignedAt": "2023-01-01T12:30:00Z"
+    },
+    "estimatedDeliveryTime": "2023-01-01T13:00:00Z"
+  }
+}
+```
+
+#### Update Delivery Location
+
+Updates the current location of the delivery person.
+
+- **URL**: `/orders/:id/delivery-location`
+- **Method**: `PATCH`
+- **Auth required**: Yes (delivery role)
+- **URL Parameters**: `id=[string]` - Order ID
+- **Request body**:
+
+```json
+{
+  "lat": 37.7749,
+  "lng": -122.4194
+}
+```
+
+- **Response (200)**:
+
+```json
+{
+  "status": 200,
+  "message": "Delivery location updated successfully"
 }
 ```
 
@@ -481,7 +536,7 @@ Retrieves all orders with filtering options (admin only).
       "orderId": "ORD-230101-1234",
       "createdAt": "2023-01-01T12:00:00Z",
       "customerName": "John Doe",
-      "restaurantCount": 1,
+      "restaurant": "Restaurant Name",
       "itemCount": 2,
       "totalAmount": 24.57,
       "type": "DELIVERY",
@@ -511,7 +566,7 @@ Deletes an order (only allowed for placed orders or if admin).
 
 ## Order Status Values
 
-Restaurant orders can have the following status values:
+Orders can have the following status values:
 
 - `PLACED` - Order has been placed by customer
 - `CONFIRMED` - Order has been confirmed by restaurant
@@ -520,11 +575,6 @@ Restaurant orders can have the following status values:
 - `OUT_FOR_DELIVERY` - Order is being delivered
 - `DELIVERED` - Order has been delivered
 - `CANCELLED` - Order has been cancelled
-
-Additional overall statuses for multi-restaurant orders:
-
-- `PARTIALLY_CANCELLED` - Some restaurant orders were cancelled
-- `COMPLETED` - All restaurant orders have been delivered or cancelled
 
 ## Payment Methods
 
