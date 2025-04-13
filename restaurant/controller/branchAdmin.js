@@ -231,8 +231,8 @@ export const getDishById = async (req, res) => {
     const dishId = req.params.id;
 
     const dish =  await Dish.findOne({_id:dishId});
-    if(dish){
-      return res.status(400).json({"dish not found"});
+    if(!dish){
+      return res.status(404).json({message:"Dish not found"});
     }
    
     return res.status(200).json({ dish });
