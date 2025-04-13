@@ -24,5 +24,7 @@ const dishSchema = mongoose.Schema({
   },
   restaurantId: { type: Types.ObjectId, required: true },
   media: [MediaSchema],
+},{
+  timestamps: true,
 });
 export const Dish = mongoose.model("Dish", dishSchema);

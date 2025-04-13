@@ -40,10 +40,12 @@ const RestaurantSchema = new mongoose.Schema({
     },
   ],
   media: [MediaSchema],
-  dishes: [Types.ObjectId],
+  dishes: [Types.ObjectId]
+},
+ 
+{
+  timestamps: true,
 
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
 });
 
 export const Restaurant = mongoose.model("Restaurant", RestaurantSchema);
