@@ -7,7 +7,6 @@ import {
   deleteDish,
   updateDishById
 } from "../controller/branchAdmin.js";
-import authMiddleware from "../middleware/authMiddleware.js";
 import authMiddlewareAdmin from "../middleware/getToken.js";
 const router = express.Router();
 
