@@ -3,12 +3,13 @@ import { protect, authorize } from "../middleware/auth.js";
 import {
   createOrder,
   getOrderById,
-  // updateOrderStatus,
+  updateOrderStatus,
   getUserOrders,
   getRestaurantOrders,
   getAllOrders,
   deleteOrder,
-  updateRestaurantOrderStatus,
+  assignDeliveryPerson,
+  updateDeliveryLocation,
 } from "../controller/orderController.js";
 
 const router = express.Router();
@@ -22,11 +23,11 @@ router
   .post(authorize("customer"), createOrder)
   .get(authorize("customer"), getUserOrders);
 
-// Order details route - accessible by customer, restaurant (if part of the order), 
+// Order details route - accessible by customer, restaurant (if part of the order), or admin
 router
   .route("/:id")
-  .get(authorize("customer", "restaurant"), getOrderById)
-  .delete(authorize("customer"), deleteOrder);
+  .get(authorize("customer", "restaurant", "admin", "delivery"), getOrderById)
+  .delete(authorize("customer", "admin"), deleteOrder);
 
 // Restaurant routes
 router.route("/restaurant").get(authorize("restaurant"), getRestaurantOrders);
@@ -34,12 +35,18 @@ router.route("/restaurant").get(authorize("restaurant"), getRestaurantOrders);
 // Admin routes
 router.route("/admin/all").get(authorize("admin"), getAllOrders);
 
-// Update overall order status - accessible by admin only
-// router.route("/:id/status").patch(authorize("admin"), updateOrderStatus);
-
-// Update restaurant-specific part of an order - accessible by the specific restaurant 
+// Update order status - accessible by the restaurant or admin
 router
-  .route("/:id/restaurant/:restaurantId/status")
-  .patch(authorize("restaurant"), updateRestaurantOrderStatus);
+  .route("/:id/status")
+  .patch(authorize("restaurant", "admin"), updateOrderStatus);
+
+// Delivery routes
+router
+  .route("/:id/delivery-person")
+  .patch(authorize("admin", "delivery_service"), assignDeliveryPerson);
+
+router
+  .route("/:id/delivery-location")
+  .patch(authorize("delivery"), updateDeliveryLocation);
 
 export default router;
