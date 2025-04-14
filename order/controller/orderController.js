@@ -1,10 +1,22 @@
 // Create a new order (generic create method)
-import Order from "../model/Order.js";
-import CartItem from "../model/CartItem.js";
+import Order from "../model/order.js";
+import CartItem from "../model/cartItem.js";
 import axios from "axios";
 
+const getRestaurantDishes = async (authorization, restaurantId) => {
+  try {
+    const response = await axios.get(
+      `${global.gConfig.restaurant_url}/api/restaurants/${restaurantId}/dishes`,
+      { headers: { authorization } }
+    );
+    return response;
+  } catch (error) {
+    console.error("Error fetching restaurant:", error);
+  }
+};
+
 /**
- * Create a new order that can contain items from multiple restaurants
+ * Create a new order from cart items
  * @route POST /api/orders
  * @access Private - Customer
  */
@@ -33,93 +45,75 @@ const createOrder = async (req, res) => {
       });
     }
 
-    // Group cart items by restaurant
-    const restaurantGroups = {};
+    // Get restaurant info
+    const restaurantId = cartItems[0].restaurantId;
+    const restaurantResponse = await axios.get(
+      `${global.gConfig.restaurant_url}/api/restaurants/${restaurantId}`,
+      { headers: { authorization: req.headers.authorization } }
+    );
 
-    for (const item of cartItems) {
-      if (!restaurantGroups[item.restaurantId]) {
-        restaurantGroups[item.restaurantId] = [];
-      }
-      restaurantGroups[item.restaurantId].push(item);
+    if (!restaurantResponse.data) {
+      return res.status(404).json({
+        status: 404,
+        message: "Restaurant not found",
+      });
     }
+    const restaurant = restaurantResponse.data;
 
-    // Fetch restaurant information for all restaurants
-    const restaurantIds = Object.keys(restaurantGroups);
-    const restaurantPromises = restaurantIds.map(async (restaurantId) => {
-      try {
-        const response = await axios.get(
-          `${global.gConfig.restaurant_url}/api/restaurants/${restaurantId}`,
-          { headers: { authorization: req.headers.authorization } }
-        );
-        return response.data;
-      } catch (error) {
-        console.error(
-          `Error fetching restaurant ${restaurantId}:`,
-          error.message
-        );
-        throw new Error(
-          `Restaurant ${restaurantId} not found or is unavailable`
-        );
+    const dishes = await getRestaurantDishes(
+      req.headers.authorization,
+      restaurantId
+    );
+
+    // Create item map for easier lookup
+    const itemMap = {};
+    dishes.data.dishes.forEach((item) => {
+      itemMap[item._id] = item;
+    });
+
+    // Calculate order details
+    const items = cartItems.map((cartItem) => {
+      const menuItem = itemMap[cartItem.itemId];
+      if (!menuItem) {
+        throw new Error(`Menu item ${cartItem.itemId} not found`);
       }
+
+      return {
+        itemId: cartItem.itemId,
+        name: menuItem.name,
+        price: menuItem.price,
+        quantity: cartItem.quantity,
+        specialInstructions: cartItem.specialInstructions || "",
+      };
     });
 
-    const restaurants = await Promise.all(restaurantPromises);
+    // Calculate subtotal
+    const subtotal = items.reduce(
+      (total, item) => total + item.price * item.quantity,
+      0
+    );
 
-    // Create a map for easier lookup
-    const restaurantMap = {};
-    restaurants.forEach((restaurant) => {
-      restaurantMap[restaurant._id] = restaurant;
+    // Calculate tax (8%)
+    const tax = Math.round(subtotal * 0.08 * 100) / 100;
 
-      // Create a map of menu items for this restaurant
-      restaurant.itemMap = {};
-      restaurant.items.forEach((item) => {
-        restaurant.itemMap[item._id] = item;
-      });
-    });
+    // Get delivery fee from restaurant or use default
+    const deliveryFee = restaurant.deliveryFee || 2.99;
 
-    // Create restaurant orders
-    const restaurantOrders = [];
-
-    for (const restaurantId of restaurantIds) {
-      const restaurant = restaurantMap[restaurantId];
-      const restaurantCartItems = restaurantGroups[restaurantId];
-
-      // Map cart items to order items with price and name from menu
-      const orderItems = restaurantCartItems.map((cartItem) => {
-        const menuItem = restaurant.itemMap[cartItem.itemId];
-
-        if (!menuItem) {
-          throw new Error(
-            `Menu item ${cartItem.itemId} not found in restaurant ${restaurant.name}`
-          );
-        }
-
-        return {
-          itemId: cartItem.itemId,
-          name: menuItem.name,
-          price: menuItem.price,
-          quantity: cartItem.quantity,
-          specialInstructions: cartItem.specialInstructions || "",
-        };
-      });
-
-      // Calculate subtotal for this restaurant
-      const subtotal = orderItems.reduce(
-        (total, item) => total + item.price * item.quantity,
-        0
-      );
-
-      // Calculate tax (assume 8% for demo)
-      const tax = Math.round(subtotal * 0.08 * 100) / 100;
-
-      // Get delivery fee from restaurant or use default
-      const deliveryFee = restaurant.deliveryFee || 0;
-
-      // Create restaurant order object
-      restaurantOrders.push({
-        restaurantId: restaurant._id,
+    // Calculate total amount
+    const totalAmount = subtotal + tax + deliveryFee;
+    console.log(5);
+    // Create new order
+    const newOrder = new Order({
+      orderId: `ORD-${Date.now().toString().slice(-6)}`,
+      customerId,
+      customerName: name,
+      customerEmail: email,
+      customerPhone: phone,
+      type: req.body.type || "DELIVERY",
+      restaurantOrder: {
+        restaurantId,
         restaurantName: restaurant.name,
-        items: orderItems,
+        items,
         subtotal,
         tax,
         deliveryFee,
@@ -132,35 +126,41 @@ const createOrder = async (req, res) => {
             notes: "Order placed by customer",
           },
         ],
-        specialInstructions:
-          req.body.restaurantInstructions?.[restaurant._id] || "",
-      });
-    }
-
-    // Create new main order
-    const newOrder = new Order({
-      customerId,
-      customerName: name,
-      customerEmail: email,
-      customerPhone: phone,
-      type: req.body.type || "DELIVERY",
-      restaurantOrders,
+      },
       deliveryAddress: req.body.deliveryAddress || req.user.address,
+      totalAmount,
       paymentMethod: req.body.paymentMethod || "CASH",
-      paymentStatus: req.body.paymentStatus || "PENDING",
+      paymentStatus: "PENDING",
       paymentDetails: req.body.paymentDetails || {},
     });
 
-    // Save the order
+    // Save order
     const savedOrder = await newOrder.save();
+    console.log(6);
+    // Clear cart after successful order
+    // await CartItem.deleteMany({ customerId });
 
-    // Clear the cart after successful order creation
-    await CartItem.deleteMany({ customerId });
+    // Notify restaurant about new order
+    // try {
+    //   await axios.post(
+    //     `${global.gConfig.notification_url}/notifications`,
+    //     {
+    //       type: "NEW_ORDER",
+    //       recipientId: restaurantId,
+    //       recipientType: "RESTAURANT",
+    //       data: {
+    //         orderId: savedOrder.orderId,
+    //         customerName: name,
+    //         itemCount: items.length,
+    //         totalAmount,
+    //       },
+    //     },
+    //     { headers: { authorization: req.headers.authorization } }
+    //   );
+    // } catch (error) {
+    //   console.error("Failed to send notification to restaurant:", error);
+    // }
 
-    // Queue notifications to restaurants (this would typically be done with a message queue)
-    notifyRestaurants(savedOrder);
-
-    // Return the new order
     res.status(201).json({
       status: 201,
       message: "Order placed successfully",
@@ -176,349 +176,9 @@ const createOrder = async (req, res) => {
 };
 
 /**
- * Notify restaurants about new order (would typically use a message queue in production)
- * @param {Object} order - The saved order object
- */
-const notifyRestaurants = async (order) => {
-  try {
-    // For each restaurant in the order
-    for (const restaurantOrder of order.restaurantOrders) {
-      try {
-        // Simulate sending notification to restaurant
-        console.log(
-          `Notifying restaurant ${restaurantOrder.restaurantId} about new order ${order.orderId}`
-        );
-
-        // In a real app, we would send HTTP request, websocket message,
-        // or publish to a message queue for the notification service
-
-        // Mark as notified and record in history
-        restaurantOrder.restaurantNotified = true;
-        restaurantOrder.notificationHistory.push({
-          type: "ORDER_PLACED",
-          timestamp: new Date(),
-          success: true,
-          details: `Initial notification for order ${order.orderId}`,
-        });
-      } catch (notifyError) {
-        console.error(
-          `Failed to notify restaurant ${restaurantOrder.restaurantId}:`,
-          notifyError
-        );
-        // Record failed notification attempt
-        restaurantOrder.notificationHistory.push({
-          type: "ORDER_PLACED",
-          timestamp: new Date(),
-          success: false,
-          details: `Failed to notify: ${notifyError.message}`,
-        });
-      }
-    }
-
-    // Save notification status updates
-    await order.save();
-  } catch (error) {
-    console.error("Error in restaurant notification process:", error);
-    // Don't throw - this runs after response has been sent
-  }
-};
-
-/**
- * Update status of a specific restaurant's part of an order
- * @route PATCH /api/orders/:id/restaurant/:restaurantId/status
- * @access Private - Restaurant, Admin
- */
-const updateRestaurantOrderStatus = async (req, res) => {
-  try {
-    const { id, restaurantId } = req.params;
-    const { status } = req.body;
-
-    if (!status) {
-      return res.status(400).json({
-        status: 400,
-        message: "Status is required",
-      });
-    }
-
-    // Validate status value
-    const validStatuses = [
-      "CONFIRMED",
-      "PREPARING",
-      "READY_FOR_PICKUP",
-      "OUT_FOR_DELIVERY",
-      "DELIVERED",
-      "CANCELLED",
-    ];
-
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        status: 400,
-        message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
-      });
-    }
-
-    // Find the order
-    const order = await Order.findOne({ orderId: id });
-
-    if (!order) {
-      return res.status(404).json({
-        status: 404,
-        message: "Order not found",
-      });
-    }
-
-    // Find the restaurant's part of the order
-    const restaurantOrder = order.restaurantOrders.find(
-      (ro) => ro.restaurantId.toString() === restaurantId
-    );
-
-    if (!restaurantOrder) {
-      return res.status(404).json({
-        status: 404,
-        message: "This restaurant is not part of this order",
-      });
-    }
-
-    // Check authorization
-    const isAdmin = req.user.role === "admin";
-    const isRestaurant =
-      req.user.role === "restaurant" &&
-      restaurantId.toString() === req.user.restaurantId?.toString();
-
-    if (!isAdmin && !isRestaurant) {
-      return res.status(403).json({
-        status: 403,
-        message: "You don't have permission to update this order",
-      });
-    }
-
-    // Validate status transition
-    const currentStatus = restaurantOrder.status;
-
-    // Admins can set any status
-    if (!isAdmin) {
-      // Status transition validation for restaurants
-      const validTransitions = {
-        PLACED: ["CONFIRMED", "CANCELLED"],
-        CONFIRMED: ["PREPARING", "CANCELLED"],
-        PREPARING: ["READY_FOR_PICKUP", "CANCELLED"],
-        READY_FOR_PICKUP: ["OUT_FOR_DELIVERY"],
-        OUT_FOR_DELIVERY: ["DELIVERED", "CANCELLED"],
-      };
-
-      if (
-        !validTransitions[currentStatus] ||
-        !validTransitions[currentStatus].includes(status)
-      ) {
-        return res.status(400).json({
-          status: 400,
-          message: `Cannot change status from ${currentStatus} to ${status}`,
-        });
-      }
-    }
-
-    // Update restaurant order status
-    restaurantOrder.status = status;
-
-    // Add status history entry
-    restaurantOrder.statusHistory.push({
-      status,
-      timestamp: new Date(),
-      updatedBy: req.user.id,
-      notes: req.body.notes || "",
-    });
-
-    // Special handling for specific statuses
-    if (status === "CONFIRMED") {
-      // Set estimated ready time if provided or default to 30 mins
-      const readyMinutes = req.body.estimatedReadyMinutes || 30;
-      const readyTime = new Date();
-      readyTime.setMinutes(readyTime.getMinutes() + readyMinutes);
-      restaurantOrder.estimatedReadyTime = readyTime;
-    }
-
-    if (status === "READY_FOR_PICKUP") {
-      restaurantOrder.actualReadyTime = new Date();
-    }
-
-    if (status === "OUT_FOR_DELIVERY" && req.body.driver) {
-      restaurantOrder.assignedDriver = {
-        driverId: req.body.driver.id,
-        name: req.body.driver.name,
-        phone: req.body.driver.phone,
-        vehicleDetails: req.body.driver.vehicleDetails,
-      };
-    }
-
-    // Save the updated order
-    await order.save();
-
-    // Notify customer about the status update
-    notifyCustomer(order, restaurantOrder);
-
-    res.status(200).json({
-      status: 200,
-      message: "Order status updated successfully",
-      restaurantOrder,
-    });
-  } catch (error) {
-    console.error("Error updating restaurant order status:", error);
-    res.status(500).json({
-      status: 500,
-      message: error.message || "Internal server error",
-    });
-  }
-};
-
-/**
- * Notify customer about order status changes
- * @param {Object} order - The complete order object
- * @param {Object} restaurantOrder - The specific restaurant order that was updated
- */
-const notifyCustomer = async (order, restaurantOrder) => {
-  try {
-    // In a real app, this would send an email, SMS, or push notification
-    console.log(
-      `Notifying customer ${order.customerId} about status update for restaurant ${restaurantOrder.restaurantName} to ${restaurantOrder.status}`
-    );
-
-    // Record notification in history
-    order.customerNotificationHistory.push({
-      type: "STATUS_UPDATE",
-      timestamp: new Date(),
-      success: true,
-      details: `Restaurant ${restaurantOrder.restaurantName} status changed to ${restaurantOrder.status}`,
-    });
-
-    order.customerNotified = true;
-    await order.save();
-  } catch (error) {
-    console.error("Error notifying customer:", error);
-    // Don't throw - this runs after response has been sent
-  }
-};
-
-/**
- * Update order status across all restaurants (admin only)
- * @route PATCH /api/orders/:id/status
- * @access Private - Admin
- */
-const updateOrderStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
-    const { id } = req.params;
-
-    if (!status) {
-      return res.status(400).json({
-        status: 400,
-        message: "Status is required",
-      });
-    }
-
-    // Validate status value
-    const validStatuses = [
-      "CONFIRMED",
-      "PREPARING",
-      "READY_FOR_PICKUP",
-      "OUT_FOR_DELIVERY",
-      "DELIVERED",
-      "CANCELLED",
-    ];
-
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        status: 400,
-        message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
-      });
-    }
-
-    // Find the order
-    const order = await Order.findOne({ orderId: id });
-
-    if (!order) {
-      return res.status(404).json({
-        status: 404,
-        message: "Order not found",
-      });
-    }
-
-    // Only admin can use this endpoint
-    const isAdmin = req.user.role === "admin";
-
-    if (!isAdmin) {
-      return res.status(403).json({
-        status: 403,
-        message:
-          "Only administrators can update all restaurant statuses at once",
-      });
-    }
-
-    // Update all restaurant order statuses
-    for (const restaurantOrder of order.restaurantOrders) {
-      restaurantOrder.status = status;
-
-      // Add status history entry
-      restaurantOrder.statusHistory.push({
-        status,
-        timestamp: new Date(),
-        updatedBy: req.user.id,
-        notes: req.body.notes || "Updated by administrator",
-      });
-
-      // Special handling for certain statuses
-      if (status === "CONFIRMED" && !restaurantOrder.estimatedReadyTime) {
-        const readyTime = new Date();
-        readyTime.setMinutes(readyTime.getMinutes() + 30); // Default 30 minutes
-        restaurantOrder.estimatedReadyTime = readyTime;
-      }
-
-      if (status === "READY_FOR_PICKUP" && !restaurantOrder.actualReadyTime) {
-        restaurantOrder.actualReadyTime = new Date();
-      }
-    }
-
-    // Save the updated order
-    const updatedOrder = await order.save();
-
-    // Notify the customer about the status change
-    try {
-      // Record notification in history
-      order.customerNotificationHistory.push({
-        type: "STATUS_UPDATE",
-        timestamp: new Date(),
-        success: true,
-        details: `Order status changed to ${status} for all restaurants by administrator`,
-      });
-
-      order.customerNotified = true;
-      await order.save();
-
-      // In a real system, we would send an actual notification here
-      console.log(
-        `Notifying customer ${order.customerId} about status update to ${status} for all restaurants`
-      );
-    } catch (notifyError) {
-      console.error("Error notifying customer:", notifyError);
-    }
-
-    res.status(200).json({
-      status: 200,
-      message: "Order status updated successfully for all restaurants",
-      order: updatedOrder,
-    });
-  } catch (error) {
-    console.error("Error updating order status:", error);
-    res.status(500).json({
-      status: 500,
-      message: error.message || "Internal server error",
-    });
-  }
-};
-
-/**
  * Get order by ID
  * @route GET /api/orders/:id
- * @access Private - Customer, Restaurant (if part of order), Admin
+ * @access Private
  */
 const getOrderById = async (req, res) => {
   try {
@@ -531,54 +191,45 @@ const getOrderById = async (req, res) => {
       });
     }
 
-    // Check permissions based on role
-    const isAdmin = req.user.role === "admin";
-    const isCustomer =
-      req.user.role === "customer" &&
-      order.customerId.toString() === req.user.id.toString();
-    const isInvolvedRestaurant =
-      req.user.role === "restaurant" &&
-      order.restaurantOrders.some(
-        (ro) => ro.restaurantId.toString() === req.user.restaurantId?.toString()
+    // Check permissions
+    const isRestaurant = false;
+    if (req.user.role === "RESTAURANT") {
+      const response = await axios.get(
+        `${global.gConfig.restaurant_url}/api/restaurants/${req.user.id}/restaurant`,
+        { headers: { authorization } }
       );
+      isRestaurant = response.data.ownerId === req.user.id;
+    }
+    const isAdmin = req.user.role === "ADMIN";
+    const isCustomer = order.customerId.toString() === req.user.id;
 
-    if (!isAdmin && !isCustomer && !isInvolvedRestaurant) {
+    if (!isAdmin && !isCustomer && !isRestaurant) {
       return res.status(403).json({
         status: 403,
         message: "You don't have permission to view this order",
       });
     }
 
-    // For restaurant users, only include their part of the order
-    if (isInvolvedRestaurant) {
-      // Create a filtered version of the order with only this restaurant's part
-      const restaurantOrder = order.restaurantOrders.find(
-        (ro) => ro.restaurantId.toString() === req.user.restaurantId.toString()
-      );
-
-      // Return modified order object with only this restaurant's information
-      const restaurantView = {
-        orderId: order.orderId,
-        customerId: order.customerId,
-        customerName: order.customerName,
-        customerEmail: order.customerEmail,
-        customerPhone: order.customerPhone,
-        type: order.type,
-        deliveryAddress: order.deliveryAddress,
-        createdAt: order.createdAt,
-        updatedAt: order.updatedAt,
-        paymentMethod: order.paymentMethod,
-        paymentStatus: order.paymentStatus,
-        restaurantOrder: restaurantOrder,
-      };
-
+    // For restaurant users, only return their part of the order
+    if (isRestaurant) {
       return res.status(200).json({
         status: 200,
-        order: restaurantView,
+        order: {
+          orderId: order.orderId,
+          customerName: order.customerName,
+          customerPhone: order.customerPhone,
+          type: order.type,
+          deliveryAddress: order.deliveryAddress,
+          status: order.restaurantOrder.status,
+          items: order.restaurantOrder.items,
+          subtotal: order.restaurantOrder.subtotal,
+          tax: order.restaurantOrder.tax,
+          deliveryFee: order.restaurantOrder.deliveryFee,
+          estimatedReadyTime: order.restaurantOrder.estimatedReadyTime,
+        },
       });
     }
 
-    // Return full order for customer or admin
     res.status(200).json({
       status: 200,
       order,
@@ -587,69 +238,59 @@ const getOrderById = async (req, res) => {
     console.error("Error getting order:", error);
     res.status(500).json({
       status: 500,
-      message: error.message || "Internal server error",
+      message: error.message || "Failed to get order",
     });
   }
 };
 
 /**
- * Get all orders for the authenticated customer
+ * Get all orders for the authenticated user
  * @route GET /api/orders
- * @access Private - Customer
+ * @access Private
  */
 const getUserOrders = async (req, res) => {
   try {
-    const customerId = req.user.id;
-    const orders = await Order.find({ customerId })
+    const { status, page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    const query = { customerId: req.user.id };
+    if (status) {
+      query["restaurantOrder.status"] = status;
+    }
+
+    const orders = await Order.find(query)
       .sort({ createdAt: -1 })
-      .lean();
+      .skip(skip)
+      .limit(limit);
 
-    // Process orders to include overall status and estimated delivery time
-    const processedOrders = orders.map((order) => {
-      // Calculate overall status
-      let overallStatus;
-      const statuses = new Set(order.restaurantOrders.map((ro) => ro.status));
+    const total = await Order.countDocuments(query);
 
-      if (statuses.size === 1) {
-        overallStatus = order.restaurantOrders[0].status;
-      } else if (statuses.has("CANCELLED")) {
-        if (statuses.size === 2 && statuses.has("DELIVERED")) {
-          overallStatus = "PARTIALLY_CANCELLED";
-        } else {
-          overallStatus = "PROCESSING";
-        }
-      } else {
-        overallStatus = "PROCESSING";
-      }
-
-      // Get restaurant names and total items
-      const restaurants = order.restaurantOrders.map((ro) => ro.restaurantName);
-      const totalItems = order.restaurantOrders.reduce(
-        (sum, ro) => sum + ro.items.reduce((s, i) => s + i.quantity, 0),
+    // Process orders to include summary information
+    const processedOrders = orders.map((order) => ({
+      orderId: order.orderId,
+      createdAt: order.createdAt,
+      totalAmount: order.totalAmount,
+      status: order.restaurantOrder.status,
+      restaurant: order.restaurantOrder.restaurantName,
+      totalItems: order.restaurantOrder.items.reduce(
+        (total, item) => total + item.quantity,
         0
-      );
-
-      // Return a summarized version for the orders list
-      return {
-        orderId: order.orderId,
-        createdAt: order.createdAt,
-        totalAmount: order.totalAmount,
-        status: overallStatus,
-        restaurants,
-        totalItems,
-        type: order.type,
-      };
-    });
+      ),
+      type: order.type,
+    }));
 
     res.status(200).json({
       status: 200,
       orders: processedOrders,
+      total,
+      page,
+      limit,
     });
   } catch (error) {
     console.error("Error getting user orders:", error);
     res.status(500).json({
       status: 500,
-      message: error.message || "Internal server error",
+      message: error.message || "Failed to get orders",
     });
   }
 };
@@ -661,60 +302,161 @@ const getUserOrders = async (req, res) => {
  */
 const getRestaurantOrders = async (req, res) => {
   try {
-    const restaurantId = req.user.restaurantId;
+    const { status, page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
 
-    if (!restaurantId) {
-      return res.status(400).json({
-        status: 400,
-        message: "Restaurant ID not found in user profile",
-      });
+    const query = { "restaurantOrder.restaurantId": req.user.id };
+    if (status) {
+      query["restaurantOrder.status"] = status;
     }
 
-    // Find orders that include this restaurant
-    const orders = await Order.find({
-      "restaurantOrders.restaurantId": restaurantId,
-    })
+    const orders = await Order.find(query)
       .sort({ createdAt: -1 })
-      .lean();
+      .skip(skip)
+      .limit(limit);
 
-    // Process orders to only include this restaurant's part
-    const restaurantOrders = orders.map((order) => {
-      const restaurantOrder = order.restaurantOrders.find(
-        (ro) => ro.restaurantId.toString() === restaurantId.toString()
-      );
+    const total = await Order.countDocuments(query);
 
-      return {
-        orderId: order.orderId,
-        createdAt: order.createdAt,
-        customerName: order.customerName,
-        customerPhone: order.customerPhone,
-        type: order.type,
-        deliveryAddress: order.deliveryAddress,
-        paymentMethod: order.paymentMethod,
-        status: restaurantOrder.status,
-        items: restaurantOrder.items,
-        subtotal: restaurantOrder.subtotal,
-        tax: restaurantOrder.tax,
-        deliveryFee: restaurantOrder.deliveryFee,
-        total:
-          restaurantOrder.subtotal +
-          restaurantOrder.tax +
-          restaurantOrder.deliveryFee,
-        specialInstructions: restaurantOrder.specialInstructions,
-        estimatedReadyTime: restaurantOrder.estimatedReadyTime,
-        actualReadyTime: restaurantOrder.actualReadyTime,
-      };
-    });
+    // Process orders to include only relevant information
+    const processedOrders = orders.map((order) => ({
+      orderId: order.orderId,
+      createdAt: order.createdAt,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      type: order.type,
+      deliveryAddress: order.deliveryAddress,
+      status: order.restaurantOrder.status,
+      items: order.restaurantOrder.items,
+      subtotal: order.restaurantOrder.subtotal,
+      tax: order.restaurantOrder.tax,
+      deliveryFee: order.restaurantOrder.deliveryFee,
+      estimatedReadyTime: order.restaurantOrder.estimatedReadyTime,
+    }));
 
     res.status(200).json({
       status: 200,
-      orders: restaurantOrders,
+      orders: processedOrders,
+      total,
+      page,
+      limit,
     });
   } catch (error) {
     console.error("Error getting restaurant orders:", error);
     res.status(500).json({
       status: 500,
-      message: error.message || "Internal server error",
+      message: error.message || "Failed to get orders",
+    });
+  }
+};
+
+/**
+ * Update order status
+ * @route PATCH /api/orders/:id/status
+ * @access Private - Restaurant
+ */
+const updateOrderStatus = async (req, res) => {
+  try {
+    const { status, notes, estimatedReadyMinutes } = req.body;
+    const orderId = req.params.id;
+
+    // Validate status
+    const validStatuses = [
+      "PLACED",
+      "CONFIRMED",
+      "PREPARING",
+      "READY_FOR_PICKUP",
+      "OUT_FOR_DELIVERY",
+      "DELIVERED",
+      "CANCELLED",
+    ];
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        status: 400,
+        message: "Invalid status value",
+      });
+    }
+
+    // Get order
+    const order = await Order.findOne({ orderId });
+
+    if (!order) {
+      return res.status(404).json({
+        status: 404,
+        message: "Order not found",
+      });
+    }
+
+    // Check if user is authorized to update status
+    const isRestaurant =
+      req.user.role === "RESTAURANT" &&
+      order.restaurantOrder.restaurantId === req.user.id;
+    const isAdmin = req.user.role === "ADMIN";
+
+    if (!isRestaurant && !isAdmin) {
+      return res.status(403).json({
+        status: 403,
+        message: "You don't have permission to update this order",
+      });
+    }
+
+    // Update status
+    order.restaurantOrder.status = status;
+    order.restaurantOrder.statusHistory.push({
+      status,
+      timestamp: new Date(),
+      updatedBy: req.user.id,
+      notes: notes || "",
+    });
+
+    // Handle special statuses
+    if (status === "CONFIRMED" && estimatedReadyMinutes) {
+      order.restaurantOrder.estimatedReadyTime = new Date(
+        Date.now() + estimatedReadyMinutes * 60000
+      );
+    } else if (status === "READY_FOR_PICKUP") {
+      order.restaurantOrder.actualReadyTime = new Date();
+    }
+
+    // Save updated order
+    const updatedOrder = await order.save();
+
+    // Notify customer about status change
+    try {
+      await axios.post(
+        `${global.gConfig.notification_url}/notifications`,
+        {
+          type: "ORDER_STATUS_UPDATE",
+          recipientId: order.customerId,
+          recipientType: "CUSTOMER",
+          data: {
+            orderId: order.orderId,
+            status,
+            restaurantName: order.restaurantOrder.restaurantName,
+            estimatedReadyTime: order.restaurantOrder.estimatedReadyTime,
+          },
+        },
+        { headers: { authorization: req.headers.authorization } }
+      );
+    } catch (error) {
+      console.error("Failed to send notification to customer:", error);
+    }
+
+    res.status(200).json({
+      status: 200,
+      message: "Order status updated successfully",
+      order: {
+        orderId: updatedOrder.orderId,
+        status: updatedOrder.restaurantOrder.status,
+        statusHistory: updatedOrder.restaurantOrder.statusHistory,
+        estimatedReadyTime: updatedOrder.restaurantOrder.estimatedReadyTime,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating order status:", error);
+    res.status(500).json({
+      status: 500,
+      message: error.message || "Failed to update order status",
     });
   }
 };
@@ -726,76 +468,73 @@ const getRestaurantOrders = async (req, res) => {
  */
 const getAllOrders = async (req, res) => {
   try {
-    // Allow filtering by status
-    const { status, startDate, endDate, restaurant } = req.query;
+    const {
+      status,
+      startDate,
+      endDate,
+      restaurant,
+      page = 1,
+      limit = 10,
+    } = req.query;
+    const skip = (page - 1) * limit;
 
-    const filter = {};
-
+    // Build query
+    const query = {};
     if (status) {
-      // For better querying, we need to search within the restaurantOrders array
-      filter["restaurantOrders.status"] = status;
+      query["restaurantOrder.status"] = status;
     }
-
-    if (startDate && endDate) {
-      filter.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate),
-      };
-    } else if (startDate) {
-      filter.createdAt = { $gte: new Date(startDate) };
-    } else if (endDate) {
-      filter.createdAt = { $lte: new Date(endDate) };
+    if (startDate) {
+      query.createdAt = { $gte: new Date(startDate) };
     }
-
+    if (endDate) {
+      query.createdAt = { ...query.createdAt, $lte: new Date(endDate) };
+    }
     if (restaurant) {
-      filter["restaurantOrders.restaurantId"] = restaurant;
+      query["restaurantOrder.restaurantId"] = restaurant;
     }
 
-    const orders = await Order.find(filter)
+    const orders = await Order.find(query)
       .sort({ createdAt: -1 })
-      .limit(100)
-      .lean();
+      .skip(skip)
+      .limit(limit);
+
+    const total = await Order.countDocuments(query);
 
     // Process orders to include summary information
-    const processedOrders = orders.map((order) => {
-      const restaurantCount = order.restaurantOrders.length;
-      const statuses = order.restaurantOrders.map((ro) => ro.status);
-      const itemCount = order.restaurantOrders.reduce(
-        (sum, ro) => sum + ro.items.reduce((s, i) => s + i.quantity, 0),
+    const processedOrders = orders.map((order) => ({
+      orderId: order.orderId,
+      createdAt: order.createdAt,
+      customerName: order.customerName,
+      restaurant: order.restaurantOrder.restaurantName,
+      itemCount: order.restaurantOrder.items.reduce(
+        (total, item) => total + item.quantity,
         0
-      );
-
-      return {
-        orderId: order.orderId,
-        createdAt: order.createdAt,
-        customerName: order.customerName,
-        restaurantCount,
-        statuses,
-        itemCount,
-        totalAmount: order.totalAmount,
-        type: order.type,
-        paymentStatus: order.paymentStatus,
-      };
-    });
+      ),
+      totalAmount: order.totalAmount,
+      type: order.type,
+      paymentStatus: order.paymentStatus,
+    }));
 
     res.status(200).json({
       status: 200,
-      count: processedOrders.length,
+      count: total,
       orders: processedOrders,
+      page,
+      limit,
     });
   } catch (error) {
     console.error("Error getting all orders:", error);
     res.status(500).json({
       status: 500,
-      message: error.message || "Internal server error",
+      message: error.message || "Failed to get orders",
     });
   }
 };
 
 /**
- * Delete an order
+ * Delete order
  * @route DELETE /api/orders/:id
- * @access Private - Customer (own orders), Admin
+ * @access Private - Customer or Admin
  */
 const deleteOrder = async (req, res) => {
   try {
@@ -808,11 +547,9 @@ const deleteOrder = async (req, res) => {
       });
     }
 
-    // Only admin or the customer who created the order can delete it
-    const isAdmin = req.user.role === "admin";
-    const isCustomer =
-      req.user.role === "customer" &&
-      order.customerId.toString() === req.user.id.toString();
+    // Check permissions
+    const isAdmin = req.user.role === "ADMIN";
+    const isCustomer = order.customerId === req.user.id;
 
     if (!isAdmin && !isCustomer) {
       return res.status(403).json({
@@ -821,22 +558,18 @@ const deleteOrder = async (req, res) => {
       });
     }
 
-    // Customer can only delete orders that are in certain statuses
-    if (isCustomer) {
-      // Check if all restaurant orders are in a status that can be deleted
-      const canDelete = order.restaurantOrders.every((ro) =>
-        ["PLACED", "CANCELLED"].includes(ro.status)
-      );
-
-      if (!canDelete) {
-        return res.status(400).json({
-          status: 400,
-          message: "Cannot delete order that is already being processed",
-        });
-      }
+    // Additional checks for customers
+    if (
+      isCustomer &&
+      !["PLACED", "CANCELLED"].includes(order.restaurantOrder.status)
+    ) {
+      return res.status(400).json({
+        status: 400,
+        message: "Cannot delete order that is already being processed",
+      });
     }
 
-    // Delete order
+    // Delete the order
     await Order.deleteOne({ orderId: req.params.id });
 
     res.status(200).json({
@@ -847,19 +580,206 @@ const deleteOrder = async (req, res) => {
     console.error("Error deleting order:", error);
     res.status(500).json({
       status: 500,
-      message: error.message || "Internal server error",
+      message: error.message || "Failed to delete order",
     });
   }
 };
 
-// Export all controller methods
+/**
+ * Assign delivery person to an order
+ * @route PATCH /api/orders/:id/delivery-person
+ * @access Private - Admin, Delivery
+ */
+const assignDeliveryPerson = async (req, res) => {
+  try {
+    const {
+      deliveryPersonId,
+      name,
+      phone,
+      vehicleDetails,
+      vehicleNumber,
+      rating,
+      profileImage,
+    } = req.body;
+    const orderId = req.params.id;
+
+    // Get order
+    const order = await Order.findOne({ orderId });
+
+    if (!order) {
+      return res.status(404).json({
+        status: 404,
+        message: "Order not found",
+      });
+    }
+
+    // Check if user is authorized to assign delivery person
+    const isAdmin = req.user.role === "ADMIN";
+    const isDeliveryService = req.user.role === "DELIVERY_SERVICE";
+
+    if (!isAdmin && !isDeliveryService) {
+      return res.status(403).json({
+        status: 403,
+        message: "You don't have permission to assign delivery person",
+      });
+    }
+
+    // Check if order is in a valid status to assign delivery person
+    const validStatuses = ["CONFIRMED", "PREPARING", "READY_FOR_PICKUP"];
+    if (!validStatuses.includes(order.restaurantOrder.status)) {
+      return res.status(400).json({
+        status: 400,
+        message: "Cannot assign delivery person in current order status",
+      });
+    }
+
+    // Assign delivery person
+    order.deliveryPerson = {
+      id: deliveryPersonId,
+      name,
+      phone,
+      vehicleDetails,
+      vehicleNumber,
+      rating,
+      profileImage,
+      assignedAt: new Date(),
+    };
+
+    // Set estimated delivery time
+    if (order.restaurantOrder.estimatedReadyTime) {
+      const estimatedDeliveryTime = new Date(
+        order.restaurantOrder.estimatedReadyTime
+      );
+      estimatedDeliveryTime.setMinutes(estimatedDeliveryTime.getMinutes() + 25);
+      order.estimatedDeliveryTime = estimatedDeliveryTime;
+    }
+
+    // Save updated order
+    const updatedOrder = await order.save();
+
+    // Notify customer about delivery person assignment
+    try {
+      await axios.post(
+        `${global.gConfig.notification_url}/notifications`,
+        {
+          type: "DELIVERY_ASSIGNED",
+          recipientId: order.customerId,
+          recipientType: "CUSTOMER",
+          data: {
+            orderId: order.orderId,
+            deliveryPersonName: name,
+            deliveryPersonPhone: phone,
+            estimatedDeliveryTime: order.estimatedDeliveryTime,
+          },
+        },
+        { headers: { authorization: req.headers.authorization } }
+      );
+    } catch (error) {
+      console.error("Failed to send notification to customer:", error);
+    }
+
+    res.status(200).json({
+      status: 200,
+      message: "Delivery person assigned successfully",
+      order: {
+        orderId: updatedOrder.orderId,
+        deliveryPerson: updatedOrder.deliveryPerson,
+        estimatedDeliveryTime: updatedOrder.estimatedDeliveryTime,
+      },
+    });
+  } catch (error) {
+    console.error("Error assigning delivery person:", error);
+    res.status(500).json({
+      status: 500,
+      message: error.message || "Failed to assign delivery person",
+    });
+  }
+};
+
+/**
+ * Update delivery person location
+ * @route PATCH /api/orders/:id/delivery-location
+ * @access Private - Delivery
+ */
+const updateDeliveryLocation = async (req, res) => {
+  try {
+    const { lat, lng } = req.body;
+    const orderId = req.params.id;
+
+    if (!lat || !lng) {
+      return res.status(400).json({
+        status: 400,
+        message: "Latitude and longitude are required",
+      });
+    }
+
+    // Get order
+    const order = await Order.findOne({ orderId });
+
+    if (!order) {
+      return res.status(404).json({
+        status: 404,
+        message: "Order not found",
+      });
+    }
+
+    // Check if user is authorized to update location
+    const isDeliveryPerson =
+      req.user.role === "DELIVERY" &&
+      order.deliveryPerson &&
+      order.deliveryPerson.id.toString() === req.user.id;
+
+    if (!isDeliveryPerson) {
+      return res.status(403).json({
+        status: 403,
+        message: "You don't have permission to update this delivery location",
+      });
+    }
+
+    // Check if order is in a valid status
+    if (order.restaurantOrder.status !== "OUT_FOR_DELIVERY") {
+      return res.status(400).json({
+        status: 400,
+        message:
+          "Can only update location for orders that are out for delivery",
+      });
+    }
+
+    // Update delivery person's current location
+    if (!order.deliveryPerson) {
+      order.deliveryPerson = {};
+    }
+
+    order.deliveryPerson.currentLocation = {
+      lat,
+      lng,
+      updatedAt: new Date(),
+    };
+
+    // Save updated order
+    await order.save();
+
+    res.status(200).json({
+      status: 200,
+      message: "Delivery location updated successfully",
+    });
+  } catch (error) {
+    console.error("Error updating delivery location:", error);
+    res.status(500).json({
+      status: 500,
+      message: error.message || "Failed to update delivery location",
+    });
+  }
+};
+
 export {
   createOrder,
   getOrderById,
-  updateOrderStatus,
   getUserOrders,
   getRestaurantOrders,
   getAllOrders,
   deleteOrder,
-  updateRestaurantOrderStatus,
+  updateOrderStatus,
+  assignDeliveryPerson,
+  updateDeliveryLocation,
 };

@@ -1,13 +1,14 @@
-import CartItem from "../model/CartItem.js";
+import CartItem from "../model/cartItem.js";
 import axios from "axios";
 
 const getRestaurants = async (authorization) => {
   try {
     const response = await axios.get(
-      `${global.gConfig.restaurant_url}/restaurants`,
+      `${global.gConfig.restaurant_url}/api/restaurants`,
       { headers: { authorization } }
     );
 
+    console.log(response);
     // Convert array to object with restaurant ID as key
     const restaurants = {};
     response.data.forEach((restaurant) => {
@@ -21,6 +22,30 @@ const getRestaurants = async (authorization) => {
   }
 };
 
+const getRestaurantById = async (authorization, restaurantId) => {
+  try {
+    const response = await axios.get(
+      `${global.gConfig.restaurant_url}/api/restaurants/${restaurantId}`,
+      { headers: { authorization } }
+    );
+    return response;
+  } catch (error) {
+    console.error("Error fetching restaurant:", error);
+  }
+};
+
+const getRestaurantDishes = async (authorization, restaurantId) => {
+  try {
+    const response = await axios.get(
+      `${global.gConfig.restaurant_url}/api/restaurants/${restaurantId}/dishes`,
+      { headers: { authorization } }
+    );
+    return response;
+  } catch (error) {
+    console.error("Error fetching restaurant:", error);
+  }
+};
+
 const getAllCartItems = async (req, res) => {
   const userId = req.user.id;
 
@@ -29,50 +54,51 @@ const getAllCartItems = async (req, res) => {
     const cartItems = await CartItem.find({ customerId: userId });
 
     if (!cartItems || cartItems.length === 0) {
-      return res.status(200).json([]);
+      return res.status(200).json({
+        restaurantDetails: null,
+        items: [],
+        totalCount: 0,
+      });
     }
 
-    // const restaurantIds = [
-    //   ...new Set(cartItems.map((item) => item.restaurantId.toString())),
-    // ];
-
-    // Fetch restaurants data using the helper function
-    const restaurants = await getRestaurants(req.headers.authorization);
-
-    // Map cart items with dish details
-    const result = await Promise.all(
-      cartItems.map(async (item) => {
-        const restaurantId = item.restaurantId.toString();
-        const restaurant = restaurants[restaurantId];
-
-        if (!restaurant) {
-          return {
-            _id: item._id,
-            restaurantId: item.restaurantId,
-            restaurant: null,
-            itemId: item.itemId,
-            item: null,
-            quantity: item.quantity,
-          };
-        }
-
-        // Find the item in the restaurant menu
-        const menuItem = restaurant.items.find(
-          (menuItem) => menuItem._id.toString() === item.itemId.toString()
-        );
-
-        return {
-          _id: item._id,
-          restaurantId: item.restaurantId,
-          restaurant,
-          itemId: item.itemId,
-          item: menuItem || null,
-          quantity: item.quantity,
-        };
-      })
+    // Get restaurant details for the restaurant in cart
+    const restaurantId = cartItems[0].restaurantId.toString();
+    const restaurantResponse = await getRestaurantById(
+      req.headers.authorization,
+      restaurantId
     );
 
-    return res.status(200).json(result);
+    // Get all dishes for the restaurant
+    const dishesResponse = await getRestaurantDishes(
+      req.headers.authorization,
+      restaurantId
+    );
+
+    // Format cart items with dish details
+    const formattedItems = cartItems.map((item) => {
+      // Find the dish in the restaurant's dishes
+      const dish = dishesResponse?.data?.dishes?.find(
+        (dish) => dish._id && dish._id.toString() === item.itemId.toString()
+      );
+
+      return {
+        _id: item._id,
+        itemId: item.itemId,
+        item: dish || null,
+        quantity: item.quantity,
+        itemPrice: item.itemPrice,
+        totalPrice: item.totalPrice,
+      };
+    });
+
+    // Format the response
+    const response = {
+      restaurantDetails: restaurantResponse?.data || null,
+      items: formattedItems,
+      totalCount: cartItems.length,
+    };
+
+    return res.status(200).json(response);
   } catch (err) {
     console.error(err);
     return res
@@ -85,22 +111,37 @@ const addCartItem = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const restaurants = await getRestaurants(req.headers.authorization);
+    const restaurant = await getRestaurantById(
+      req.headers.authorization,
+      req.body.restaurantId
+    );
 
-    const restaurant = restaurants[req.body.restaurantId];
-    if (!restaurant) {
+    if (!restaurant || !restaurant.data) {
       return res
         .status(404)
         .json({ status: 404, message: "Restaurant not found" });
     }
 
-    const dish = restaurant.items.find(
-      (d) => d._id.toString() === req.body.itemId
+    const dish = restaurant.data?.dishes.find(
+      (d) => d.toString() === req.body.itemId
     );
     if (!dish) {
       return res
         .status(404)
         .json({ status: 404, message: "Dish not found for restaurant" });
+    }
+
+    // Check if cart already has items from a different restaurant
+    const existingCartItems = await CartItem.find({ customerId: userId });
+    if (existingCartItems.length > 0) {
+      const existingRestaurantId = existingCartItems[0].restaurantId.toString();
+      if (existingRestaurantId !== req.body.restaurantId) {
+        return res.status(400).json({
+          status: 400,
+          message:
+            "Cannot add items from different restaurants. Please clear your cart first.",
+        });
+      }
     }
 
     // Check if the item already exists in the cart
@@ -121,6 +162,8 @@ const addCartItem = async (req, res) => {
         customerId: userId,
         itemId: req.body.itemId,
         restaurantId: req.body.restaurantId,
+        // itemPrice: dish.price,
+        itemPrice: 100,
         quantity: req.body.quantity || 1,
       });
       savedItem = await newCartItem.save();
@@ -131,6 +174,7 @@ const addCartItem = async (req, res) => {
       restaurantId: savedItem.restaurantId,
       itemId: savedItem.itemId,
       quantity: savedItem.quantity,
+      totalPrice: savedItem.totalPrice,
     });
   } catch (err) {
     console.error(err);
@@ -158,10 +202,22 @@ const updateCartItem = async (req, res) => {
   const userId = req.user.id;
   const { quantity, restaurantId } = req.body;
 
+  // Fetch the restaurant details
+  const restaurant = await getRestaurantById(
+    req.headers.authorization,
+    restaurantId
+  );
+
+  if (!restaurant || !restaurant.data) {
+    return res
+      .status(404)
+      .json({ status: 404, message: "Restaurant not found" });
+  }
+
   try {
     // Find the cart item by ID, customer ID, and restaurant ID
     const cartItem = await CartItem.findOne({
-      _id: id,
+      itemId: id,
       customerId: userId,
       restaurantId: restaurantId,
     });
@@ -178,30 +234,9 @@ const updateCartItem = async (req, res) => {
     // Save updated cart item to MongoDB
     await cartItem.save();
 
-    // Fetch the restaurant details
-    const response = await axios.get(
-      `${global.gConfig.restaurant_url}/restaurants/${restaurantId}`,
-      { headers: { authorization: req.headers.authorization } }
-    );
-
-    if (!response || !response.data) {
-      return res
-        .status(404)
-        .json({ status: 404, message: "Restaurant not found" });
-    }
-
-    const restaurant = response.data;
-
-    // Map restaurant dishes for easy lookup
-    const itemMap = {};
-    restaurant.items.forEach((ele) => {
-      itemMap[ele._id] = ele;
-    });
-
     // Send updated response with dish details
     return res.status(200).json({
       ...cartItem._doc,
-      item: itemMap[cartItem.itemId] || null,
     });
   } catch (err) {
     console.error(err);

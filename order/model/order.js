@@ -18,6 +18,10 @@ const orderItemSchema = new Schema({
     required: true,
     min: 1,
   },
+  specialInstructions: {
+    type: String,
+    default: "",
+  },
 });
 
 // Schema for tracking status changes
@@ -43,9 +47,50 @@ const statusHistorySchema = new Schema({
     type: Schema.Types.ObjectId,
     required: true,
   },
+  notes: {
+    type: String,
+    default: "",
+  },
 });
 
-// Schema for restaurant-specific part of an order
+// Schema for delivery person details
+const deliveryPersonSchema = new Schema({
+  id: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+  },
+  name: {
+    type: String,
+  },
+  phone: {
+    type: String,
+  },
+  vehicleDetails: {
+    type: String,
+  },
+  vehicleNumber: {
+    type: String,
+  },
+  rating: {
+    type: Number,
+    min: 1,
+    max: 5,
+  },
+  profileImage: {
+    type: String,
+  },
+  assignedAt: {
+    type: Date,
+    default: Date.now,
+  },
+  currentLocation: {
+    lat: Number,
+    lng: Number,
+    updatedAt: Date,
+  },
+});
+
+// Schema for restaurant order details
 const restaurantOrderSchema = new Schema({
   restaurantId: {
     type: Schema.Types.ObjectId,
@@ -89,30 +134,6 @@ const restaurantOrderSchema = new Schema({
   actualReadyTime: {
     type: Date,
   },
-  assignedDriver: {
-    driverId: Schema.Types.ObjectId,
-    name: String,
-    phone: String,
-    vehiclePlate: String,
-  },
-  restaurantNotified: {
-    type: Boolean,
-    default: false,
-  },
-  notificationHistory: [
-    {
-      type: {
-        type: String,
-        enum: ["ORDER_PLACED", "STATUS_UPDATE", "DRIVER_ASSIGNED", "REMINDER"],
-      },
-      timestamp: {
-        type: Date,
-        default: Date.now,
-      },
-      success: Boolean,
-      details: String,
-    },
-  ],
   specialInstructions: {
     type: String,
     default: "",
@@ -149,7 +170,7 @@ const orderSchema = new Schema(
       enum: ["DELIVERY", "PICKUP"],
       required: true,
     },
-    restaurantOrders: [restaurantOrderSchema],
+    restaurantOrder: restaurantOrderSchema,
     deliveryAddress: {
       street: String,
       city: String,
@@ -160,6 +181,13 @@ const orderSchema = new Schema(
         lat: Number,
         lng: Number,
       },
+    },
+    deliveryPerson: deliveryPersonSchema,
+    estimatedDeliveryTime: {
+      type: Date,
+    },
+    actualDeliveryTime: {
+      type: Date,
     },
     totalAmount: {
       type: Number,
@@ -233,74 +261,35 @@ orderSchema.pre("save", async function (next) {
 });
 
 orderSchema.pre("save", function (next) {
-  if (this.isNew || this.isModified("restaurantOrders")) {
-    this.totalAmount = this.restaurantOrders.reduce((total, resto) => {
-      return total + resto.subtotal + resto.tax + resto.deliveryFee;
-    }, 0);
+  if (this.isNew || this.isModified("restaurantOrder")) {
+    const ro = this.restaurantOrder;
+    this.totalAmount = ro.subtotal + ro.tax + ro.deliveryFee;
   }
   next();
 });
 
-orderSchema.virtual("overallStatus").get(function () {
-  const statuses = new Set(this.restaurantOrders.map((ro) => ro.status));
-
-  if (statuses.size === 1) {
-    return this.restaurantOrders[0].status;
-  }
-
-  if (statuses.has("CANCELLED")) {
-    return "PARTIALLY_CANCELLED";
-  }
-
-  const nonCompleteStatuses = this.restaurantOrders.filter(
-    (ro) => ro.status !== "DELIVERED" && ro.status !== "CANCELLED"
-  );
-
-  if (nonCompleteStatuses.length === 0) {
-    return "COMPLETED";
-  }
-
-  const statusOrder = [
-    "PLACED",
-    "CONFIRMED",
-    "PREPARING",
-    "READY_FOR_PICKUP",
-    "OUT_FOR_DELIVERY",
-    "DELIVERED",
-  ];
-
-  const activeStatuses = this.restaurantOrders
-    .filter((ro) => ro.status !== "CANCELLED")
-    .map((ro) => ro.status);
-
-  const lowestStatusIndex = activeStatuses.reduce((lowest, status) => {
-    const index = statusOrder.indexOf(status);
-    return index < lowest ? index : lowest;
-  }, statusOrder.length - 1);
-
-  return statusOrder[lowestStatusIndex];
+orderSchema.virtual("status").get(function () {
+  return this.restaurantOrder.status;
 });
 
-orderSchema.virtual("estimatedDeliveryTime").get(function () {
-  if (this.type !== "DELIVERY") return null;
+// orderSchema.virtual("estimatedDeliveryTime").get(function () {
+//   if (this.type !== "DELIVERY") return null;
 
-  const readyTimes = this.restaurantOrders
-    .filter((ro) => ro.estimatedReadyTime)
-    .map((ro) => ro.estimatedReadyTime);
+//   // If we have an explicitly set delivery time, use that
+//   if (this.estimatedDeliveryTime) return this.estimatedDeliveryTime;
 
-  if (readyTimes.length === 0) return null;
+//   // Otherwise calculate it based on restaurant ready time
+//   if (!this.restaurantOrder.estimatedReadyTime) return null;
 
-  const latestReadyTime = new Date(Math.max(...readyTimes));
+//   const deliveryTime = new Date(this.restaurantOrder.estimatedReadyTime);
+//   deliveryTime.setMinutes(deliveryTime.getMinutes() + 20);
 
-  const deliveryTime = new Date(latestReadyTime);
-  deliveryTime.setMinutes(deliveryTime.getMinutes() + 20);
-
-  return deliveryTime;
-});
+//   return deliveryTime;
+// });
 
 orderSchema.index({ customerId: 1, createdAt: -1 });
-orderSchema.index({ "restaurantOrders.restaurantId": 1, createdAt: -1 });
-orderSchema.index({ orderId: 1 });
+orderSchema.index({ "restaurantOrder.restaurantId": 1, createdAt: -1 });
+// orderSchema.index({ orderId: 1 });
 orderSchema.index({ createdAt: 1 });
 
 const Order = model("Order", orderSchema);
