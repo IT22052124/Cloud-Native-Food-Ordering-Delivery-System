@@ -241,4 +241,3 @@ export const getDishById = async (req, res) => {
     return res.status(500).json({ message: "Server error", error });
   }
 };
- 
