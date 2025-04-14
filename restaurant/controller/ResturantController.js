@@ -1,4 +1,5 @@
 import { Restaurant } from "../model/resturant.js";
+import { Dish } from "../model/dish.js";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 
@@ -27,14 +28,15 @@ export const addRestaurant = async (req, res) => {
       "restaurantAdmin.username": username,
     });
 
-    const exist = await Restaurant.findOne({"address.street":street , "address.city":city});
-    if(exist){
+    const exist = await Restaurant.findOne({
+      "address.street": street,
+      "address.city": city,
+    });
+    if (exist) {
       return res.status(400).json({
         message: "Restaurant already exists in this location.",
       });
     }
-
-    
 
     if (existingAdmin) {
       return res.status(400).json({
@@ -190,5 +192,35 @@ export const restaurants = async (req, res) => {
   } catch (error) {
     console.log("Error in getting all restaurants", error);
     res.status(500).json({ message: "Server error", error });
+  }
+};
+
+export const restaurantDishes = async (req, res) => {
+  try {
+    const restaurant = await Restaurant.findById(req.params.id);
+    if (!restaurant) return res.status(404).json({ message: "Not found" });
+
+    const dishes = await Dish.find({ _id: { $in: restaurant.dishes } });
+
+    res.json({
+      restaurantId: restaurant._id,
+      name: restaurant.name,
+      dishes,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const getRestaurantByOwnerId = async (req, res) => {
+  try {
+    const restaurant = await Restaurant.findOne({ ownerId: req.params.id });
+    if (!restaurant) return res.status(404).json({ message: "Not found" });
+
+    res.status(200).json({
+      restaurant,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };

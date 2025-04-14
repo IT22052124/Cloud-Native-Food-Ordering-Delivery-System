@@ -9,51 +9,52 @@ export const restaurantAdminLogin = async (req, res) => {
 
     // Validate input
     if (!username || !password) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Username and password are required" 
+        message: "Username and password are required",
       });
     }
 
     // Find restaurant containing an admin with this username
     const restaurant = await Restaurant.findOne({
-      "restaurantAdmin.username": username
+      "restaurantAdmin.username": username,
     });
 
-
     if (!restaurant) {
-      return res.status(401).json({ 
-        message: "Invalid credentials" 
+      return res.status(401).json({
+        message: "Invalid credentials",
       });
     }
 
     // Get the specific admin from the array
-    const admin = restaurant.restaurantAdmin.find(a => a.username === username);
-    
+    const admin = restaurant.restaurantAdmin.find(
+      (a) => a.username === username
+    );
+
     if (!admin || !admin.password) {
       console.error(`Admin or password missing for: ${username}`);
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Invalid credentials" 
+        message: "Invalid credentials",
       });
     }
 
     // Compare passwords
     const isMatch = await bcrypt.compare(password, admin.password);
     if (!isMatch) {
-      return res.status(401).json({ 
-        message: "Invalid password" 
+      return res.status(401).json({
+        message: "Invalid password",
       });
     }
 
     // Generate JWT token
     const token = jwt.sign(
-      { 
+      {
         id: restaurant._id,
         adminId: admin._id,
-        role: 'restaurantAdmin',
-        username: admin.username
-      }, 
+        role: "restaurantAdmin",
+        username: admin.username,
+      },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
@@ -68,20 +69,16 @@ export const restaurantAdminLogin = async (req, res) => {
         ownerId: restaurant.ownerId,
         // Include other fields you need, but avoid sensitive data
       },
-     
     });
-
   } catch (error) {
     console.error("Restaurant admin login error:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: "Internal server error",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
-
-
 
 export const createDish = async (req, res) => {
   try {
@@ -92,8 +89,8 @@ export const createDish = async (req, res) => {
       return res.status(400).json({ message: "Restaurant ID is required" });
     }
 
-    const existingDish = await Dish.findOne({name,restaurantId});
-    if(existingDish){
+    const existingDish = await Dish.findOne({ name, restaurantId });
+    if (existingDish) {
       return res.status(400).json({ message: "Dish already exists" });
     }
 
@@ -106,8 +103,6 @@ export const createDish = async (req, res) => {
       category,
       restaurantId,
     };
-
-    
 
     const newDish = await Dish.create(dish);
     if (!newDish) {
@@ -130,7 +125,7 @@ export const createDish = async (req, res) => {
 // controller function to get all dishes of a restaurant
 
 export const getAllDishes = async (req, res) => {
-  try{
+  try {
     const restaurantId = req.resturantId;
     if (!restaurantId) {
       return res.status(400).json({ message: "Restaurant ID is required" });
@@ -142,32 +137,27 @@ export const getAllDishes = async (req, res) => {
     }
 
     return res.status(200).json({ count: dishes.length, dishes });
-
-
-  }
-  catch(error){
+  } catch (error) {
     console.log("error on get all dishes", error);
     return res.status(500).json({ message: "Server error", error });
   }
-}
+};
 
 // controller function to get dishById
-export const getDishById = async (req,res)=>{
-  try{
-   const  dishId = req.params.id;
+export const getDishById = async (req, res) => {
+  try {
+    const dishId = req.params.id;
 
-    const dish = await Dish.findOne({_id:dishId});
-    if(!dish){
+    const dish = await Dish.findOne({ _id: dishId });
+    if (!dish) {
       return res.status(404).json({ message: "Dish not found" });
     }
     return res.status(200).json({ dish });
-
-  }
-  catch(error){
-    console.log("error in getDishbyId",error);
+  } catch (error) {
+    console.log("error in getDishbyId", error);
     return res.status(500).json({ message: "Server error", error });
   }
-}
+};
 
 //controller function to update dish by id
 export const updateDishById = async (req, res) => {
@@ -187,7 +177,6 @@ export const updateDishById = async (req, res) => {
       return res.status(404).json({ message: "Dish not found" });
     }
 
-
     // Update the dish fields
     dish.name = name || dish.name;
     dish.description = description || dish.description;
@@ -199,7 +188,9 @@ export const updateDishById = async (req, res) => {
     // Save the updated dish
     const updatedDish = await dish.save();
 
-    return res.status(200).json({ message: "Dish updated successfully", dish: updatedDish });
+    return res
+      .status(200)
+      .json({ message: "Dish updated successfully", dish: updatedDish });
   } catch (error) {
     console.log("Error in updateDishById:", error);
     return res.status(500).json({ message: "Server error", error });
@@ -226,7 +217,9 @@ export const deleteDish = async (req, res) => {
 
     // Check if the dish belongs to the restaurant
     if (dish.restaurantId.toString() !== restaurantId) {
-      return res.status(403).json({ message: "Unauthorized to delete this dish" });
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to delete this dish" });
     }
 
     // Delete the dish
@@ -235,7 +228,9 @@ export const deleteDish = async (req, res) => {
     // Remove the dish ID from the restaurant's dishes array
     const restaurant = await Restaurant.findById(restaurantId);
     if (restaurant) {
-      restaurant.dishes = restaurant.dishes.filter(dishId => dishId.toString() !== id);
+      restaurant.dishes = restaurant.dishes.filter(
+        (dishId) => dishId.toString() !== id
+      );
       await restaurant.save();
     }
 
