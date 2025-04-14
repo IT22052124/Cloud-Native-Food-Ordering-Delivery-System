@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // Add useNavigate
 import { FaSearch, FaEdit, FaTrash, FaFilter, FaStore } from 'react-icons/fa';
+import { toast } from 'react-toastify'; // Add toast
+import { deleteRestaurant } from '../utils/api'; // Import deleteRestaurant
 
 const RestaurantTable = ({ restaurants = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const navigate = useNavigate(); // Initialize navigate
 
   // Ensure restaurants is an array
   let filteredRestaurants = Array.isArray(restaurants) ? restaurants : [];
@@ -23,6 +26,22 @@ const RestaurantTable = ({ restaurants = [] }) => {
       (restaurant) => restaurant.isActive === isActive
     );
   }
+
+  // Handle delete restaurant
+  const handleDelete = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to delete ${name}?`)) {
+      return;
+    }
+    try {
+      await deleteRestaurant(id);
+      toast.success('Restaurant deleted successfully');
+      console.log('Attempting to navigate to /dashboard');
+      navigate('/dashboard'); // Navigate to dashboard after deletion      
+    } catch (error) {
+      console.error('Delete error:', error.response?.data);
+      toast.error(error.response?.data?.message || 'Failed to delete restaurant');
+    }
+  };
 
   return (
     <div className="space-y-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
@@ -157,7 +176,7 @@ const RestaurantTable = ({ restaurants = [] }) => {
                         Edit
                       </Link>
                       <button
-                        onClick={() => alert(`Delete restaurant: ${restaurant.name}`)} // Replace with actual delete logic
+                        onClick={() => handleDelete(restaurant._id, restaurant.name)}
                         className="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-700 rounded-md hover:bg-red-100 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 transition-all duration-200"
                       >
                         <FaTrash className="mr-1.5" />
@@ -172,7 +191,7 @@ const RestaurantTable = ({ restaurants = [] }) => {
         </div>
       )}
       
-      {/* Pagination Placeholder - You can implement actual pagination later */}
+      {/* Pagination Placeholder */}
       {filteredRestaurants.length > 0 && (
         <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
           <div className="text-sm text-gray-700 dark:text-gray-300">

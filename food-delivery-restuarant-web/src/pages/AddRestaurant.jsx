@@ -1,340 +1,353 @@
-import React, { useContext } from "react";
-import { useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as zod from "zod";
-import { addRestaurant } from "../utils/api";
-import { AuthContext } from "../context/AuthContext";
-import Navbar from "../components/Navbar";
-import Sidebar from "../components/Sidebar";
-import { toast } from "react-toastify";
-
-const schema = zod.object({
-  name: zod.string().min(1, "Name is required"),
-  description: zod.string().optional(),
-  address: zod.object({
-    street: zod.string().min(1, "Street is required"),
-    city: zod.string().min(1, "City is required"),
-    province: zod.string().min(1, "Province is required"),
-    postalCode: zod.string().min(1, "Postal code is required"),
-    coordinates: zod.object({
-      lat: zod.number().min(-90).max(90, "Invalid latitude"),
-      lng: zod.number().min(-180).max(180, "Invalid longitude"),
-    }),
-  }),
-  contact: zod.object({
-    phone: zod.string().min(1, "Phone is required"),
-    email: zod.string().email("Invalid email").optional().or(zod.literal("")),
-  }),
-  openingHours: zod.object({
-    open: zod.string().min(1, "Open time is required"),
-    close: zod.string().min(1, "Close time is required"),
-    isClosed: zod.boolean(),
-  }),
-  restaurantAdmin: zod.object({
-    username: zod.string().min(1, "Username is required"),
-    password: zod.string().min(6, "Password must be at least 6 characters"),
-  }),
-  media: zod
-    .array(
-      zod.object({
-        url: zod.string().url("Invalid URL").optional(),
-        alt_text: zod.string().optional(),
-      })
-    )
-    .optional(),
-});
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Sidebar from '../components/Sidebar';
+import Navbar from '../components/Navbar';
+import { addRestaurant } from '../utils/api';
+import { toast } from 'react-toastify';
 
 const AddRestaurant = () => {
-  const { user } = useContext(AuthContext);
   const navigate = useNavigate();
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      address: { coordinates: { lat: 0, lng: 0 } },
-      contact: { phone: "", email: "" },
-      openingHours: { open: "", close: "", isClosed: false },
-      restaurantAdmin: { username: "", password: "" },
-      media: [{ url: "", alt_text: "" }],
-    },
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    street: '',
+    city: '',
+    province: '',
+    postalCode: '',
+    lat: 0,
+    lng: 0,
+    phone: '',
+    email: '',
+    username: '',
+    password: '',
   });
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
 
-  const onSubmit = async (data) => {
-    if (!user) {
-      navigate("/login");
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === 'lat' || name === 'lng' ? parseFloat(value) || 0 : value,
+    }));
+    setErrors((prev) => ({ ...prev, [name]: '' }));
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    if (!formData.name) newErrors.name = 'Name is required';
+    if (!formData.description) newErrors.description = 'Description is required';
+    if (!formData.street) newErrors.street = 'Street is required';
+    if (!formData.city) newErrors.city = 'City is required';
+    if (!formData.province) newErrors.province = 'Province is required';
+    if (!formData.postalCode) newErrors.postalCode = 'Postal Code is required';
+    if (!formData.phone) newErrors.phone = 'Phone is required';
+    if (!formData.email) newErrors.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
+    if (!formData.username) newErrors.username = 'Username is required';
+    if (!formData.password) newErrors.password = 'Password is required';
+    else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+    return newErrors;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
       return;
     }
+
+    setLoading(true);
     try {
-      await addRestaurant({
-        ...data,
-        ownerId: user.id,
-        restaurantAdmin: [data.restaurantAdmin],
-      });
-      toast.success("Restaurant added successfully");
-      navigate("/dashboard");
+      const restaurantData = {
+        name: formData.name,
+        description: formData.description,
+        street: formData.street,
+        city: formData.city,
+        province: formData.province,
+        postalCode: formData.postalCode,
+        lat: formData.lat,
+        lng: formData.lng,
+        phone: formData.phone,
+        email: formData.email,
+        username: formData.username,
+        password: formData.password,
+      };
+      await addRestaurant(restaurantData);
+      toast.success('Restaurant added successfully!');
+      navigate('/dashboard');
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to add restaurant");
+      toast.error(error.response?.data?.message || 'Failed to add restaurant');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <div className="flex-1">
+      <div className="flex-1 ml-64 bg-primary-bg dark:dark-bg">
         <Navbar />
         <div className="p-6">
-          <h2 className="text-2xl font-bold mb-4 dark:text-white">
+          <h2 className="text-2xl font-bold mb-6 text-text-primary dark:dark-text">
             Add Restaurant
           </h2>
-          <form
-            onSubmit={handleSubmit(onSubmit)}
-            className="bg-white p-6 rounded-lg shadow dark:bg-gray-800"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  Name
-                </label>
-                <input
-                  {...register("name")}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                />
-                {errors.name && (
-                  <p className="text-red-600 dark:text-red-400">
-                    {errors.name.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  Description
-                </label>
-                <textarea
-                  {...register("description")}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                ></textarea>
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  Street
-                </label>
-                <input
-                  {...register("address.street")}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                />
-                {errors.address?.street && (
-                  <p className="text-red-600 dark:text-red-400">
-                    {errors.address.street.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  City
-                </label>
-                <input
-                  {...register("address.city")}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                />
-                {errors.address?.city && (
-                  <p className="text-red-600 dark:text-red-400">
-                    {errors.address.city.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  Province
-                </label>
-                <input
-                  {...register("address.province")}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                />
-                {errors.address?.province && (
-                  <p className="text-red-600 dark:text-red-400">
-                    {errors.address.province.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  Postal Code
-                </label>
-                <input
-                  {...register("address.postalCode")}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                />
-                {errors.address?.postalCode && (
-                  <p className="text-red-600 dark:text-red-400">
-                    {errors.address.postalCode.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  Latitude
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  {...register("address.coordinates.lat", {
-                    valueAsNumber: true,
-                  })}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                />
-                {errors.address?.coordinates?.lat && (
-                  <p className="text-red-600 dark:text-red-400">
-                    {errors.address.coordinates.lat.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  Longitude
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  {...register("address.coordinates.lng", {
-                    valueAsNumber: true,
-                  })}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                />
-                {errors.address?.coordinates?.lng && (
-                  <p className="text-red-600 dark:text-red-400">
-                    {errors.address.coordinates.lng.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  Phone
-                </label>
-                <input
-                  {...register("contact.phone")}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                />
-                {errors.contact?.phone && (
-                  <p className="text-red-600 dark:text-red-400">
-                    {errors.contact.phone.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  Email
-                </label>
-                <input
-                  {...register("contact.email")}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                />
-                {errors.contact?.email && (
-                  <p className="text-red-600 dark:text-red-400">
-                    {errors.contact.email.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  Open Time
-                </label>
-                <input
-                  {...register("openingHours.open")}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                />
-                {errors.openingHours?.open && (
-                  <p className="text-red-600 dark:text-red-400">
-                    {errors.openingHours.open.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  Close Time
-                </label>
-                <input
-                  {...register("openingHours.close")}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                />
-                {errors.openingHours?.close && (
-                  <p className="text-red-600 dark:text-red-400">
-                    {errors.openingHours.close.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  Closed
-                </label>
-                <input
-                  type="checkbox"
-                  {...register("openingHours.isClosed")}
-                  className="p-3"
-                />
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  Admin Username
-                </label>
-                <input
-                  {...register("restaurantAdmin.username")}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                />
-                {errors.restaurantAdmin?.username && (
-                  <p className="text-red-600 dark:text-red-400">
-                    {errors.restaurantAdmin.username.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  Admin Password
-                </label>
-                <input
-                  type="password"
-                  {...register("restaurantAdmin.password")}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                />
-                {errors.restaurantAdmin?.password && (
-                  <p className="text-red-600 dark:text-red-400">
-                    {errors.restaurantAdmin.password.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  Media URL
-                </label>
-                <input
-                  {...register("media.0.url")}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                />
-                {errors.media?.[0]?.url && (
-                  <p className="text-red-600 dark:text-red-400">
-                    {errors.media[0].url.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2 dark:text-gray-300">
-                  Media Alt Text
-                </label>
-                <input
-                  {...register("media.0.alt_text")}
-                  className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                />
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Restaurant Details */}
+            <div className="bg-white dark:bg-gray-700 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
+              <h3 className="text-lg font-semibold mb-4 text-text-primary dark:dark-text">
+                Restaurant Details
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-primary dark:dark-text mb-1">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder="Enter restaurant name"
+                    className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
+                      errors.name ? 'border-red-500' : ''
+                    }`}
+                  />
+                  {errors.name && (
+                    <p className="text-red-500 text-sm mt-1">{errors.name}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary dark:dark-text mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    placeholder="Enter description"
+                    rows="3"
+                    className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
+                      errors.description ? 'border-red-500' : ''
+                    }`}
+                  />
+                  {errors.description && (
+                    <p className="text-red-500 text-sm mt-1">{errors.description}</p>
+                  )}
+                </div>
               </div>
             </div>
-            <button
-              type="submit"
-              className="mt-6 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-            >
-              Add Restaurant
-            </button>
+
+            {/* Address */}
+            <div className="bg-white dark:bg-gray-700 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
+              <h3 className="text-lg font-semibold mb-4 text-text-primary dark:dark-text">
+                Address
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-primary dark:dark-text mb-1">
+                    Street
+                  </label>
+                  <input
+                    type="text"
+                    name="street"
+                    value={formData.street}
+                    onChange={handleChange}
+                    placeholder="Enter street"
+                    className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
+                      errors.street ? 'border-red-500' : ''
+                    }`}
+                  />
+                  {errors.street && (
+                    <p className="text-red-500 text-sm mt-1">{errors.street}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary dark:dark-text mb-1">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleChange}
+                    placeholder="Enter city"
+                    className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
+                      errors.city ? 'border-red-500' : ''
+                    }`}
+                  />
+                  {errors.city && (
+                    <p className="text-red-500 text-sm mt-1">{errors.city}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary dark:dark-text mb-1">
+                    Province
+                  </label>
+                  <input
+                    type="text"
+                    name="province"
+                    value={formData.province}
+                    onChange={handleChange}
+                    placeholder="Enter province"
+                    className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
+                      errors.province ? 'border-red-500' : ''
+                    }`}
+                  />
+                  {errors.province && (
+                    <p className="text-red-500 text-sm mt-1">{errors.province}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary dark:dark-text mb-1">
+                    Postal Code
+                  </label>
+                  <input
+                    type="text"
+                    name="postalCode"
+                    value={formData.postalCode}
+                    onChange={handleChange}
+                    placeholder="Enter postal code"
+                    className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
+                      errors.postalCode ? 'border-red-500' : ''
+                    }`}
+                  />
+                  {errors.postalCode && (
+                    <p className="text-red-500 text-sm mt-1">{errors.postalCode}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary dark:dark-text mb-1">
+                    Latitude
+                  </label>
+                  <input
+                    type="number"
+                    name="lat"
+                    value={formData.lat}
+                    onChange={handleChange}
+                    placeholder="Enter latitude"
+                    step="0.000001"
+                    className="w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary dark:dark-text mb-1">
+                    Longitude
+                  </label>
+                  <input
+                    type="number"
+                    name="lng"
+                    value={formData.lng}
+                    onChange={handleChange}
+                    placeholder="Enter longitude"
+                    step="0.000001"
+                    className="w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Contact */}
+            <div className="bg-white dark:bg-gray-700 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
+              <h3 className="text-lg font-semibold mb-4 text-text-primary dark:dark-text">
+                Contact
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-primary dark:dark-text mb-1">
+                    Phone
+                  </label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder="Enter phone number"
+                    className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
+                      errors.phone ? 'border-red-500' : ''
+                    }`}
+                  />
+                  {errors.phone && (
+                    <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary dark:dark-text mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="Enter email"
+                    className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
+                      errors.email ? 'border-red-500' : ''
+                    }`}
+                  />
+                  {errors.email && (
+                    <p className="text-red-500 text-sm mt-1">{errors.email}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Login Credentials */}
+            <div className="bg-white dark:bg-gray-700 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
+              <h3 className="text-lg font-semibold mb-4 text-text-primary dark:dark-text">
+                Login Credentials
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-primary dark:dark-text mb-1">
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    name="username"
+                    value={formData.username}
+                    onChange={handleChange}
+                    placeholder="Enter username"
+                    className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
+                      errors.username ? 'border-red-500' : ''
+                    }`}
+                  />
+                  {errors.username && (
+                    <p className="text-red-500 text-sm mt-1">{errors.username}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary dark:dark-text mb-1">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Enter password"
+                    className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
+                      errors.password ? 'border-red-500' : ''
+                    }`}
+                  />
+                  {errors.password && (
+                    <p className="text-red-500 text-sm mt-1">{errors.password}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-orange-600 dark:hover:bg-orange-500 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 disabled:bg-gray-400"
+              >
+                {loading ? 'Adding...' : 'Add Restaurant'}
+              </button>
+            </div>
           </form>
         </div>
       </div>

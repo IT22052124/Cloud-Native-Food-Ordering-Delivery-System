@@ -21,10 +21,19 @@ export const loginRestaurantAdmin = async (credentials) => {
   const response = await axios.post('http://localhost:3000/api/restaurant-admin/login', credentials);
   return response.data;
 };
-
-export const addRestaurant = async (data) => {
-  const response = await api.post('/restaurants/add', data);
-  return response.data;
+export const addRestaurant = async (restaurantData) => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.post('http://localhost:3000/api/restaurants/add', restaurantData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('addRestaurant: Error:', error);
+    throw error;
+  }
 };
 
 export const getRestaurants = async () => {
@@ -50,12 +59,24 @@ export const getRestaurant = async (id) => {
 };
 
 export const updateRestaurant = async (id, data) => {
-  const response = await api.put(`/restaurants/update/${id}`, data);
+  const token = localStorage.getItem('token');
+  console.log('Sending data:', data);
+  const response = await axios.put(`http://localhost:3000/api/restaurants/${id}`, data,{
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
   return response.data;
 };
 
 export const deleteRestaurant = async (id) => {
-  const response = await api.delete(`/restaurants/${id}`);
+  const token = localStorage.getItem('token');
+
+  const response = await axios.delete(`http://localhost:3000/api/restaurants/${id}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
   return response.data;
 };
 

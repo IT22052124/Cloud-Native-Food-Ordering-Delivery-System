@@ -27,6 +27,11 @@ export const addRestaurant = async (req, res) => {
     const existingAdmin = await Restaurant.findOne({
       "restaurantAdmin.username": username,
     });
+    if (existingAdmin) {
+      return res.status(400).json({
+        message: "Username already exists. Please choose a different one.",
+      });
+    }
 
     const exist = await Restaurant.findOne({
       "address.street": street,
@@ -38,11 +43,7 @@ export const addRestaurant = async (req, res) => {
       });
     }
 
-    if (existingAdmin) {
-      return res.status(400).json({
-        message: "Username already exists. Please choose a different one.",
-      });
-    }
+    
 
     // Hash restaurant admin password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -126,6 +127,11 @@ export const getRestaurantById = async (req, res) => {
  */
 export const updateRestaurant = async (req, res) => {
   try {
+
+    // Check if req.body exists
+    if (!req.body) {
+      return res.status(400).json({ message: 'Request body is missing' });
+    }
     const {
       name,
       description,
@@ -158,6 +164,7 @@ export const updateRestaurant = async (req, res) => {
     await restaurant.save();
     res.json({ message: "Restaurant updated successfully!", restaurant });
   } catch (error) {
+    console.log("Error in updating restaurant", error);
     res.status(500).json({ message: "Server error", error });
   }
 };
