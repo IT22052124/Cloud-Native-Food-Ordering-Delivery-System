@@ -88,7 +88,7 @@ export const addRestaurant = async (req, res) => {
  */
 export const getMyRestaurants = async (req, res) => {
   try {
-    const restaurants = await Restaurant.find({ ownerId: req.owner });
+    const restaurants = await Restaurant.find();
 
     if (!restaurants || restaurants.length === 0) {
       return res.status(404).json({ message: "No restaurants found!" });
