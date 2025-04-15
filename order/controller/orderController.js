@@ -113,6 +113,10 @@ const createOrder = async (req, res) => {
       restaurantOrder: {
         restaurantId,
         restaurantName: restaurant.name,
+        restaurantLocation: {
+          lat: restaurant.address.coordinates.lat,
+          lng: restaurant.address.coordinates.lng,
+        },
         items,
         subtotal,
         tax,
