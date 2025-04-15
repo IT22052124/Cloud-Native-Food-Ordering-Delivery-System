@@ -113,15 +113,15 @@ export const CartProvider = ({ children }) => {
               ? items[existingItemIndex].quantity + 1
               : 1;
 
-          const response = await dataService.addToCart({
-            itemId: item.id,
-            restaurantId: restaurantData.id,
+          await dataService.addToCart({
+            itemId: "67fd4bc83e8d227072f02ac2", //item.id,
+            restaurantId: "67fd4b623e8d227072f02ab4", //restaurantData.id,
             quantity: quantity,
-            itemPrice: item.price,
+            itemPrice: 100, //item.price,
           });
 
           // Refresh cart from API to ensure consistency
-          await fetchCartFromApi();
+          // await fetchCartFromApi();
           return { success: true };
         } catch (error) {
           console.error("Failed to add item to cart:", error);

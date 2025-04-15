@@ -3,9 +3,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // API Base URLs
 const AUTH_API_URL = `http://localhost:5001/api/auth`;
-const ORDER_API_URL = `http://192.168.1.6:5002/api/orders`;
-const CART_API_URL = `http://192.168.1.6:5002/api/cart`;
-const RESTAURANT_API_URL = `http://192.168.1.6:3000/api/restaurants`;
+const ORDER_API_URL = `http://192.168.1.3:5002/api/orders`;
+const CART_API_URL = `http://192.168.1.3:5002/api/cart`;
+const RESTAURANT_API_URL = `http://192.168.1.3:3000/api/restaurants`;
 
 // Sample data for the app
 const sampleRestaurants = [
@@ -672,9 +672,10 @@ const dataService = {
 
   addToCart: async (itemData) => {
     try {
+      const token = await AsyncStorage.getItem("authToken");
       const response = await axios.post(CART_API_URL, itemData, {
         headers: {
-          Authorization: `Bearer ${AsyncStorage.getItem("authToken")}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       return response;
@@ -691,6 +692,7 @@ const dataService = {
           Authorization: `Bearer ${AsyncStorage.getItem("authToken")}`,
         },
       });
+
       return response;
     } catch (error) {
       console.error("Failed to update cart item:", error);
