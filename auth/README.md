@@ -20,3 +20,27 @@
 - `DELETE /api/users/:id` - Delete a user (admin only)
 - `PUT /api/users/me` - Update user profile (protected)
 - `PUT /api/users/me/password` - Change password (protected)
+
+## Docker Deployment
+
+### Building and Running with Docker
+
+```bash
+# Build the Docker image
+docker build -t auth-service .
+
+# Run the container
+docker run -p 5001:5001 --env-file .env auth-service
+```
+
+### Using Docker Compose
+
+```bash
+# Start the service
+docker-compose up -d
+
+# Stop the service
+docker-compose down
+```
+
+Make sure to update the environment variables in the docker-compose.yml file before deploying to production.
