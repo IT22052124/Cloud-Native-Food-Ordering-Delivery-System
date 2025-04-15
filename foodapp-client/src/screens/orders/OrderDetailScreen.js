@@ -1,0 +1,665 @@
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+  Linking,
+} from "react-native";
+import {
+  Text,
+  Card,
+  Chip,
+  Divider,
+  Button,
+  IconButton,
+} from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useTheme } from "../../context/ThemeContext";
+import dataService, { ORDER_STATUS } from "../../services/dataService";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import MapView, { Marker } from "react-native-maps";
+
+const OrderDetailScreen = ({ route, navigation }) => {
+  const { orderId } = route.params;
+  const theme = useTheme();
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [mapRegion, setMapRegion] = useState(null);
+
+  useEffect(() => {
+    loadOrderDetails();
+  }, [orderId]);
+
+  const loadOrderDetails = async () => {
+    try {
+      setLoading(true);
+      const orderData = await dataService.getOrderById(orderId);
+      setOrder(orderData);
+
+      // Set map region if delivery address is available
+      if (
+        orderData.deliveryAddress &&
+        orderData.deliveryAddress.latitude &&
+        orderData.deliveryAddress.longitude
+      ) {
+        setMapRegion({
+          latitude: orderData.deliveryAddress.latitude,
+          longitude: orderData.deliveryAddress.longitude,
+          latitudeDelta: 0.005,
+          longitudeDelta: 0.005,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading order details:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case ORDER_STATUS.PENDING:
+        return theme.colors.warning;
+      case ORDER_STATUS.CONFIRMED:
+        return theme.colors.info;
+      case ORDER_STATUS.PREPARING:
+        return theme.colors.info;
+      case ORDER_STATUS.READY_FOR_PICKUP:
+        return theme.colors.warning;
+      case ORDER_STATUS.OUT_FOR_DELIVERY:
+        return theme.colors.secondary;
+      case ORDER_STATUS.DELIVERED:
+        return theme.colors.success;
+      case ORDER_STATUS.CANCELLED:
+        return theme.colors.error;
+      default:
+        return theme.colors.gray;
+    }
+  };
+
+  const getStatusText = (status) => {
+    return status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const handleContactDriver = () => {
+    if (order.driver && order.driver.phoneNumber) {
+      Linking.openURL(`tel:${order.driver.phoneNumber}`);
+    }
+  };
+
+  const handleTrackOrder = () => {
+    navigation.navigate("OrderTracking", { orderId: order.id });
+  };
+
+  const handleCancelOrder = async () => {
+    try {
+      // Only allow cancellation for pending orders
+      if (order.status === ORDER_STATUS.PENDING) {
+        await dataService.cancelOrder(order.id);
+        loadOrderDetails(); // Reload order to get updated status
+      }
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+    }
+  };
+
+  const canCancelOrder = () => {
+    return order && order.status === ORDER_STATUS.PENDING;
+  };
+
+  const isActiveOrder = () => {
+    return (
+      order &&
+      order.status !== ORDER_STATUS.DELIVERED &&
+      order.status !== ORDER_STATUS.CANCELLED
+    );
+  };
+
+  if (loading) {
+    return (
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: theme.colors.background },
+        ]}
+      >
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  if (!order) {
+    return (
+      <View
+        style={[
+          styles.errorContainer,
+          { backgroundColor: theme.colors.background },
+        ]}
+      >
+        <Ionicons
+          name="alert-circle-outline"
+          size={80}
+          color={theme.colors.error}
+        />
+        <Text style={styles.errorTitle}>Order not found</Text>
+        <Text style={styles.errorText}>
+          We couldn't find the order you're looking for. Please try again.
+        </Text>
+        <Button
+          mode="contained"
+          onPress={() => navigation.goBack()}
+          style={{ marginTop: 20 }}
+        >
+          Go Back
+        </Button>
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      <View style={styles.header}>
+        <IconButton
+          icon="arrow-left"
+          size={24}
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        />
+        <Text style={styles.headerTitle}>Order #{order.orderNumber}</Text>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Card style={[styles.orderStatusCard, { ...theme.shadow.small }]}>
+          <Card.Content>
+            <Chip
+              style={[
+                styles.statusChip,
+                { backgroundColor: getStatusColor(order.status) },
+              ]}
+              textStyle={{ color: "white", fontWeight: "bold" }}
+            >
+              {getStatusText(order.status)}
+            </Chip>
+
+            <Text style={styles.orderDate}>
+              Ordered on {formatDate(order.createdAt)}
+            </Text>
+
+            {isActiveOrder() && (
+              <View style={styles.estimatedDelivery}>
+                <Ionicons
+                  name="time-outline"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+                <Text style={styles.estimatedDeliveryText}>
+                  Estimated delivery: {order.estimatedDeliveryTime}
+                </Text>
+              </View>
+            )}
+          </Card.Content>
+        </Card>
+
+        <Card style={[styles.restaurantCard, { ...theme.shadow.small }]}>
+          <Card.Content>
+            <View style={styles.restaurantHeader}>
+              <Image
+                source={{ uri: order.restaurantImage }}
+                style={styles.restaurantImage}
+              />
+              <View style={styles.restaurantInfo}>
+                <Text style={styles.restaurantName}>
+                  {order.restaurantName}
+                </Text>
+                <TouchableOpacity
+                  onPress={() =>
+                    navigation.navigate("RestaurantDetail", {
+                      restaurantId: order.restaurantId,
+                    })
+                  }
+                  style={styles.viewRestaurantButton}
+                >
+                  <Text
+                    style={[
+                      styles.viewRestaurantText,
+                      { color: theme.colors.primary },
+                    ]}
+                  >
+                    View Restaurant
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Card.Content>
+        </Card>
+
+        <Card style={[styles.orderItemsCard, { ...theme.shadow.small }]}>
+          <Card.Content>
+            <Text style={styles.sectionTitle}>Order Items</Text>
+
+            {order.items.map((item, index) => (
+              <View key={index}>
+                <View style={styles.orderItem}>
+                  <View style={styles.orderItemInfo}>
+                    <Text style={styles.orderItemName}>{item.name}</Text>
+                    <Text style={styles.orderItemQuantity}>
+                      Qty: {item.quantity}
+                    </Text>
+                  </View>
+                  <Text style={styles.orderItemPrice}>
+                    ${item.price * item.quantity}
+                  </Text>
+                </View>
+                {index < order.items.length - 1 && (
+                  <Divider style={styles.itemDivider} />
+                )}
+              </View>
+            ))}
+          </Card.Content>
+        </Card>
+
+        <Card style={[styles.orderSummaryCard, { ...theme.shadow.small }]}>
+          <Card.Content>
+            <Text style={styles.sectionTitle}>Order Summary</Text>
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Subtotal</Text>
+              <Text style={styles.summaryValue}>${order.subtotal}</Text>
+            </View>
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Delivery Fee</Text>
+              <Text style={styles.summaryValue}>${order.deliveryFee}</Text>
+            </View>
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Tax</Text>
+              <Text style={styles.summaryValue}>${order.tax}</Text>
+            </View>
+
+            {order.tip > 0 && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Tip</Text>
+                <Text style={styles.summaryValue}>${order.tip}</Text>
+              </View>
+            )}
+
+            <Divider style={styles.summaryDivider} />
+
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalValue}>${order.total}</Text>
+            </View>
+
+            <View style={styles.paymentMethod}>
+              <Ionicons
+                name="card-outline"
+                size={20}
+                color={theme.colors.gray}
+              />
+              <Text style={styles.paymentMethodText}>
+                Paid with {order.paymentMethod}
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
+
+        {order.deliveryAddress && (
+          <Card style={[styles.deliveryAddressCard, { ...theme.shadow.small }]}>
+            <Card.Content>
+              <Text style={styles.sectionTitle}>Delivery Address</Text>
+
+              <View style={styles.addressContainer}>
+                <Ionicons
+                  name="location-outline"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+                <Text style={styles.addressText}>
+                  {order.deliveryAddress.street}, {order.deliveryAddress.city},{" "}
+                  {order.deliveryAddress.state} {order.deliveryAddress.zipCode}
+                </Text>
+              </View>
+
+              {mapRegion && (
+                <View style={styles.mapContainer}>
+                  <MapView
+                    style={styles.map}
+                    region={mapRegion}
+                    scrollEnabled={false}
+                    zoomEnabled={false}
+                    rotateEnabled={false}
+                    pitchEnabled={false}
+                  >
+                    <Marker
+                      coordinate={{
+                        latitude: order.deliveryAddress.latitude,
+                        longitude: order.deliveryAddress.longitude,
+                      }}
+                    />
+                  </MapView>
+                </View>
+              )}
+            </Card.Content>
+          </Card>
+        )}
+
+        {order.driver && isActiveOrder() && (
+          <Card style={[styles.driverCard, { ...theme.shadow.small }]}>
+            <Card.Content>
+              <Text style={styles.sectionTitle}>Delivery Driver</Text>
+
+              <View style={styles.driverInfo}>
+                <Image
+                  source={{ uri: order.driver.profileImage }}
+                  style={styles.driverImage}
+                />
+                <View style={styles.driverDetails}>
+                  <Text style={styles.driverName}>{order.driver.name}</Text>
+                  <View style={styles.driverRating}>
+                    <Ionicons name="star" size={16} color="#FFD700" />
+                    <Text style={styles.driverRatingText}>
+                      {order.driver.rating}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={handleContactDriver}
+                  style={styles.contactDriverButton}
+                >
+                  <Ionicons name="call" size={20} color="white" />
+                </TouchableOpacity>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
+
+        <View style={styles.actionButtons}>
+          {isActiveOrder() && (
+            <Button
+              mode="contained"
+              onPress={handleTrackOrder}
+              style={[
+                styles.trackButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+              icon="map-marker-radius"
+            >
+              Track Order
+            </Button>
+          )}
+
+          {canCancelOrder() && (
+            <Button
+              mode="outlined"
+              onPress={handleCancelOrder}
+              style={styles.cancelButton}
+              color={theme.colors.error}
+            >
+              Cancel Order
+            </Button>
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: "center",
+    color: "#666",
+    marginBottom: 20,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  scrollContent: {
+    padding: 16,
+  },
+  orderStatusCard: {
+    marginBottom: 16,
+    borderRadius: 12,
+  },
+  statusChip: {
+    alignSelf: "flex-start",
+    marginBottom: 12,
+  },
+  orderDate: {
+    fontSize: 14,
+    color: "#666",
+  },
+  estimatedDelivery: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+  },
+  estimatedDeliveryText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  restaurantCard: {
+    marginBottom: 16,
+    borderRadius: 12,
+  },
+  restaurantHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  restaurantImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 16,
+  },
+  restaurantInfo: {
+    flex: 1,
+  },
+  restaurantName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  viewRestaurantButton: {
+    alignSelf: "flex-start",
+  },
+  viewRestaurantText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  orderItemsCard: {
+    marginBottom: 16,
+    borderRadius: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 16,
+  },
+  orderItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  orderItemInfo: {
+    flex: 1,
+  },
+  orderItemName: {
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  orderItemQuantity: {
+    fontSize: 14,
+    color: "#666",
+  },
+  orderItemPrice: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  itemDivider: {
+    marginVertical: 8,
+  },
+  orderSummaryCard: {
+    marginBottom: 16,
+    borderRadius: 12,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: "#666",
+  },
+  summaryValue: {
+    fontSize: 14,
+  },
+  summaryDivider: {
+    marginVertical: 12,
+  },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  totalValue: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  paymentMethod: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+  },
+  paymentMethodText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: "#666",
+  },
+  deliveryAddressCard: {
+    marginBottom: 16,
+    borderRadius: 12,
+  },
+  addressContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+  addressText: {
+    marginLeft: 8,
+    fontSize: 14,
+    flex: 1,
+  },
+  mapContainer: {
+    height: 150,
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  driverCard: {
+    marginBottom: 16,
+    borderRadius: 12,
+  },
+  driverInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  driverImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 16,
+  },
+  driverDetails: {
+    flex: 1,
+  },
+  driverName: {
+    fontSize: 16,
+    fontWeight: "500",
+    marginBottom: 4,
+  },
+  driverRating: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  driverRatingText: {
+    marginLeft: 4,
+    fontSize: 14,
+  },
+  contactDriverButton: {
+    backgroundColor: "#25D366", // WhatsApp green
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  actionButtons: {
+    marginBottom: 20,
+  },
+  trackButton: {
+    marginBottom: 12,
+    paddingVertical: 8,
+  },
+  cancelButton: {
+    paddingVertical: 8,
+  },
+});
+
+export default OrderDetailScreen;
