@@ -100,6 +100,10 @@ const restaurantOrderSchema = new Schema({
     type: String,
     required: true,
   },
+  restaurantLocation: {
+    lat: Number,
+    lng: Number,
+  },
   items: [orderItemSchema],
   subtotal: {
     type: Number,
