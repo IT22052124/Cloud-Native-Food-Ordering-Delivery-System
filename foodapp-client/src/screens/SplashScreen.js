@@ -2,6 +2,7 @@ import React from "react";
 import { View, Image, StyleSheet, ActivityIndicator } from "react-native";
 import { Text } from "react-native-paper";
 import { useTheme } from "../context/ThemeContext";
+import LottieView from "lottie-react-native";
 
 const SplashScreen = () => {
   const theme = useTheme();
@@ -11,20 +12,25 @@ const SplashScreen = () => {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <Image
-        source={{
-          uri: "https://png.pngtree.com/png-vector/20220708/ourmid/pngtree-fast-food-logo-png-image_5763171.png",
-        }}
+        source={require(`../../assets/images/icon.png`)}
         style={styles.logo}
         resizeMode="contain"
       />
       <Text style={[styles.title, { color: theme.colors.primary }]}>
         Truffle Go
       </Text>
-      <ActivityIndicator
+
+      <LottieView
+        source={require("../../assets/animations/Loading.json")}
+        autoPlay
+        loop
+        style={styles.loader}
+      />
+      {/* <ActivityIndicator
         size="large"
         color={theme.colors.primary}
         style={styles.loader}
-      />
+      /> */}
     </View>
   );
 };
@@ -43,10 +49,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 24,
+    marginBottom: 10,
   },
   loader: {
     marginTop: 20,
+    width: 800,
+    height: 336,
   },
 });
 
