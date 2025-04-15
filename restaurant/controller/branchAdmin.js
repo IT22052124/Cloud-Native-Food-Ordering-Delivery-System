@@ -143,22 +143,6 @@ export const getAllDishes = async (req, res) => {
   }
 };
 
-// controller function to get dishById
-export const getDishById = async (req, res) => {
-  try {
-    const dishId = req.params.id;
-
-    const dish = await Dish.findOne({ _id: dishId });
-    if (!dish) {
-      return res.status(404).json({ message: "Dish not found" });
-    }
-    return res.status(200).json({ dish });
-  } catch (error) {
-    console.log("error in getDishbyId", error);
-    return res.status(500).json({ message: "Server error", error });
-  }
-};
-
 //controller function to update dish by id
 export const updateDishById = async (req, res) => {
   try {
@@ -237,6 +221,23 @@ export const deleteDish = async (req, res) => {
     return res.status(200).json({ message: "Dish deleted successfully" });
   } catch (error) {
     console.log("Error in deleteDish:", error);
+    return res.status(500).json({ message: "Server error", error });
+  }
+};
+
+// controller function to get dishById
+export const getDishById = async (req, res) => {
+  try {
+    const dishId = req.params.id;
+
+    const dish =  await Dish.findOne({_id:dishId});
+    if(!dish){
+      return res.status(404).json({message:"Dish not found"});
+    }
+   
+    return res.status(200).json({ dish });
+  } catch (error) {
+    console.log("error in getDishbyId", error);
     return res.status(500).json({ message: "Server error", error });
   }
 };
