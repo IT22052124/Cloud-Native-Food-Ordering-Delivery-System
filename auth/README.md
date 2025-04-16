@@ -20,6 +20,7 @@
 - `DELETE /api/users/:id` - Delete a user (admin only)
 - `PUT /api/users/me` - Update user profile (protected)
 - `PUT /api/users/me/password` - Change password (protected)
+- `PUT /api/users/me/availability/toggle` - Toggle delivery person available (delivery only)
 
 ## Docker Deployment
 
