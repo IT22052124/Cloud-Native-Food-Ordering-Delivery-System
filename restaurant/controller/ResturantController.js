@@ -189,6 +189,38 @@ export const deleteRestaurant = async (req, res) => {
   }
 };
 
+export const updateRestaurantStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    // Validate request body
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({ message: 'isActive must be a boolean value' });
+    }
+
+    // Find the restaurant
+    const restaurant = await Restaurant.findById(id);
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found!' });
+    }
+
+    // Check if the requester is the owner
+    if (restaurant.ownerId.toString() !== req.owner) {
+      return res.status(403).json({ message: 'Access denied!' });
+    }
+
+    // Update the status
+    restaurant.isActive = isActive;
+    await restaurant.save();
+
+    res.json({ message: 'Restaurant status updated successfully!', restaurant });
+  } catch (error) {
+    console.log('Error in updating restaurant status', error);
+    res.status(500).json({ message: 'Server error', error });
+  }
+};
+
 export const restaurants = async (req, res) => {
   try {
     const restaurants = await Restaurant.find({});

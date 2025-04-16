@@ -5,26 +5,33 @@ const MediaSchema = mongoose.Schema({
   alt_text: String,
 });
 
-const dishSchema = mongoose.Schema({
-  name: { type: String, required: true },
-  description: { type: String, required: false },
-  price: {type:Number,
-    required:true,
+const dishSchema = mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    description: { type: String, required: false },
+    price: { type: Number, required: true },
+    food_type: {
+      type: String,
+      enum: ["veg", "non-veg", "vegan"],
+    },
+    category: {
+      type: String,
+    },
+    isAvailable: {
+      type: Boolean,
+      default: true,
+    },
+    restaurantId: { type: Types.ObjectId, required: true },
+    imageUrls: [
+      {
+        type: String,
+        trim: true,
+       
+      }
+    ],
   },
-  food_type: {
-    type: String,
-    enum: ["veg", "non-veg", "vegan"],
-  },
-  category: {
-    type: String,
-  },
-  isAvalaible: {
-    type: Boolean,
-    default: true,
-  },
-  restaurantId: { type: Types.ObjectId, required: true },
-  media: [MediaSchema],
-},{
-  timestamps: true,
-});
+  {
+    timestamps: true,
+  }
+);
 export const Dish = mongoose.model("Dish", dishSchema);

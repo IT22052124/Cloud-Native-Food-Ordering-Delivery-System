@@ -12,7 +12,8 @@ import Orders from './pages/Orders';
 import Dishes from './pages/Dishes';
 import AddDish from './pages/AddDish';
 import EditDish from './pages/EditDish';
-
+import RestaurantDetails from './pages/RestaurantDetails';
+import DishDetails from './pages/DishDetails';
 const App = () => {
   return (
     <Router>
@@ -23,9 +24,11 @@ const App = () => {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} /> {/* New */}
         <Route path="/restaurants/add" element={<AddRestaurant />} />
+        <Route path="/restaurants/:id" element={<RestaurantDetails />} />
         <Route path="/restaurants/edit/:id" element={<EditRestaurant />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/dishes" element={<Dishes />} />
+        <Route path="/dishes/:id" element={<DishDetails />} />
         <Route path="/dishes/add" element={<AddDish />} />
         <Route path="/dishes/edit/:id" element={<EditDish />} />
         <Route path="/" element={<Login />} />

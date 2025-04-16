@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom'; // Add useNavigate
-import { FaSearch, FaEdit, FaTrash, FaFilter, FaStore } from 'react-icons/fa';
-import { toast } from 'react-toastify'; // Add toast
-import { deleteRestaurant } from '../utils/api'; // Import deleteRestaurant
+import { Link } from 'react-router-dom';
+import { FaSearch, FaEdit, FaFilter, FaStore, FaEye } from 'react-icons/fa';
 
 const RestaurantTable = ({ restaurants = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const navigate = useNavigate(); // Initialize navigate
 
   // Ensure restaurants is an array
   let filteredRestaurants = Array.isArray(restaurants) ? restaurants : [];
@@ -26,22 +23,6 @@ const RestaurantTable = ({ restaurants = [] }) => {
       (restaurant) => restaurant.isActive === isActive
     );
   }
-
-  // Handle delete restaurant
-  const handleDelete = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to delete ${name}?`)) {
-      return;
-    }
-    try {
-      await deleteRestaurant(id);
-      toast.success('Restaurant deleted successfully');
-      console.log('Attempting to navigate to /dashboard');
-      navigate('/dashboard'); // Navigate to dashboard after deletion      
-    } catch (error) {
-      console.error('Delete error:', error.response?.data);
-      toast.error(error.response?.data?.message || 'Failed to delete restaurant');
-    }
-  };
 
   return (
     <div className="space-y-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
@@ -169,19 +150,19 @@ const RestaurantTable = ({ restaurants = [] }) => {
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex justify-center space-x-2">
                       <Link
+                        to={`/restaurants/${restaurant._id}`}
+                        className="inline-flex items-center px-3 py-1.5 bg-green-50 text-green-700 rounded-md hover:bg-green-100 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800 transition-all duration-200"
+                      >
+                        <FaEye className="mr-1.5" />
+                        View
+                      </Link>
+                      <Link
                         to={`/restaurants/edit/${restaurant._id}`}
                         className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800 transition-all duration-200"
                       >
                         <FaEdit className="mr-1.5" />
                         Edit
                       </Link>
-                      <button
-                        onClick={() => handleDelete(restaurant._id, restaurant.name)}
-                        className="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-700 rounded-md hover:bg-red-100 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 transition-all duration-200"
-                      >
-                        <FaTrash className="mr-1.5" />
-                        Delete
-                      </button>
                     </div>
                   </td>
                 </tr>

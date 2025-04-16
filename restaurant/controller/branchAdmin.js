@@ -82,7 +82,7 @@ export const restaurantAdminLogin = async (req, res) => {
 
 export const createDish = async (req, res) => {
   try {
-    const { name, description, price, amount, food_type, category } = req.body;
+    const { name, description, price, amount, food_type, category ,imageUrls} = req.body;
 
     const restaurantId = req.resturantId;
     if (!restaurantId) {
@@ -102,6 +102,7 @@ export const createDish = async (req, res) => {
       food_type,
       category,
       restaurantId,
+      imageUrls: Array.isArray(imageUrls) ? imageUrls : [],
     };
 
     const newDish = await Dish.create(dish);
@@ -116,7 +117,7 @@ export const createDish = async (req, res) => {
     return res
       .status(201)
       .json({ message: "Dish created successfully", dish: newDish });
-  } catch {
+  } catch(error) {
     console.log("Error in creating dish", error);
     res.status(500).json({ message: "Server error", error });
   }
@@ -147,39 +148,65 @@ export const getAllDishes = async (req, res) => {
 export const updateDishById = async (req, res) => {
   try {
     const id = req.params.id;
-    const { name, description, price, amount, food_type, category } = req.body;
+    const {
+      name,
+      description,
+      price,
+      amount,
+      food_type,
+      category,
+      isAvailable,
+      imageUrls:newImageUrls ,
+    } = req.body;
+
     const restaurantId = req.resturantId;
 
-    // Validate restaurant ID
     if (!restaurantId) {
       return res.status(400).json({ message: "Restaurant ID is required" });
     }
 
-    // Find the dish by ID
     const dish = await Dish.findById(id);
     if (!dish) {
       return res.status(404).json({ message: "Dish not found" });
     }
+     // 2. Compare old vs new image URLs and delete removed ones
+     if (Array.isArray(newImageUrls)) {
+      const imagesToDelete = dish.imageUrls.filter(url => !newImageUrls.includes(url));
+      
+      for (const oldImageUrl of imagesToDelete) {
+        try {
+          const imageRef = ref(storage, oldImageUrl);
+          await deleteObject(imageRef);
+        } catch (err) {
+          console.error("Failed to delete old image:", err);
+        }
+      }
 
-    // Update the dish fields
-    dish.name = name || dish.name;
-    dish.description = description || dish.description;
-    dish.price = price || dish.price;
-    dish.amount = amount || dish.amount;
-    dish.food_type = food_type || dish.food_type;
-    dish.category = category || dish.category;
+      dish.imageUrls = newImageUrls; // Update with new URLs
+    }
 
-    // Save the updated dish
+    dish.name = name ?? dish.name;
+    dish.description = description ?? dish.description;
+    dish.price = price ?? dish.price;
+    dish.amount = amount ?? dish.amount;
+    dish.food_type = food_type ?? dish.food_type;
+    dish.category = category ?? dish.category;
+
+
+    // 🔥 This fixes the problem!
+    if (typeof isAvailable !== "undefined") dish.isAvailable = isAvailable;
+
     const updatedDish = await dish.save();
 
     return res
       .status(200)
       .json({ message: "Dish updated successfully", dish: updatedDish });
   } catch (error) {
-    console.log("Error in updateDishById:", error);
+    console.error("Error in updateDishById:", error);
     return res.status(500).json({ message: "Server error", error });
   }
 };
+
 
 // controller to deleteDishById
 
@@ -206,6 +233,14 @@ export const deleteDish = async (req, res) => {
         .json({ message: "Unauthorized to delete this dish" });
     }
 
+    for (const imageUrl of dish.imageUrls) {
+      try {
+        const imageRef = ref(storage, imageUrl);
+        await deleteObject(imageRef);
+      } catch (error) {
+        console.error(`Failed to delete image ${imageUrl}:`, error);
+      }
+    }
     // Delete the dish
     await Dish.findByIdAndDelete(id);
 

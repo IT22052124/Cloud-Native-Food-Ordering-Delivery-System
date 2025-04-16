@@ -18,7 +18,7 @@ export const loginOwner = async (credentials) => {
 };
 
 export const loginRestaurantAdmin = async (credentials) => {
-  const response = await axios.post('http://localhost:3000/api/restaurant-admin/login', credentials);
+  const response = await axios.post('http://localhost:3000/api/branch/login', credentials);
   return response.data;
 };
 export const addRestaurant = async (restaurantData) => {
@@ -52,10 +52,43 @@ export const getRestaurants = async () => {
     throw error;
   }
 };
-
 export const getRestaurant = async (id) => {
   const response = await api.get(`/restaurants/${id}`);
   return response.data;
+};
+
+export const getRestaurantById = async (id) => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.get(`http://localhost:3000/api/restaurants/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('getRestaurantById: Error:', error);
+    throw error;
+  }
+};
+
+export const updateRestaurantStatus = async (id, isActive) => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.patch(
+      `http://localhost:3000/api/restaurants/${id}/status`,
+      { isActive },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('updateRestaurantStatus: Error:', error);
+    throw error;
+  }
 };
 
 export const updateRestaurant = async (id, data) => {
@@ -91,26 +124,26 @@ export const updateOrderStatus = async (id, status) => {
 };
 
 export const getDishes = async (restaurantId) => {
-  const response = await api.get(`/dishes?restaurantId=${restaurantId}`);
+  const response = await api.get(`branch/`);
   return response.data;
 };
 
 export const addDish = async (data) => {
-  const response = await api.post('/dishes', data);
+  const response = await api.post('/branch/add', data);
   return response.data;
 };
 
 export const getDish = async (id) => {
-  const response = await api.get(`/dishes/${id}`);
+  const response = await api.get(`branch/${id}`);
   return response.data;
 };
 
 export const updateDish = async (id, data) => {
-  const response = await api.put(`/dishes/${id}`, data);
+  const response = await api.put(`/branch/${id}`, data);
   return response.data;
 };
 
 export const deleteDish = async (id) => {
-  const response = await api.delete(`/dishes/${id}`);
+  const response = await api.delete(`/branch/${id}`);
   return response.data;
 };

@@ -1,25 +1,25 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Sidebar from '../components/Sidebar';
-import Navbar from '../components/Navbar';
-import { addRestaurant } from '../utils/api';
-import { toast } from 'react-toastify';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Sidebar from "../components/Sidebar";
+import Navbar from "../components/Navbar";
+import { addRestaurant } from "../utils/api";
+import { toast } from "react-toastify";
 
 const AddRestaurant = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    street: '',
-    city: '',
-    province: '',
-    postalCode: '',
+    name: "",
+    description: "",
+    street: "",
+    city: "",
+    province: "",
+    postalCode: "",
     lat: 0,
     lng: 0,
-    phone: '',
-    email: '',
-    username: '',
-    password: '',
+    phone: "",
+    email: "",
+    username: "",
+    password: "",
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -28,25 +28,28 @@ const AddRestaurant = () => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'lat' || name === 'lng' ? parseFloat(value) || 0 : value,
+      [name]: name === "lat" || name === "lng" ? parseFloat(value) || 0 : value,
     }));
-    setErrors((prev) => ({ ...prev, [name]: '' }));
+    setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.name) newErrors.name = 'Name is required';
-    if (!formData.description) newErrors.description = 'Description is required';
-    if (!formData.street) newErrors.street = 'Street is required';
-    if (!formData.city) newErrors.city = 'City is required';
-    if (!formData.province) newErrors.province = 'Province is required';
-    if (!formData.postalCode) newErrors.postalCode = 'Postal Code is required';
-    if (!formData.phone) newErrors.phone = 'Phone is required';
-    if (!formData.email) newErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
-    if (!formData.username) newErrors.username = 'Username is required';
-    if (!formData.password) newErrors.password = 'Password is required';
-    else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+    if (!formData.name) newErrors.name = "Name is required";
+    if (!formData.description)
+      newErrors.description = "Description is required";
+    if (!formData.street) newErrors.street = "Street is required";
+    if (!formData.city) newErrors.city = "City is required";
+    if (!formData.province) newErrors.province = "Province is required";
+    if (!formData.postalCode) newErrors.postalCode = "Postal Code is required";
+    if (!formData.phone) newErrors.phone = "Phone is required";
+    if (!formData.email) newErrors.email = "Email is required";
+    else if (!/\S+@\S+\.\S+/.test(formData.email))
+      newErrors.email = "Email is invalid";
+    if (!formData.username) newErrors.username = "Username is required";
+    if (!formData.password) newErrors.password = "Password is required";
+    else if (formData.password.length < 6)
+      newErrors.password = "Password must be at least 6 characters";
     return newErrors;
   };
 
@@ -57,7 +60,7 @@ const AddRestaurant = () => {
       setErrors(validationErrors);
       return;
     }
-
+   
     setLoading(true);
     try {
       const restaurantData = {
@@ -75,15 +78,25 @@ const AddRestaurant = () => {
         password: formData.password,
       };
       await addRestaurant(restaurantData);
-      toast.success('Restaurant added successfully!');
-      navigate('/dashboard');
+      toast.success("Restaurant added successfully!");
+      navigate("/dashboard");
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to add restaurant');
+      toast.error(error.response?.data?.message || "Failed to add restaurant");
     } finally {
       setLoading(false);
     }
   };
-
+  const provinces = [
+    "Western",
+    "Central",
+    "Southern",
+    "Northern",
+    "Eastern",
+    "North Western",
+    "North Central",
+    "Uva",
+    "Sabaragamuwa",
+  ];
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -111,7 +124,7 @@ const AddRestaurant = () => {
                     onChange={handleChange}
                     placeholder="Enter restaurant name"
                     className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
-                      errors.name ? 'border-red-500' : ''
+                      errors.name ? "border-red-500" : ""
                     }`}
                   />
                   {errors.name && (
@@ -129,11 +142,13 @@ const AddRestaurant = () => {
                     placeholder="Enter description"
                     rows="3"
                     className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
-                      errors.description ? 'border-red-500' : ''
+                      errors.description ? "border-red-500" : ""
                     }`}
                   />
                   {errors.description && (
-                    <p className="text-red-500 text-sm mt-1">{errors.description}</p>
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.description}
+                    </p>
                   )}
                 </div>
               </div>
@@ -156,7 +171,7 @@ const AddRestaurant = () => {
                     onChange={handleChange}
                     placeholder="Enter street"
                     className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
-                      errors.street ? 'border-red-500' : ''
+                      errors.street ? "border-red-500" : ""
                     }`}
                   />
                   {errors.street && (
@@ -174,7 +189,7 @@ const AddRestaurant = () => {
                     onChange={handleChange}
                     placeholder="Enter city"
                     className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
-                      errors.city ? 'border-red-500' : ''
+                      errors.city ? "border-red-500" : ""
                     }`}
                   />
                   {errors.city && (
@@ -182,22 +197,25 @@ const AddRestaurant = () => {
                   )}
                 </div>
                 <div>
+                
                   <label className="block text-sm font-medium text-text-primary dark:dark-text mb-1">
                     Province
                   </label>
-                  <input
-                    type="text"
+                  <select
                     name="province"
                     value={formData.province}
                     onChange={handleChange}
-                    placeholder="Enter province"
-                    className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
-                      errors.province ? 'border-red-500' : ''
+                    className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
+                      errors.province ? "border-red-500" : ""
                     }`}
-                  />
-                  {errors.province && (
-                    <p className="text-red-500 text-sm mt-1">{errors.province}</p>
-                  )}
+                  >
+                    <option value="">Select province</option>
+                    {provinces.map((prov) => (
+                      <option key={prov} value={prov}>
+                        {prov}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-text-primary dark:dark-text mb-1">
@@ -210,11 +228,13 @@ const AddRestaurant = () => {
                     onChange={handleChange}
                     placeholder="Enter postal code"
                     className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
-                      errors.postalCode ? 'border-red-500' : ''
+                      errors.postalCode ? "border-red-500" : ""
                     }`}
                   />
                   {errors.postalCode && (
-                    <p className="text-red-500 text-sm mt-1">{errors.postalCode}</p>
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.postalCode}
+                    </p>
                   )}
                 </div>
                 <div>
@@ -265,7 +285,7 @@ const AddRestaurant = () => {
                     onChange={handleChange}
                     placeholder="Enter phone number"
                     className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
-                      errors.phone ? 'border-red-500' : ''
+                      errors.phone ? "border-red-500" : ""
                     }`}
                   />
                   {errors.phone && (
@@ -283,7 +303,7 @@ const AddRestaurant = () => {
                     onChange={handleChange}
                     placeholder="Enter email"
                     className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
-                      errors.email ? 'border-red-500' : ''
+                      errors.email ? "border-red-500" : ""
                     }`}
                   />
                   {errors.email && (
@@ -310,11 +330,13 @@ const AddRestaurant = () => {
                     onChange={handleChange}
                     placeholder="Enter username"
                     className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
-                      errors.username ? 'border-red-500' : ''
+                      errors.username ? "border-red-500" : ""
                     }`}
                   />
                   {errors.username && (
-                    <p className="text-red-500 text-sm mt-1">{errors.username}</p>
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.username}
+                    </p>
                   )}
                 </div>
                 <div>
@@ -328,11 +350,13 @@ const AddRestaurant = () => {
                     onChange={handleChange}
                     placeholder="Enter password"
                     className={`w-full p-2 border rounded-lg text-text-primary dark:dark-text dark:bg-gray-800 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 ${
-                      errors.password ? 'border-red-500' : ''
+                      errors.password ? "border-red-500" : ""
                     }`}
                   />
                   {errors.password && (
-                    <p className="text-red-500 text-sm mt-1">{errors.password}</p>
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.password}
+                    </p>
                   )}
                 </div>
               </div>
@@ -345,7 +369,7 @@ const AddRestaurant = () => {
                 disabled={loading}
                 className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-orange-600 dark:hover:bg-orange-500 focus:outline-none focus:ring-2 focus:ring-accent transition-all duration-200 disabled:bg-gray-400"
               >
-                {loading ? 'Adding...' : 'Add Restaurant'}
+                {loading ? "Adding..." : "Add Restaurant"}
               </button>
             </div>
           </form>

@@ -10,7 +10,7 @@ const Sidebar = () => {
           <ul className="space-y-4">
             <li>
               <NavLink
-                to="/dashboard"
+                to="/Admindashboard"
                 className={({ isActive }) =>
                   `block p-3 rounded-lg transition-all duration-200 ${
                     isActive
