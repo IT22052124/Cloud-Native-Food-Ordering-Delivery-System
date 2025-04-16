@@ -33,14 +33,15 @@ const UserSchema = new Schema(
       enum: ["customer", "restaurant", "delivery", "admin"],
       default: "customer",
     },
-    verified: {
-      type: Boolean,
-      default: false,
-    },
     profilePicture: {
       type: String,
       default: "",
     },
+
+    //NIC for Delivery and Restaurant person verification
+    nic: { type: String, default: "" },
+    nicImage: { type: String, default: "" },
+
     address: {
       type: String,
       default: "",
@@ -62,6 +63,10 @@ const UserSchema = new Schema(
     refreshToken: {
       type: String,
       select: false,
+    },
+    verified: {
+      type: Boolean,
+      default: false,
     },
     passwordResetToken: String,
     passwordResetExpires: Date,

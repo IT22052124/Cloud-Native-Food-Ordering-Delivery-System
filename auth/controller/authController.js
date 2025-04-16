@@ -26,6 +26,14 @@ const register = async (req, res) => {
       status = "pending_approval";
     }
 
+    if (role === "restaurant" || role === "delivery") {
+      if (!req.body.nic || !req.body.nicImage) {
+        return res.status(400).json({
+          message: "NIC details required",
+        });
+      }
+    }
+
     // Create new user
     const user = await User.create({
       email,
