@@ -303,6 +303,56 @@ const changePassword = async (req, res) => {
   }
 };
 
+/**
+ * Toggle driver availability status
+ * @route PUT /api/users/me/availability/toggle
+ * @access Private/Delivery
+ */
+const toggleDriverAvailability = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if the user is a delivery driver
+    if (user.role !== "delivery") {
+      return res.status(403).json({
+        success: false,
+        message: "Only delivery drivers can update availability status",
+      });
+    }
+
+    // Toggle the availability status
+    user.driverIsAvailable = !user.driverIsAvailable;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Driver is now ${
+        user.driverIsAvailable ? "available" : "unavailable"
+      } for deliveries`,
+      user: {
+        _id: user._id,
+        name: user.name,
+        role: user.role,
+        driverIsAvailable: user.driverIsAvailable,
+      },
+    });
+  } catch (error) {
+    console.error("Toggle driver availability error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error toggling driver availability",
+      error: error.message,
+    });
+  }
+};
+
 export {
   getAllUsers,
   getPendingApprovalUsers,
@@ -311,4 +361,5 @@ export {
   deleteUser,
   updateUserStatus,
   changePassword,
+  toggleDriverAvailability,
 };

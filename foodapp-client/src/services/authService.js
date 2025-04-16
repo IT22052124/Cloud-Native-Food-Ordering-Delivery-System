@@ -2,23 +2,33 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Use consistent API URL configuration
-const API_BASE_URL = "http://192.168.1.6:5001/api";
+const API_BASE_URL = "http://192.168.1.3:5001/api";
 const AUTH_API_URL = `${API_BASE_URL}/auth`;
 
-// Store token in localStorage for web access and inter-service communication
+// Store token in AsyncStorage for React Native
 const setToken = async (token) => {
   if (token) {
     try {
       await AsyncStorage.setItem("authToken", token);
     } catch (e) {
-      console.warn("Could not store token in localStorage:", e);
+      console.warn("Could not store token in AsyncStorage:", e);
     }
   } else {
     try {
       await AsyncStorage.removeItem("authToken");
     } catch (e) {
-      console.warn("Could not remove token from localStorage:", e);
+      console.warn("Could not remove token from AsyncStorage:", e);
     }
+  }
+};
+
+// Get token from AsyncStorage
+const getToken = async () => {
+  try {
+    return await AsyncStorage.getItem("authToken");
+  } catch (e) {
+    console.warn("Could not retrieve token from AsyncStorage:", e);
+    return null;
   }
 };
 
@@ -29,7 +39,7 @@ const authService = {
       const response = await axios.post(`${AUTH_API_URL}/register`, userData);
 
       if (response.data && response.data.token) {
-        setToken(response.data.token);
+        await setToken(response.data.token);
         return response.data;
       } else {
         throw new Error("Registration failed. Please try again.");
@@ -46,9 +56,11 @@ const authService = {
         email,
         password,
       });
-
       if (response.data && response.data.token) {
-        setToken(response.data.token);
+        await setToken(response.data.token);
+        // Correctly await the getToken call to verify storage
+        const storedToken = await getToken();
+        console.log("Stored token:", storedToken);
         return response.data;
       } else {
         throw new Error("Login failed. Please check your credentials.");
@@ -92,7 +104,7 @@ const authService = {
   logout: async (token) => {
     try {
       if (!token) {
-        setToken(null);
+        await setToken(null);
         return true;
       }
 
@@ -105,11 +117,11 @@ const authService = {
           },
         }
       );
-      setToken(null);
+      await setToken(null);
       return true;
     } catch (error) {
       // Clear token even if logout request fails
-      setToken(null);
+      await setToken(null);
       return false;
     }
   },
@@ -158,6 +170,11 @@ const authService = {
       return false;
     }
   },
+
+  // Add a method to get the stored token
+  getStoredToken: async () => {
+    return await getToken();
+  }
 };
 
 // Error handler
