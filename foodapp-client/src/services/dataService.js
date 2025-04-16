@@ -651,9 +651,10 @@ const dataService = {
   // Cart endpoints
   getCart: async () => {
     try {
+      const token = await AsyncStorage.getItem("authToken");
       const response = await axios.get(CART_API_URL, {
         headers: {
-          Authorization: `Bearer ${AsyncStorage.getItem("authToken")}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       return response;
