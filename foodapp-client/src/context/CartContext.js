@@ -32,7 +32,6 @@ export const CartProvider = ({ children }) => {
       setLoading(true);
       const response = await dataService.getCart();
       const cartData = response.data;
-
       if (cartData && cartData.items && cartData.items.length > 0) {
         setItems(
           cartData.items.map((item) => ({
@@ -100,83 +99,81 @@ export const CartProvider = ({ children }) => {
 
   const addItem = async (item, restaurantData) => {
     // If cart is empty or has items from the same restaurant
-    if (!restaurant || restaurant.id === restaurantData.id) {
-      const existingItemIndex = items.findIndex(
-        (cartItem) => cartItem.itemId === item.id
-      );
+    // if (!restaurant || restaurant.id === restaurantData.id) {
+    const existingItemIndex = items.findIndex(
+      (cartItem) => cartItem.itemId === item.id
+    );
 
-      if (isAuthenticated) {
-        try {
-          // If the item exists, update quantity. Otherwise add new item
-          const quantity =
-            existingItemIndex !== -1
-              ? items[existingItemIndex].quantity + 1
-              : 1;
+    if (isAuthenticated) {
+      try {
+        // If the item exists, update quantity. Otherwise add new item
+        const quantity =
+          existingItemIndex !== -1 ? items[existingItemIndex].quantity + 1 : 1;
 
-          const response = await dataService.addToCart({
-            itemId: item.id,
-            restaurantId: restaurantData.id,
-            quantity: quantity,
-            itemPrice: item.price,
-          });
+        await dataService.addToCart({
+          itemId: "67fd4bc83e8d227072f02ac2", //item.id,
+          restaurantId: "67fd4b623e8d227072f02ab4", //restaurantData.id,
+          quantity: quantity,
+          itemPrice: 100, //item.price,
+        });
 
-          // Refresh cart from API to ensure consistency
-          await fetchCartFromApi();
-          return { success: true };
-        } catch (error) {
-          console.error("Failed to add item to cart:", error);
-          // If error is about different restaurant, return appropriate response
-          if (error.response?.data?.message?.includes("different restaurant")) {
-            return {
-              requiresConfirmation: true,
-              currentRestaurant: restaurant,
-            };
-          }
-          return { error: error.message };
-        }
-      } else {
-        // Local cart management for non-authenticated users
-        if (existingItemIndex !== -1) {
-          // Item already exists in cart, increment quantity
-          const updatedItems = [...items];
-          updatedItems[existingItemIndex] = {
-            ...updatedItems[existingItemIndex],
-            quantity: updatedItems[existingItemIndex].quantity + 1,
-            totalPrice:
-              updatedItems[existingItemIndex].price *
-              (updatedItems[existingItemIndex].quantity + 1),
+        // Refresh cart from API to ensure consistency
+        await fetchCartFromApi();
+        return { success: true };
+      } catch (error) {
+        console.error("Failed to add item to cart:", error);
+        // If error is about different restaurant, return appropriate response
+        if (error.response?.data?.message?.includes("different restaurant")) {
+          return {
+            requiresConfirmation: true,
+            currentRestaurant: restaurant,
           };
-          setItems(updatedItems);
-        } else {
-          // Add new item to cart
-          setItems([
-            ...items,
-            {
-              id: Math.random().toString(36).substring(2, 15),
-              itemId: item.id,
-              name: item.name,
-              price: item.price,
-              image: item.image,
-              quantity: 1,
-              totalPrice: item.price,
-            },
-          ]);
         }
-
-        // Set restaurant if not already set
-        if (!restaurant) {
-          setRestaurant(restaurantData);
-        }
+        return { error: error.message };
+      }
+    } else {
+      // Local cart management for non-authenticated users
+      if (existingItemIndex !== -1) {
+        // Item already exists in cart, increment quantity
+        const updatedItems = [...items];
+        updatedItems[existingItemIndex] = {
+          ...updatedItems[existingItemIndex],
+          quantity: updatedItems[existingItemIndex].quantity + 1,
+          totalPrice:
+            updatedItems[existingItemIndex].price *
+            (updatedItems[existingItemIndex].quantity + 1),
+        };
+        setItems(updatedItems);
+      } else {
+        // Add new item to cart
+        setItems([
+          ...items,
+          {
+            id: Math.random().toString(36).substring(2, 15),
+            itemId: item.id,
+            name: item.name,
+            price: item.price,
+            image: item.image,
+            quantity: 1,
+            totalPrice: item.price,
+          },
+        ]);
       }
 
-      return { success: true };
-    } else {
-      // Items from different restaurant, ask user if they want to clear cart
-      return {
-        requiresConfirmation: true,
-        currentRestaurant: restaurant,
-      };
+      // Set restaurant if not already set
+      if (!restaurant) {
+        setRestaurant(restaurantData);
+      }
     }
+
+    return { success: true };
+    // } else {
+    //   // Items from different restaurant, ask user if they want to clear cart
+    //   return {
+    //     requiresConfirmation: true,
+    //     currentRestaurant: restaurant,
+    //   };
+    // }
   };
 
   const removeItem = async (itemId) => {
@@ -281,6 +278,7 @@ export const CartProvider = ({ children }) => {
 
   const getTotal = () => {
     const subtotal = getSubtotal();
+    console.log(subtotal)
     const deliveryFee = restaurant ? parseFloat(restaurant.deliveryFee) : 0;
     return subtotal + deliveryFee;
   };

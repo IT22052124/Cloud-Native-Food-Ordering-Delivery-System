@@ -18,11 +18,11 @@ const DishDetailScreen = ({ route, navigation }) => {
   const { restaurantId, dishId } = route.params;
   const theme = useTheme();
   const { addItem, items, restaurant: cartRestaurant, clearCart } = useCart();
-
   const [dish, setDish] = useState(null);
   const [restaurant, setRestaurant] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [cartAddingLoading, setCartAddingLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [cartModalVisible, setCartModalVisible] = useState(false);
 
@@ -57,23 +57,25 @@ const DishDetailScreen = ({ route, navigation }) => {
     }
   };
 
-  const handleAddToCart = () => {
-    if (
-      cartRestaurant &&
-      cartRestaurant.id !== restaurant.id &&
-      items.length > 0
-    ) {
-      // Show confirmation modal for clearing cart
-      setCartModalVisible(true);
-    } else {
-      const dishWithQuantity = { ...dish, quantity };
-      const result = addItem(dishWithQuantity, restaurant);
+  const handleAddToCart = async () => {
+    setCartAddingLoading(true);
+    // if (
+    //   cartRestaurant &&
+    //   cartRestaurant.id !== restaurant.id &&
+    //   items.length > 0
+    // ) {
+    // Show confirmation modal for clearing cart
+    // setCartModalVisible(true);
+    // } else {
+    const dishWithQuantity = { ...dish, quantity };
+    const result = await addItem(dishWithQuantity, restaurant);
 
-      if (result.success) {
-        // Show confirmation modal
-        setModalVisible(true);
-      }
+    if (result.success) {
+      // Show confirmation modal
+      setModalVisible(true);
     }
+    setCartAddingLoading(false);
+    // }
   };
 
   const handleClearCartAndAdd = () => {
@@ -223,6 +225,8 @@ const DishDetailScreen = ({ route, navigation }) => {
           style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
           labelStyle={styles.addButtonLabel}
           onPress={handleAddToCart}
+          loading={cartAddingLoading}
+          disabled={cartAddingLoading}
         >
           Add to Cart - ${totalPrice.toFixed(2)}
         </Button>

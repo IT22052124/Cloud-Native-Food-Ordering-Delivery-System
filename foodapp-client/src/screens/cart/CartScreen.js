@@ -151,13 +151,13 @@ const CartScreen = ({ navigation }) => {
           }
         >
           <Image
-            source={{ uri: restaurant.image }}
+            source={{ uri: "restaurant.image" }}
             style={styles.restaurantImage}
           />
           <View style={styles.restaurantInfo}>
             <Text style={styles.restaurantName}>{restaurant.name}</Text>
             <Text style={styles.restaurantDelivery}>
-              Delivery: ${restaurant.deliveryFee} • {restaurant.deliveryTime}
+              Delivery: ${"restaurant.deliveryFee"} • {"restaurant.deliveryTime"}
             </Text>
           </View>
           <Ionicons

@@ -17,6 +17,7 @@ export const AuthProvider = ({ children }) => {
 
   const loadStoredData = async () => {
     try {
+      // Try to get token from SecureStore first
       const storedToken = await SecureStore.getItemAsync("token");
 
       if (storedToken) {
@@ -25,7 +26,7 @@ export const AuthProvider = ({ children }) => {
         try {
           await AsyncStorage.setItem("authToken", storedToken);
         } catch (e) {
-          // Ignore localStorage errors in React Native environment
+          console.warn("Error working with AsyncStorage:", e);
         }
 
         const userData = await authService.getCurrentUser(storedToken);
@@ -34,11 +35,7 @@ export const AuthProvider = ({ children }) => {
         } else {
           // If user data is null, token might be invalid
           await SecureStore.deleteItemAsync("token");
-          try {
-            await AsyncStorage.removeItem("authToken");
-          } catch (e) {
-            // Ignore localStorage errors in React Native environment
-          }
+          await AsyncStorage.removeItem("authToken");
         }
       }
     } catch (err) {
@@ -62,12 +59,8 @@ export const AuthProvider = ({ children }) => {
         // Store token in SecureStore
         await SecureStore.setItemAsync("token", response.token);
 
-        // Also set token in localStorage for API client usage
-        try {
-          await AsyncStorage.setItem("authToken", response.token);
-        } catch (e) {
-          // Ignore localStorage errors in React Native environment
-        }
+        // Also set token in AsyncStorage for API client usage
+        await AsyncStorage.setItem("authToken", response.token);
 
         return response;
       } else {
@@ -89,12 +82,9 @@ export const AuthProvider = ({ children }) => {
       if (response && response.token) {
         setUser(response.user);
         setToken(response.token);
+
         await SecureStore.setItemAsync("token", response.token);
-        try {
-          await AsyncStorage.setItem("authToken", response.token);
-        } catch (e) {
-          // Ignore localStorage errors in React Native environment
-        }
+        await AsyncStorage.setItem("authToken", response.token);
       }
       return response;
     } catch (err) {
@@ -116,11 +106,7 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       setToken(null);
       await SecureStore.deleteItemAsync("token");
-      try {
-        await AsyncStorage.removeItem("authToken");
-      } catch (e) {
-        // Ignore localStorage errors in React Native environment
-      }
+      await AsyncStorage.removeItem("authToken");
     }
   };
 

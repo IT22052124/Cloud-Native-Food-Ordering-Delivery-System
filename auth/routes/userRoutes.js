@@ -7,6 +7,7 @@ import {
   deleteUser,
   updateUserStatus,
   changePassword,
+  toggleDriverAvailability,
 } from "../controller/userController.js";
 import { getCurrentUser } from "../controller/authController.js";
 import { protect, authorize } from "../middleware/auth.js";
@@ -26,5 +27,12 @@ router.get("/pending-approval", authorize("admin"), getPendingApprovalUsers);
 router.put("/:id/approve", authorize("admin"), approveUser);
 router.put("/:id/status", authorize("admin"), updateUserStatus);
 router.delete("/:id", authorize("admin"), deleteUser);
+
+// Delivery Person only route
+router.put(
+  "/me/availability/toggle",
+  authorize("delivery"),
+  toggleDriverAvailability
+);
 
 export default router;
