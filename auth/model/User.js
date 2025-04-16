@@ -49,6 +49,10 @@ const UserSchema = new Schema(
       type: String,
       default: "",
     },
+    driverIsAvailable: {
+      type: Boolean,
+      default: false,
+    },
     // For all users
     status: {
       type: String,
