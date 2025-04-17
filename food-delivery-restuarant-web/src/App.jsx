@@ -14,6 +14,10 @@ import AddDish from './pages/AddDish';
 import EditDish from './pages/EditDish';
 import RestaurantDetails from './pages/RestaurantDetails';
 import DishDetails from './pages/DishDetails';
+import IncomingOrders from './pages/IncomingOrders';
+import ProcessingOrders from './pages/ProcessingOrders';
+import OrderHistory from './pages/OrderHistory'
+
 const App = () => {
   return (
     <Router>
@@ -31,6 +35,9 @@ const App = () => {
         <Route path="/dishes/:id" element={<DishDetails />} />
         <Route path="/dishes/add" element={<AddDish />} />
         <Route path="/dishes/edit/:id" element={<EditDish />} />
+        <Route path="/orders/incoming" element={<IncomingOrders />} />
+        <Route path="/orders/processing" element={<ProcessingOrders />} />
+        <Route path="/orders/history" element={<OrderHistory />} />
         <Route path="/" element={<Login />} />
       </Routes>
     </Router>

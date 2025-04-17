@@ -113,15 +113,6 @@ export const deleteRestaurant = async (id) => {
   return response.data;
 };
 
-export const getOrders = async () => {
-  const response = await api.get('/orders');
-  return response.data;
-};
-
-export const updateOrderStatus = async (id, status) => {
-  const response = await api.put(`/orders/${id}`, { status });
-  return response.data;
-};
 
 export const getDishes = async (restaurantId) => {
   const response = await api.get(`branch/`);
@@ -146,4 +137,43 @@ export const updateDish = async (id, data) => {
 export const deleteDish = async (id) => {
   const response = await api.delete(`/branch/${id}`);
   return response.data;
+};
+
+// Updated getOrders to fetch orders with a specific status
+export const getOrders = async (status) => {
+  try {
+    const token = localStorage.getItem('token');
+
+    const response = await api.get('/branch/orders', {
+      params: { status },
+      headers: {   Authorization: `Bearer ${token}`,},
+    });
+    return response.data.orders || [];
+  } catch (error) {
+    console.error('getOrders: Error:', error);
+    throw error;
+  }
+};
+
+// Updated updateOrderStatus to call the orders microservice directly
+export const updateOrderStatus = async (id, status, notes = '', estimatedReadyMinutes) => {
+  try {
+    const payload = { status, notes };
+    if (estimatedReadyMinutes) {
+      payload.estimatedReadyMinutes = estimatedReadyMinutes;
+    }
+    const response = await axios.patch(
+      `http://localhost:5002/api/orders/${id}/status`, // Orders microservice endpoint
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('updateOrderStatus: Error:', error);
+    throw error;
+  }
 };

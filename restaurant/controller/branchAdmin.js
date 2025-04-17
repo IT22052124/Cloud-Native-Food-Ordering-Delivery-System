@@ -2,6 +2,7 @@ import { Restaurant } from "../model/resturant.js";
 import { Dish } from "../model/dish.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import axios from 'axios';
 
 export const restaurantAdminLogin = async (req, res) => {
   try {
@@ -52,7 +53,7 @@ export const restaurantAdminLogin = async (req, res) => {
       {
         id: restaurant._id,
         adminId: admin._id,
-        role: "restaurantAdmin",
+        role: "restaurant",
         username: admin.username,
       },
       process.env.JWT_SECRET,
@@ -261,18 +262,62 @@ export const deleteDish = async (req, res) => {
 };
 
 // controller function to get dishById
-export const getDishById = async (req, res) => {
-  try {
-    const dishId = req.params.id;
+// export const getDishById = async (req, res) => {
+//   try {
+//     const dishId = req.params.id;
 
-    const dish =  await Dish.findOne({_id:dishId});
-    if(!dish){
-      return res.status(404).json({message:"Dish not found"});
-    }
+//     const dish =  await Dish.findOne({_id:dishId});
+//     if(!dish){
+//       return res.status(404).json({message:"Dish not found"});
+//     }
    
-    return res.status(200).json({ dish });
+//     return res.status(200).json({ dish });
+//   } catch (error) {
+//     console.log("error in getDishbyId", error);
+//     return res.status(500).json({ message: "Server error", error });
+//   }
+// };
+
+// Existing getOrdersForRestaurant controller (from previous context)
+export const getOrdersForRestaurant = async (req, res) => {
+  try {
+    const restaurantId =  req.restaurantId;
+    const { status, page = 1, limit = 10 } = req.query;
+    const ordersServiceUrl = `${global.gConfig.orders_url}/api/orders/restaurant`;
+    const params = { page, limit };
+    if (status) {
+      params.status = status;
+    }
+
+    const response = await axios.get(ordersServiceUrl, {
+      params,
+      headers: {
+        Authorization: req.headers.authorization,
+      },
+    });
+
+    res.status(200).json({
+      status: 200,
+      orders: response.data.orders,
+      total: response.data.total,
+      page: response.data.page,
+      limit: response.data.limit,
+    });
   } catch (error) {
-    console.log("error in getDishbyId", error);
-    return res.status(500).json({ message: "Server error", error });
+    console.log("error in getOrdersForRestaurant", error);
+
+    console.error('Error fetching orders from orders microservice:', error);
+    if (error.response) {
+      return res.status(error.response.status).json({
+        status: error.response.status,
+        message: error.response.data.message || 'Failed to fetch orders',
+      });
+    }
+    console.log("error in getOrdersForRestaurant", error);
+    res.status(500).json({
+      status: 500,
+      message: 'Failed to fetch orders from orders microservice',
+    });
   }
 };
+

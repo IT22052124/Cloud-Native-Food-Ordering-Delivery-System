@@ -1,11 +1,42 @@
-import React, {useContext}from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { FaTachometerAlt, FaUtensils, FaPlus, FaClipboardList, FaUsers } from 'react-icons/fa';
+import { FaTachometerAlt, FaUtensils, FaPlus, FaClipboardList, FaUsers, FaInbox, FaSpinner, FaHistory } from 'react-icons/fa';
 import { AuthContext } from '../context/AuthContext';
+import { getOrders } from '../utils/api';
 
 const DishSidebar = () => {
-      const { user } = useContext(AuthContext);
-    
+  const { user } = useContext(AuthContext);
+  const [orderCounts, setOrderCounts] = useState({
+    incoming: 0,
+    processing: 0,
+    history: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  // Fetch order counts for each status
+  useEffect(() => {
+    const fetchOrderCounts = async () => {
+      try {
+        setLoading(true);
+        const [incomingOrders, processingOrders, historyOrders] = await Promise.all([
+          getOrders('PLACED'),
+          getOrders('PREPARING'),
+          getOrders('DELIVERED,CANCELLED'),
+        ]);
+        setOrderCounts({
+          incoming: incomingOrders.length,
+          processing: processingOrders.length,
+          history: historyOrders.length,
+        });
+      } catch (error) {
+        console.error('Failed to fetch order counts:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOrderCounts();
+  }, []);
+
   return (
     <div className="fixed top-0 left-0 w-64 h-screen bg-gray-50 dark:bg-gray-800 shadow-md p-4 flex flex-col border-r border-gray-200 dark:border-gray-700">
       {/* Logo/App Name */}
@@ -18,7 +49,7 @@ const DishSidebar = () => {
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 space-y-1 overflow-y-auto">        
+      <nav className="flex-1 space-y-1 overflow-y-auto">
         <NavLink
           to="/admin-dashboard"
           className={({ isActive }) =>
@@ -61,8 +92,33 @@ const DishSidebar = () => {
           <span className="font-medium">Add New Dish</span>
         </NavLink>
 
+        {/* Incoming Orders */}
         <NavLink
-          to="/orders"
+          to="/orders/incoming"
+          className={({ isActive }) =>
+            `flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 ${
+              isActive
+                ? 'bg-accent text-white shadow-md'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`
+          }
+        >
+          <FaInbox className="flex-shrink-0" />
+          <span className="font-medium">Incoming Orders</span>
+          {loading ? (
+            <span className="ml-auto text-gray-500 dark:text-gray-400 text-xs">
+              <FaSpinner className="animate-spin" />
+            </span>
+          ) : orderCounts.incoming > 0 ? (
+            <span className="ml-auto bg-accent text-white text-xs px-2 py-1 rounded-full">
+              {orderCounts.incoming}
+            </span>
+          ) : null}
+        </NavLink>
+
+        {/* Processing Orders */}
+        <NavLink
+          to="/orders/processing"
           className={({ isActive }) =>
             `flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 ${
               isActive
@@ -72,10 +128,40 @@ const DishSidebar = () => {
           }
         >
           <FaClipboardList className="flex-shrink-0" />
-          <span className="font-medium">Orders</span>
-          <span className="ml-auto bg-accent text-white text-xs px-2 py-1 rounded-full">
-            5
-          </span>
+          <span className="font-medium">Processing Orders</span>
+          {loading ? (
+            <span className="ml-auto text-gray-500 dark:text-gray-400 text-xs">
+              <FaSpinner className="animate-spin" />
+            </span>
+          ) : orderCounts.processing > 0 ? (
+            <span className="ml-auto bg-accent text-white text-xs px-2 py-1 rounded-full">
+              {orderCounts.processing}
+            </span>
+          ) : null}
+        </NavLink>
+
+        {/* Order History */}
+        <NavLink
+          to="/orders/history"
+          className={({ isActive }) =>
+            `flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 ${
+              isActive
+                ? 'bg-accent text-white shadow-md'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`
+          }
+        >
+          <FaHistory className="flex-shrink-0" />
+          <span className="font-medium">Order History</span>
+          {loading ? (
+            <span className="ml-auto text-gray-500 dark:text-gray-400 text-xs">
+              <FaSpinner className="animate-spin" />
+            </span>
+          ) : orderCounts.history > 0 ? (
+            <span className="ml-auto bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white text-xs px-2 py-1 rounded-full">
+              {orderCounts.history}
+            </span>
+          ) : null}
         </NavLink>
 
         <NavLink
