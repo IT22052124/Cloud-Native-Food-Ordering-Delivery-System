@@ -93,23 +93,26 @@ const createOrder = async (req, res) => {
       0
     );
 
+    const orderType = req.body.type || "DELIVERY";
+
     // Calculate tax (8%)
     const tax = Math.round(subtotal * 0.08 * 100) / 100;
 
     // Get delivery fee from restaurant or use default
-    const deliveryFee = restaurant.deliveryFee || 2.99;
+    const deliveryFee =
+      orderType === "PICKUP" ? 0 : restaurant.deliveryFee || 2.99;
 
     // Calculate total amount
     const totalAmount = subtotal + tax + deliveryFee;
-    console.log(5);
+
     // Create new order
-    const newOrder = new Order({
+    const orderData = {
       orderId: `ORD-${Date.now().toString().slice(-6)}`,
       customerId,
       customerName: name,
       customerEmail: email,
       customerPhone: phone,
-      type: req.body.type || "DELIVERY",
+      type: orderType,
       restaurantOrder: {
         restaurantId,
         restaurantName: restaurant.name,
@@ -131,18 +134,28 @@ const createOrder = async (req, res) => {
           },
         ],
       },
-      deliveryAddress: req.body.deliveryAddress || req.user.address,
       totalAmount,
       paymentMethod: req.body.paymentMethod || "CASH",
       paymentStatus: "PENDING",
       paymentDetails: req.body.paymentDetails || {},
-    });
+    };
+
+    if (orderType === "DELIVERY") {
+      if (!req.body.deliveryAddress && !req.user.address) {
+        return res.status(400).json({
+          status: 400,
+          message: "Delivery address is required for delivery orders",
+        });
+      }
+      orderData.deliveryAddress = req.body.deliveryAddress || req.user.address;
+    }
 
     // Save order
+    const newOrder = new Order(orderData);
     const savedOrder = await newOrder.save();
-    console.log(6);
+
     // Clear cart after successful order
-    // await CartItem.deleteMany({ customerId });
+    await CartItem.deleteMany({ customerId });
 
     // Notify restaurant about new order
     // try {
