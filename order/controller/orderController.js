@@ -349,6 +349,7 @@ const getRestaurantOrders = async (req, res) => {
       deliveryFee: order.restaurantOrder.deliveryFee,
       estimatedReadyTime: order.restaurantOrder.estimatedReadyTime,
     }));
+    console.log("processedOrders", processedOrders);
 
     res.status(200).json({
       status: 200,
