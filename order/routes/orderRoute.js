@@ -30,7 +30,7 @@ router
   .delete(authorize("customer", "admin"), deleteOrder);
 
 // Restaurant routes
-router.route("/restaurant").get(authorize("restaurant"), getRestaurantOrders);
+router.route("/restaurant").post(authorize("restaurant"), getRestaurantOrders);
 
 // Admin routes
 router.route("/admin/all").get(authorize("admin"), getAllOrders);

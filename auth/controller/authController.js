@@ -402,6 +402,19 @@ const validateToken = async (req, res) => {
       process.env.JWT_SECRET || "jwt-secret-key-develop-only"
     );
 
+    if (decoded.username) {
+      return res.status(200).json({
+        success: true,
+        message: "Token is valid for Restaurant credentials",
+        user: {
+          id: decoded.id,
+          adminId: decoded.adminId,
+          role: decoded.role,
+          username: decoded.username,
+        },
+      });
+    }
+
     const user = await User.findById(decoded.id);
 
     if (!user) {

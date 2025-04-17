@@ -2,6 +2,46 @@ import { Schema, model } from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
+const AddressSchema = new Schema(
+  {
+    label: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    street: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    city: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    state: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    isDefault: {
+      type: Boolean,
+      default: false,
+    },
+    coordinates: {
+      lat: {
+        type: Number,
+        default: null,
+      },
+      lng: {
+        type: Number,
+        default: null,
+      },
+    },
+  },
+  { _id: true }
+);
+
 const UserSchema = new Schema(
   {
     email: {
@@ -42,9 +82,9 @@ const UserSchema = new Schema(
     nic: { type: String, default: "" },
     nicImage: { type: String, default: "" },
 
-    address: {
-      type: String,
-      default: "",
+    addresses: {
+      type: [AddressSchema],
+      default: [],
     },
     vehiclePlate: {
       type: String,
