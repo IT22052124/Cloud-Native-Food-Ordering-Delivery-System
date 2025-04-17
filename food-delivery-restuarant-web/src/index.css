@@ -4,3 +4,69 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+
+
+  /* Base styles for light mode */
+body {
+    background-color: #f3f4f6;
+    color: #1f2937;
+    font-family: 'Inter', sans-serif;
+}
+  
+  
+  /* Dark mode styles */
+  body.dark {
+    background-color: #1a202c;
+    color: #e2e8f0;
+  }
+  
+  .dark .bg-white {
+    background-color: #2d3748;
+  }
+  
+  .dark .text-gray-700 {
+    color: #cbd5e0;
+  }
+  
+  .dark .bg-gray-100 {
+    background-color: #2d3748;
+  }
+  
+  .dark .bg-gray-200 {
+    background-color: #4a5568;
+  }
+  
+  .dark .border-gray-200 {
+    border-color: #4a5568;
+  }
+  
+  .dark .bg-blue-600 {
+    background-color: #2b6cb0;
+  }
+  
+  .dark .text-blue-600 {
+    color: #63b3ed;
+  }
+  
+  .dark .bg-red-500 {
+    background-color: #c53030;
+  }
+  
+  .dark .text-red-600 {
+    color: #f56565;
+  }
+  
+  .dark input,
+  .dark select,
+  .dark textarea {
+    background-color: #4a5568;
+    color: #e2e8f0;
+    border-color: #718096;
+  }
+  
+  .dark input:focus,
+  .dark select:focus,
+  .dark textarea:focus {
+    ring-color: #63b3ed;
+  }

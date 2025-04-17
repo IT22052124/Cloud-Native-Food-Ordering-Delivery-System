@@ -12,10 +12,16 @@ const app = express();
 app.use(
   cors({
     origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE","PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+global.gConfig = {
+  orders_url: process.env.ORDERS_SERVICE_URL || "http://localhost:5002", // Adjust port as needed
+ 
+ 
+};
 
 app.use(express.json());
 app.use(BodyParser.json());
