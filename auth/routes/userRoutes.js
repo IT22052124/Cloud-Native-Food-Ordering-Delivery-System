@@ -8,6 +8,11 @@ import {
   updateUserStatus,
   changePassword,
   toggleDriverAvailability,
+  getUserAddresses,
+  addAddress,
+  updateAddress,
+  setDefaultAddress,
+  removeAddress,
 } from "../controller/userController.js";
 import { getCurrentUser } from "../controller/authController.js";
 import { protect, authorize } from "../middleware/auth.js";
@@ -20,6 +25,13 @@ router.use(protect);
 router.get("/me", getCurrentUser);
 router.put("/me", updateProfile);
 router.put("/me/password", changePassword);
+
+// Address management routes
+router.get("/me/addresses", getUserAddresses);
+router.post("/me/addresses", addAddress);
+router.put("/me/addresses/:addressId", updateAddress);
+router.put("/me/addresses/:addressId/default", setDefaultAddress);
+router.delete("/me/addresses/:addressId", removeAddress);
 
 // Admin only routes
 router.get("/", authorize("admin"), getAllUsers);

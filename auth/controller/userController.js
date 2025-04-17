@@ -110,9 +110,9 @@ const approveUser = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const allowedUpdates = {
-      customer: ["name", "phone", "address", "profilePicture"],
-      restaurant: ["name", "phone", "address", "profilePicture"],
-      delivery: ["name", "phone", "address", "profilePicture", "vehiclePlate"],
+      customer: ["name", "phone", "profilePicture"],
+      restaurant: ["name", "phone", "profilePicture"],
+      delivery: ["name", "phone", "profilePicture", "vehiclePlate"],
     };
 
     const user = await User.findById(req.user.id);
@@ -137,6 +137,7 @@ const updateProfile = async (req, res) => {
     delete updates.status;
     delete updates.email;
     delete updates.password;
+    delete updates.addresses; // Explicitly prevent addresses from being updated here
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
@@ -353,6 +354,281 @@ const toggleDriverAvailability = async (req, res) => {
   }
 };
 
+/**
+ * Get user addresses
+ * @route GET /api/users/me/addresses
+ * @access Private
+ */
+const getUserAddresses = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      addresses: user.addresses || [],
+    });
+  } catch (error) {
+    console.error("Get user addresses error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching addresses",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Add a new address for the user
+ * @route POST /api/users/me/addresses
+ * @access Private
+ */
+const addAddress = async (req, res) => {
+  try {
+    const { label, street, city, state, isDefault = false } = req.body;
+
+    // Validate required fields
+    if (!label || !street || !city || !state) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Please provide all required address fields: label, street, city, state",
+      });
+    }
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Create the new address
+    const newAddress = {
+      label,
+      street,
+      city,
+      state,
+      isDefault: false, // Default to false initially
+      coordinates: req.body.coordinates || { lat: null, lng: null },
+    };
+
+    // If this is marked as default or it's the first address, handle default logic
+    if (isDefault || user.addresses.length === 0) {
+      // If it's the first address or marked as default, set all existing addresses to non-default
+      if (user.addresses.length > 0) {
+        user.addresses.forEach((address) => {
+          address.isDefault = false;
+        });
+      }
+      newAddress.isDefault = true;
+    }
+
+    // Add the new address
+    user.addresses.push(newAddress);
+    await user.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Address added successfully",
+      address: newAddress,
+    });
+  } catch (error) {
+    console.error("Add address error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error adding address",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Update an existing address
+ * @route PUT /api/users/me/addresses/:addressId
+ * @access Private
+ */
+const updateAddress = async (req, res) => {
+  try {
+    const addressId = req.params.addressId;
+    const { label, street, city, state, isDefault, coordinates } = req.body;
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Find the address to update
+    const addressIndex = user.addresses.findIndex(
+      (addr) => addr._id.toString() === addressId
+    );
+
+    if (addressIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "Address not found",
+      });
+    }
+
+    // Update address fields if provided
+    if (label) user.addresses[addressIndex].label = label;
+    if (street) user.addresses[addressIndex].street = street;
+    if (city) user.addresses[addressIndex].city = city;
+    if (state) user.addresses[addressIndex].state = state;
+    if (coordinates) user.addresses[addressIndex].coordinates = coordinates;
+
+    // Handle default address logic
+    if (isDefault === true && !user.addresses[addressIndex].isDefault) {
+      // Set all addresses to non-default
+      user.addresses.forEach((address) => {
+        address.isDefault = false;
+      });
+      // Set this address as default
+      user.addresses[addressIndex].isDefault = true;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Address updated successfully",
+      address: user.addresses[addressIndex],
+    });
+  } catch (error) {
+    console.error("Update address error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating address",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Set an address as default
+ * @route PUT /api/users/me/addresses/:addressId/default
+ * @access Private
+ */
+const setDefaultAddress = async (req, res) => {
+  try {
+    const addressId = req.params.addressId;
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Find the address
+    const addressIndex = user.addresses.findIndex(
+      (addr) => addr._id.toString() === addressId
+    );
+
+    if (addressIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "Address not found",
+      });
+    }
+
+    // Set all addresses to non-default
+    user.addresses.forEach((address) => {
+      address.isDefault = false;
+    });
+
+    // Set the selected address as default
+    user.addresses[addressIndex].isDefault = true;
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Default address updated successfully",
+      address: user.addresses[addressIndex],
+    });
+  } catch (error) {
+    console.error("Set default address error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error setting default address",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Remove an address
+ * @route DELETE /api/users/me/addresses/:addressId
+ * @access Private
+ */
+const removeAddress = async (req, res) => {
+  try {
+    const addressId = req.params.addressId;
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Find the address
+    const addressIndex = user.addresses.findIndex(
+      (addr) => addr._id.toString() === addressId
+    );
+
+    if (addressIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "Address not found",
+      });
+    }
+
+    // Check if it's the default address
+    const isDefault = user.addresses[addressIndex].isDefault;
+
+    // Remove the address
+    user.addresses.splice(addressIndex, 1);
+
+    // If the removed address was the default and there are other addresses,
+    // set the first one as default
+    if (isDefault && user.addresses.length > 0) {
+      user.addresses[0].isDefault = true;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Address removed successfully",
+    });
+  } catch (error) {
+    console.error("Remove address error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error removing address",
+      error: error.message,
+    });
+  }
+};
+
 export {
   getAllUsers,
   getPendingApprovalUsers,
@@ -362,4 +638,9 @@ export {
   updateUserStatus,
   changePassword,
   toggleDriverAvailability,
+  getUserAddresses,
+  addAddress,
+  updateAddress,
+  setDefaultAddress,
+  removeAddress,
 };

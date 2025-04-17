@@ -13,7 +13,7 @@ const app = express();
 // Middleware
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "*",
+    origin: "*",
     credentials: true,
   })
 );
@@ -28,7 +28,7 @@ global.gConfig = {
 };
 
 // Routes
-app.use("/api/orders", orderRoutes);
+app.use("/api/orders/", orderRoutes);
 app.use("/api/cart", cartRoutes);
 
 // Health check endpoint

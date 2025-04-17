@@ -1,26 +1,25 @@
 import CartItem from "../model/cartItem.js";
 import axios from "axios";
 
-const getRestaurants = async (authorization) => {
-  try {
-    const response = await axios.get(
-      `${global.gConfig.restaurant_url}/api/restaurants`,
-      { headers: { authorization } }
-    );
+// const getRestaurants = async (authorization) => {
+//   try {
+//     const response = await axios.get(
+//       `${global.gConfig.restaurant_url}/api/restaurants`,
+//       { headers: { authorization } }
+//     );
 
-    console.log(response);
-    // Convert array to object with restaurant ID as key
-    const restaurants = {};
-    response.data.forEach((restaurant) => {
-      restaurants[restaurant._id] = restaurant;
-    });
+//     // Convert array to object with restaurant ID as key
+//     const restaurants = {};
+//     response.data.forEach((restaurant) => {
+//       restaurants[restaurant._id] = restaurant;
+//     });
 
-    return restaurants;
-  } catch (error) {
-    console.error("Error fetching restaurants:", error);
-    throw new Error("Failed to fetch restaurant data");
-  }
-};
+//     return restaurants;
+//   } catch (error) {
+//     console.error("Error fetching restaurants:", error);
+//     throw new Error("Failed to fetch restaurant data");
+//   }
+// };
 
 const getRestaurantById = async (authorization, restaurantId) => {
   try {
@@ -67,7 +66,6 @@ const getAllCartItems = async (req, res) => {
       req.headers.authorization,
       restaurantId
     );
-
     // Get all dishes for the restaurant
     const dishesResponse = await getRestaurantDishes(
       req.headers.authorization,
@@ -109,7 +107,6 @@ const getAllCartItems = async (req, res) => {
 
 const addCartItem = async (req, res) => {
   const userId = req.user.id;
-
   try {
     const restaurant = await getRestaurantById(
       req.headers.authorization,
@@ -200,7 +197,7 @@ const updateCartItem = async (req, res) => {
 
   // Use authenticated user ID from req.user
   const userId = req.user.id;
-  const { quantity, restaurantId } = req.body;
+  const { quantity, restaurantId, itemId } = req.body;
 
   // Fetch the restaurant details
   const restaurant = await getRestaurantById(
@@ -214,18 +211,32 @@ const updateCartItem = async (req, res) => {
       .json({ status: 404, message: "Restaurant not found" });
   }
 
+  const dishesResponse = await getRestaurantDishes(
+    req.headers.authorization,
+    restaurantId
+  );
+
+  const dish = dishesResponse.data?.dishes.find((d) => d._id === itemId);
+  if (!dish) {
+    return res
+      .status(404)
+      .json({ status: 404, message: "Dish not found for restaurant" });
+  }
+
   try {
     // Find the cart item by ID, customer ID, and restaurant ID
-    const cartItem = await CartItem.findOne({
-      itemId: id,
-      customerId: userId,
-      restaurantId: restaurantId,
-    });
+    const cartItem = await CartItem.findById(id);
 
     if (!cartItem) {
       return res
         .status(404)
         .json({ status: 404, message: "Cart item not found" });
+    }
+
+    if (cartItem.customerId.toString() !== userId) {
+      return res
+        .status(401)
+        .json({ status: 401, message: "Unauthorized Cart Item" });
     }
 
     // Update the cart item fields
