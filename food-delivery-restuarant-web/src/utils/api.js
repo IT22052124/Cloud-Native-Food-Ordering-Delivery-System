@@ -142,7 +142,7 @@ export const deleteDish = async (id) => {
 // Updated getOrders to fetch orders with a specific status
 export const getOrders = async (status) => {
   try {
-    const token = localStorage.getItem('token');
+      const token = localStorage.getItem('token');
 
     const response = await api.get('/branch/orders', {
       params: { status },
