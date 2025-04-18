@@ -17,7 +17,7 @@ const DishTable = ({ dishes }) => {
   return (
     <div className="space-y-6">
       {/* Search, Filter, and Toggle Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center  justify-between gap-4">
         <div className="relative w-full md:w-64">
           <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400" />
           <input

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getOrders } from '../utils/api';
-import DishSidebar from '../components/DishSidebar';
-import Navbar from '../components/Navbar';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { getOrders } from '../../utils/api';
+import DishSidebar from '../../components/DishSidebar';
+import Navbar from '../../components/Navbar';
+import LoadingSpinner from '../../components/LoadingSpinner';
 import { toast } from 'react-toastify';
 
 const OrderHistory = () => {

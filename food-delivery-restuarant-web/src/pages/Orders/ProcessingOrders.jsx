@@ -1,27 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getOrders, updateOrderStatus } from '../utils/api';
-import DishSidebar from '../components/DishSidebar';
-import Navbar from '../components/Navbar';
-import LoadingSpinner from '../components/LoadingSpinner';
-import { toast } from 'react-toastify';
-import { FaCheck, FaTimes } from 'react-icons/fa';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { getOrders, updateOrderStatus } from "../../utils/api";
+import DishSidebar from "../../components/DishSidebar";
+import Navbar from "../../components/Navbar";
+import LoadingSpinner from "../../components/LoadingSpinner";
+import { toast } from "react-toastify";
+import { FaTruck } from "react-icons/fa";
 
-const IncomingOrders = () => {
+const ProcessingOrders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({});
   const navigate = useNavigate();
 
-  // Fetch incoming orders (status: PLACED)
+  // Fetch processing orders (status: PREPARING)
   useEffect(() => {
     const fetchOrders = async () => {
       try {
         setLoading(true);
-        const data = await getOrders('PLACED');
+        const data = await getOrders("PREPARING");
+        console.log("Fetched Orders:", data);
         setOrders(data);
       } catch (error) {
-        toast.error('Failed to fetch incoming orders');
+        toast.error("Failed to fetch processing orders");
+        console.error("Error fetching orders:", error);
       } finally {
         setLoading(false);
       }
@@ -37,25 +39,28 @@ const IncomingOrders = () => {
       toast.success(`Order ${newStatus.toLowerCase()} successfully`);
       onSuccess();
     } catch (error) {
-      toast.error(`Failed to update order status to ${newStatus.toLowerCase()}`);
+      toast.error(
+        `Failed to update order status to ${newStatus.toLowerCase()}`
+      );
     } finally {
       setActionLoading((prev) => ({ ...prev, [orderId]: false }));
     }
   };
 
-  const handleConfirmOrder = (orderId) => {
-    handleUpdateOrderStatus(orderId, 'PREPARING', () => {
-      setOrders((prev) => prev.filter((order) => order.orderId !== orderId));
-    });
-  };
-
-  const handleCancelOrder = (orderId) => {
-    handleUpdateOrderStatus(orderId, 'CANCELLED', () => {
+  const handleReadyForPickup = (orderId) => {
+    handleUpdateOrderStatus(orderId, "READY_FOR_PICKUP", () => {
       setOrders((prev) => prev.filter((order) => order.orderId !== orderId));
     });
   };
 
   if (loading) return <LoadingSpinner />;
+
+  // Filter orders to only show those with status 'PREPARING' (case-insensitive)
+  const filteredOrders = orders.filter(
+    (order) => order.status && order.status.toUpperCase() === "PREPARING"
+  );
+
+  console.log("Filtered Orders:", filteredOrders);
 
   return (
     <div className="flex min-h-screen">
@@ -63,9 +68,13 @@ const IncomingOrders = () => {
       <div className="flex-1 ml-64 bg-gray-50 dark:bg-gray-900">
         <Navbar />
         <div className="p-6">
-          <h2 className="text-3xl font-bold mb-6 text-gray-800 dark:text-white">📥 Incoming Orders</h2>
-          {orders.length === 0 ? (
-            <p className="text-gray-600 dark:text-gray-400">No orders</p>
+          <h2 className="text-3xl font-bold mb-6 text-gray-800 dark:text-white">
+            🍳 Processing Orders
+          </h2>
+          {filteredOrders.length === 0 ? (
+            <p className="text-gray-600 dark:text-gray-400">
+              No orders are currently being processed.
+            </p>
           ) : (
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
               <div className="overflow-x-auto">
@@ -81,40 +90,45 @@ const IncomingOrders = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {orders.map((order) => (
+                    {filteredOrders.map((order) => (
                       <tr
                         key={order.orderId}
                         className="bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
                       >
-                        <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{order.orderId}</td>
-                        <td className="px-6 py-4 text-gray-900 dark:text-white">{order.customerName}</td>
-                        <td className="px-6 py-4 text-gray-900 dark:text-white">
-                          {order.items.map((item) => `${item.name} (${item.quantity})`).join(', ')}
+                        <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                          {order.orderId}
                         </td>
                         <td className="px-6 py-4 text-gray-900 dark:text-white">
-                          LKR {(order.subtotal + order.tax + order.deliveryFee).toFixed(2)}
+                          {order.customerName}
+                        </td>
+                        <td className="px-6 py-4 text-gray-900 dark:text-white">
+                          {order.items
+                            .map((item) => `${item.name} (${item.quantity})`)
+                            .join(", ")}
+                        </td>
+                        <td className="px-6 py-4 text-gray-900 dark:text-white">
+                          LKR{" "}
+                          {(
+                            order.subtotal +
+                            order.tax +
+                            order.deliveryFee
+                          ).toFixed(2)}
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                          <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                             {order.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-center flex justify-center space-x-2">
+                        <td className="px-6 py-4 text-center flex justify-center">
                           <button
-                            onClick={() => handleConfirmOrder(order.orderId)}
+                            onClick={() => handleReadyForPickup(order.orderId)}
                             disabled={actionLoading[order.orderId]}
-                            className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 transition-all duration-200 disabled:bg-gray-400"
+                            className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 transition-all duration-200 disabled:bg-gray-400"
                           >
-                            <FaCheck className="mr-1.5" />
-                            {actionLoading[order.orderId] ? 'Confirming...' : 'Confirm'}
-                          </button>
-                          <button
-                            onClick={() => handleCancelOrder(order.orderId)}
-                            disabled={actionLoading[order.orderId]}
-                            className="inline-flex items-center px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 transition-all duration-200 disabled:bg-gray-400"
-                          >
-                            <FaTimes className="mr-1.5" />
-                            {actionLoading[order.orderId] ? 'Cancelling...' : 'Cancel'}
+                            <FaTruck className="mr-1.5" />
+                            {actionLoading[order.orderId]
+                              ? "Updating..."
+                              : "Ready for Pickup"}
                           </button>
                         </td>
                       </tr>
@@ -130,4 +144,4 @@ const IncomingOrders = () => {
   );
 };
 
-export default IncomingOrders;
+export default ProcessingOrders;

@@ -38,9 +38,9 @@ const Dishes = () => {
   return (
     <div className="flex min-h-screen">
       <DishSidebar />
-      <div className="flex-1 ml-64">
+      <div className="flex-1 ml-64 ">
         <Navbar />
-        <div className="p-6">
+        <div className="p-6 bg-gray">
           <h2 className="text-2xl font-bold mb-4 dark:text-black">Manage Dishes</h2>
         
           <DishTable dishes={dishes}  />
