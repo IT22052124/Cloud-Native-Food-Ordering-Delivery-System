@@ -2,7 +2,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // API Base URLs
-const AUTH_API_URL = `http://localhost:5001/api/auth`;
+const AUTH_API_URL = `http://192.168.1.3:5001/api`;
 const ORDER_API_URL = `http://192.168.1.3:5002/api/orders`;
 const CART_API_URL = `http://192.168.1.3:5002/api/cart`;
 const RESTAURANT_API_URL = `http://192.168.1.3:3000/api/restaurants`;
@@ -686,11 +686,12 @@ const dataService = {
     }
   },
 
-  updateCartItem: async (itemId, data) => {
+  updateCartItem: async (cartId, data) => {
     try {
-      const response = await axios.put(`${CART_API_URL}/${itemId}`, data, {
+      const token = await AsyncStorage.getItem("authToken");
+      const response = await axios.put(`${CART_API_URL}/${cartId}`, data, {
         headers: {
-          Authorization: `Bearer ${AsyncStorage.getItem("authToken")}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -701,11 +702,12 @@ const dataService = {
     }
   },
 
-  deleteCartItem: async (itemId) => {
+  deleteCartItem: async (cartId) => {
     try {
-      const response = await axios.delete(`${CART_API_URL}/${itemId}`, {
+      const token = await AsyncStorage.getItem("authToken");
+      const response = await axios.delete(`${CART_API_URL}/${cartId}`, {
         headers: {
-          Authorization: `Bearer ${AsyncStorage.getItem("authToken")}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       return response;
@@ -736,12 +738,13 @@ const dataService = {
   // Reset cart (clear all items)
   resetCart: async () => {
     try {
+      const token = await AsyncStorage.getItem("authToken");
       const response = await axios.post(
         `${CART_API_URL}/reset`,
         {},
         {
           headers: {
-            Authorization: `Bearer ${AsyncStorage.getItem("authToken")}`,
+            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -895,6 +898,114 @@ const dataService = {
       success: true,
       order: newOrder,
     };
+  },
+
+  // User Address Management
+  getUserAddresses: async () => {
+    try {
+      const token = await getToken();
+      const response = await axios.get(`${AUTH_API_URL}/users/me/addresses`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      console.log(response.data);
+      return { success: true, addresses: response.data.addresses };
+    } catch (error) {
+      console.error("Error fetching user addresses:", error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message,
+      };
+    }
+  },
+
+  addAddress: async (addressData) => {
+    try {
+      const token = await getToken();
+      console.log(token);
+      const response = await axios.post(
+        `${AUTH_API_URL}/users/me/addresses`,
+        addressData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      return { success: true, address: response.data.address };
+    } catch (error) {
+      console.error("Error adding address:", error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message,
+      };
+    }
+  },
+
+  updateAddress: async (addressId, addressData) => {
+    try {
+      const token = await getToken();
+      const response = await axios.put(
+        `${AUTH_API_URL}/users/me/addresses/${addressId}`,
+        addressData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      return { success: true, address: response.data.address };
+    } catch (error) {
+      console.error("Error updating address:", error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message,
+      };
+    }
+  },
+
+  setDefaultAddress: async (addressId) => {
+    try {
+      const token = await getToken();
+      const response = await axios.put(
+        `${AUTH_API_URL}/users/me/addresses/${addressId}/default`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      return { success: true, address: response.data.address };
+    } catch (error) {
+      console.error("Error setting default address:", error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message,
+      };
+    }
+  },
+
+  deleteAddress: async (addressId) => {
+    try {
+      const token = await getToken();
+      const response = await axios.delete(
+        `${AUTH_API_URL}/users/me/addresses/${addressId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting address:", error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message,
+      };
+    }
   },
 };
 
