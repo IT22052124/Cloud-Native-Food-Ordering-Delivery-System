@@ -176,10 +176,10 @@ export const CartProvider = ({ children }) => {
     // }
   };
 
-  const removeItem = async (itemId) => {
+  const removeItem = async (cartId) => {
     if (isAuthenticated) {
       try {
-        await dataService.deleteCartItem(itemId);
+        await dataService.deleteCartItem(cartId);
         await fetchCartFromApi();
       } catch (error) {
         console.error("Failed to remove item from cart:", error);
@@ -195,7 +195,7 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const updateQuantity = async (itemId, quantity) => {
+  const updateQuantity = async (cartId, itemId, quantity) => {
     if (quantity <= 0) {
       removeItem(itemId);
       return;
@@ -203,7 +203,8 @@ export const CartProvider = ({ children }) => {
 
     if (isAuthenticated) {
       try {
-        await dataService.updateCartItem(itemId, {
+        await dataService.updateCartItem(cartId, {
+          itemId,
           quantity,
           restaurantId: restaurant?.id,
         });
@@ -228,7 +229,6 @@ export const CartProvider = ({ children }) => {
   const clearCart = async () => {
     if (isAuthenticated) {
       try {
-        // Use reset endpoint instead of bulk update with zero quantities
         await dataService.resetCart();
         await fetchCartFromApi();
       } catch (error) {
@@ -278,7 +278,7 @@ export const CartProvider = ({ children }) => {
 
   const getTotal = () => {
     const subtotal = getSubtotal();
-    console.log(subtotal)
+    console.log(subtotal);
     const deliveryFee = restaurant ? parseFloat(restaurant.deliveryFee) : 0;
     return subtotal + deliveryFee;
   };

@@ -15,11 +15,15 @@ import RestaurantsScreen from "../screens/restaurants/RestaurantsScreen";
 import RestaurantDetailScreen from "../screens/restaurants/RestaurantDetailScreen";
 import DishDetailScreen from "../screens/restaurants/DishDetailScreen";
 import CartScreen from "../screens/cart/CartScreen";
+import CheckoutScreen from "../screens/cart/CheckoutScreen";
+import PaymentScreen from "../screens/cart/PaymentScreen";
 import OrdersScreen from "../screens/orders/OrdersScreen";
 import OrderDetailScreen from "../screens/orders/OrderDetailScreen";
 import OrderTrackingScreen from "../screens/orders/OrderTrackingScreen";
+import OrderConfirmationScreen from "../screens/orders/OrderConfirmationScreen";
 import ProfileScreen from "../screens/profile/ProfileScreen";
 import ChangePasswordScreen from "../screens/profile/ChangePasswordScreen";
+import SavedAddressesScreen from "../screens/profile/SavedAddressesScreen";
 
 // Loading screen
 import SplashScreen from "../screens/SplashScreen";
@@ -71,6 +75,12 @@ const CartStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="CartScreen" component={CartScreen} />
+      <Stack.Screen name="Checkout" component={CheckoutScreen} />
+      <Stack.Screen name="Payment" component={PaymentScreen} />
+      <Stack.Screen
+        name="OrderConfirmation"
+        component={OrderConfirmationScreen}
+      />
       <Stack.Screen
         name="RestaurantDetail"
         component={RestaurantDetailScreen}
@@ -87,6 +97,10 @@ const OrdersStack = () => {
       <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
       <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
       <Stack.Screen
+        name="OrderConfirmation"
+        component={OrderConfirmationScreen}
+      />
+      <Stack.Screen
         name="RestaurantDetail"
         component={RestaurantDetailScreen}
       />
@@ -100,6 +114,7 @@ const ProfileStack = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+      <Stack.Screen name="SavedAddresses" component={SavedAddressesScreen} />
     </Stack.Navigator>
   );
 };
