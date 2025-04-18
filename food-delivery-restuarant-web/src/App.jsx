@@ -2,8 +2,8 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import Login from "./pages/Login";
-import RestaurantAdminLogin from "./pages/RestaurantAdminLogin";
+import Login from "./pages/Login/Login";
+import RestaurantAdminLogin from "./pages/Login/RestaurantAdminLogin";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard"; // New
 import AddRestaurant from "./pages/AddRestaurant";
@@ -18,7 +18,7 @@ import IncomingOrders from "./pages/Orders/IncomingOrders";
 import ProcessingOrders from "./pages/Orders/ProcessingOrders";
 import OrderHistory from "./pages/Orders/OrderHistory";
 import ReadyForPickupOrders from "./pages/Orders/PickUp";
-
+import Resturant from "./pages/Restaurant"
 const App = () => {
   return (
     <Router>
@@ -33,6 +33,7 @@ const App = () => {
         <Route path="/admin-dashboard" element={<AdminDashboard />} />{" "}
         {/* New */}
         <Route path="/restaurants/add" element={<AddRestaurant />} />
+        <Route path="/restaurants/" element={<Resturant />} />
         <Route path="/restaurants/:id" element={<RestaurantDetails />} />
         <Route path="/restaurants/edit/:id" element={<EditRestaurant />} />
         <Route path="/orders" element={<Orders />} />

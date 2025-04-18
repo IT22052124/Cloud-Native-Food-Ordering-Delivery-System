@@ -1,7 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
-import { loginRestaurantAdmin } from '../utils/api';
+import { AuthContext } from '../../context/AuthContext';
+import { loginRestaurantAdmin } from '../../utils/api';
 import { toast } from 'react-toastify';
 
 const RestaurantAdminLogin = () => {
