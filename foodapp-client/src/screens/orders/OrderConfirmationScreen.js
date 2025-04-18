@@ -1,0 +1,568 @@
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  Image,
+} from "react-native";
+import {
+  Text,
+  Button,
+  Card,
+  Title,
+  IconButton,
+  Divider,
+} from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useTheme } from "../../context/ThemeContext";
+import dataService from "../../services/dataService";
+import { Ionicons } from "@expo/vector-icons";
+
+const OrderConfirmationScreen = ({ navigation, route }) => {
+  const theme = useTheme();
+  const { orderId } = route.params;
+
+  const [loading, setLoading] = useState(true);
+  const [order, setOrder] = useState(null);
+
+  useEffect(() => {
+    const fetchOrderDetails = async () => {
+      try {
+        setLoading(true);
+        // In a real app, fetch from API using dataService.getOrderById(orderId)
+        // For demo, simulate a response
+        const mockOrder = {
+          id: orderId,
+          status: "CONFIRMED",
+          date: new Date(),
+          estimatedDeliveryTime: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now
+          paymentMethod: "CARD",
+          total: 25.99,
+          deliveryFee: 3.99,
+          subtotal: 22.0,
+          items: [
+            {
+              id: "1",
+              name: "Margherita Pizza",
+              price: 12.0,
+              quantity: 1,
+              image: "https://via.placeholder.com/100",
+            },
+            {
+              id: "2",
+              name: "Garlic Bread",
+              price: 5.0,
+              quantity: 2,
+              image: "https://via.placeholder.com/100",
+            },
+          ],
+          restaurant: {
+            id: "1",
+            name: "Pizza Palace",
+            image: "https://via.placeholder.com/100",
+            address: "123 Food Street, Foodville",
+            phone: "(123) 456-7890",
+          },
+          deliveryAddress: {
+            street: "456 Home Street",
+            city: "Homeville",
+            state: "CA",
+            zipCode: "12345",
+            country: "USA",
+          },
+          type: "DELIVERY",
+        };
+
+        setOrder(mockOrder);
+      } catch (error) {
+        console.error("Error fetching order details:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrderDetails();
+  }, [orderId]);
+
+  const renderOrderStatus = () => {
+    return (
+      <Card style={styles.statusCard}>
+        <Card.Content style={styles.statusContent}>
+          <View style={styles.statusIconContainer}>
+            <Ionicons
+              name="checkmark-circle"
+              size={60}
+              color={theme.colors.success}
+            />
+          </View>
+          <View style={styles.statusTextContainer}>
+            <Title style={styles.statusTitle}>Order Confirmed!</Title>
+            <Text style={styles.orderNumber}>Order #{order.id}</Text>
+            <Text style={styles.statusMessage}>
+              Your order has been received and is being prepared.
+            </Text>
+          </View>
+        </Card.Content>
+      </Card>
+    );
+  };
+
+  const renderDeliveryInfo = () => {
+    const timeString = order.estimatedDeliveryTime.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    return (
+      <View style={styles.section}>
+        <Title style={styles.sectionTitle}>
+          {order.type === "DELIVERY"
+            ? "Delivery Information"
+            : "Pickup Information"}
+        </Title>
+        <Card style={styles.card}>
+          <Card.Content>
+            <View style={styles.deliveryInfoRow}>
+              <Ionicons
+                name={order.type === "DELIVERY" ? "bicycle" : "storefront"}
+                size={24}
+                color={theme.colors.primary}
+                style={styles.deliveryIcon}
+              />
+              <View style={styles.deliveryTextContainer}>
+                <Text style={styles.deliveryLabel}>
+                  Estimated {order.type === "DELIVERY" ? "Delivery" : "Pickup"}{" "}
+                  Time
+                </Text>
+                <Text style={styles.deliveryTime}>{timeString}</Text>
+              </View>
+            </View>
+
+            {order.type === "DELIVERY" && (
+              <View style={styles.deliveryInfoRow}>
+                <Ionicons
+                  name="location"
+                  size={24}
+                  color={theme.colors.primary}
+                  style={styles.deliveryIcon}
+                />
+                <View style={styles.deliveryTextContainer}>
+                  <Text style={styles.deliveryLabel}>Delivery Address</Text>
+                  <Text style={styles.deliveryAddress}>
+                    {order.deliveryAddress.street}, {order.deliveryAddress.city}
+                    , {order.deliveryAddress.state}{" "}
+                    {order.deliveryAddress.zipCode}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {order.type === "PICKUP" && (
+              <View style={styles.deliveryInfoRow}>
+                <Ionicons
+                  name="location"
+                  size={24}
+                  color={theme.colors.primary}
+                  style={styles.deliveryIcon}
+                />
+                <View style={styles.deliveryTextContainer}>
+                  <Text style={styles.deliveryLabel}>Pickup Address</Text>
+                  <Text style={styles.deliveryAddress}>
+                    {order.restaurant.address}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </Card.Content>
+        </Card>
+      </View>
+    );
+  };
+
+  const renderRestaurantInfo = () => {
+    return (
+      <View style={styles.section}>
+        <Title style={styles.sectionTitle}>Restaurant</Title>
+        <Card style={styles.card}>
+          <Card.Content style={styles.restaurantContent}>
+            <Image
+              source={{ uri: order.restaurant.image }}
+              style={styles.restaurantImage}
+            />
+            <View style={styles.restaurantDetails}>
+              <Text style={styles.restaurantName}>{order.restaurant.name}</Text>
+              <Text style={styles.restaurantAddress}>
+                {order.restaurant.address}
+              </Text>
+              <Text style={styles.restaurantPhone}>
+                {order.restaurant.phone}
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
+      </View>
+    );
+  };
+
+  const renderOrderSummary = () => {
+    return (
+      <View style={styles.section}>
+        <Title style={styles.sectionTitle}>Order Summary</Title>
+        <Card style={styles.card}>
+          <Card.Content>
+            {order.items.map((item) => (
+              <View key={item.id} style={styles.orderItem}>
+                <View style={styles.orderItemLeft}>
+                  <Image
+                    source={{ uri: item.image }}
+                    style={styles.itemImage}
+                  />
+                  <View style={styles.itemDetails}>
+                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemQuantity}>
+                      Qty: {item.quantity}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.itemPrice}>
+                  ${(item.price * item.quantity).toFixed(2)}
+                </Text>
+              </View>
+            ))}
+
+            <Divider style={styles.divider} />
+
+            <View style={styles.priceSummary}>
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>Subtotal</Text>
+                <Text style={styles.priceValue}>
+                  ${order.subtotal.toFixed(2)}
+                </Text>
+              </View>
+
+              {order.type === "DELIVERY" && (
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Delivery Fee</Text>
+                  <Text style={styles.priceValue}>
+                    ${order.deliveryFee.toFixed(2)}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Total</Text>
+                <Text style={styles.totalValue}>${order.total.toFixed(2)}</Text>
+              </View>
+            </View>
+          </Card.Content>
+        </Card>
+      </View>
+    );
+  };
+
+  const renderPaymentInfo = () => {
+    return (
+      <View style={styles.section}>
+        <Title style={styles.sectionTitle}>Payment</Title>
+        <Card style={styles.card}>
+          <Card.Content>
+            <View style={styles.paymentRow}>
+              <Text style={styles.paymentLabel}>Method</Text>
+              <Text style={styles.paymentValue}>
+                {order.paymentMethod === "CARD"
+                  ? "Credit/Debit Card"
+                  : order.paymentMethod === "PAYPAL"
+                  ? "PayPal"
+                  : order.paymentMethod === "GPAY"
+                  ? "Google Pay"
+                  : order.paymentMethod === "APPLEPAY"
+                  ? "Apple Pay"
+                  : order.paymentMethod === "COD"
+                  ? "Cash on Delivery"
+                  : order.paymentMethod}
+              </Text>
+            </View>
+            <View style={styles.paymentRow}>
+              <Text style={styles.paymentLabel}>Status</Text>
+              <Text style={[styles.paymentValue, styles.paymentStatus]}>
+                Paid
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
+      </View>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: theme.colors.background },
+        ]}
+      >
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      <View style={styles.header}>
+        <IconButton
+          icon="arrow-left"
+          size={24}
+          onPress={() => navigation.navigate("Orders")}
+          color={theme.colors.text}
+        />
+        <Text style={styles.headerTitle}>Order Confirmation</Text>
+        <View style={{ width: 32 }} />
+      </View>
+
+      <ScrollView style={styles.scrollView}>
+        {renderOrderStatus()}
+        {renderDeliveryInfo()}
+        {renderRestaurantInfo()}
+        {renderOrderSummary()}
+        {renderPaymentInfo()}
+
+        <View style={styles.buttonContainer}>
+          <Button
+            mode="contained"
+            style={styles.trackButton}
+            labelStyle={styles.buttonLabel}
+            onPress={() =>
+              navigation.navigate("OrderTracking", { orderId: order.id })
+            }
+          >
+            Track Order
+          </Button>
+
+          <Button
+            mode="outlined"
+            style={styles.homeButton}
+            labelStyle={styles.homeButtonLabel}
+            onPress={() => navigation.navigate("Home")}
+          >
+            Back to Home
+          </Button>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
+    height: 56,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  statusCard: {
+    margin: 16,
+    backgroundColor: "#F0FFF4",
+  },
+  statusContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 8,
+  },
+  statusIconContainer: {
+    marginRight: 16,
+  },
+  statusTextContainer: {
+    flex: 1,
+  },
+  statusTitle: {
+    color: "#276749",
+    fontSize: 20,
+  },
+  orderNumber: {
+    fontSize: 14,
+    color: "#4A5568",
+    marginBottom: 4,
+  },
+  statusMessage: {
+    fontSize: 14,
+    color: "#4A5568",
+  },
+  section: {
+    marginBottom: 16,
+    paddingHorizontal: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    marginBottom: 8,
+  },
+  card: {
+    marginBottom: 8,
+  },
+  deliveryInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  deliveryIcon: {
+    marginRight: 12,
+  },
+  deliveryTextContainer: {
+    flex: 1,
+  },
+  deliveryLabel: {
+    fontSize: 14,
+    color: "#4A5568",
+  },
+  deliveryTime: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  deliveryAddress: {
+    fontSize: 16,
+  },
+  restaurantContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  restaurantImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  restaurantDetails: {
+    flex: 1,
+  },
+  restaurantName: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  restaurantAddress: {
+    fontSize: 14,
+    color: "#4A5568",
+    marginBottom: 2,
+  },
+  restaurantPhone: {
+    fontSize: 14,
+    color: "#4A5568",
+  },
+  orderItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  orderItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  itemImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 4,
+    marginRight: 12,
+  },
+  itemDetails: {
+    flex: 1,
+  },
+  itemName: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  itemQuantity: {
+    fontSize: 12,
+    color: "#4A5568",
+  },
+  itemPrice: {
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  divider: {
+    marginVertical: 12,
+  },
+  priceSummary: {
+    marginTop: 8,
+  },
+  priceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  priceLabel: {
+    fontSize: 14,
+  },
+  priceValue: {
+    fontSize: 14,
+  },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  totalValue: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#FF6B6B",
+  },
+  paymentRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  paymentLabel: {
+    fontSize: 14,
+  },
+  paymentValue: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  paymentStatus: {
+    color: "#276749",
+  },
+  buttonContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+  trackButton: {
+    marginBottom: 12,
+    backgroundColor: "#FF6B6B",
+  },
+  buttonLabel: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  homeButton: {
+    borderColor: "#FF6B6B",
+  },
+  homeButtonLabel: {
+    color: "#FF6B6B",
+  },
+});
+
+export default OrderConfirmationScreen;

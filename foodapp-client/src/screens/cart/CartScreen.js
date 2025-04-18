@@ -22,7 +22,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
-import dataService from "../../services/dataService";
 import { Ionicons } from "@expo/vector-icons";
 
 const CartScreen = ({ navigation }) => {
@@ -43,62 +42,86 @@ const CartScreen = ({ navigation }) => {
   const [sucessModalVisible, setSuccessModalVisible] = useState(false);
   const [emptyCartModalVisible, setEmptyCartModalVisible] = useState(false);
   const [orderDetails, setOrderDetails] = useState(null);
+  const [checkoutConfirmVisible, setCheckoutConfirmVisible] = useState(false);
 
-  const handleCheckout = async () => {
+  const handleCheckoutRequest = () => {
     if (!items.length || !restaurant) {
+      setEmptyCartModalVisible(true);
       return;
     }
-
-    try {
-      setOrderLoading(true);
-
-      // Create order object
-      const orderData = {
-        type: "DELIVERY",
-        deliveryAddress: {
-          street: user?.address?.street || "123 Main St",
-          city: user?.address?.city || "Anytown",
-          state: user?.address?.state || "CA",
-          zipCode: user?.address?.zipCode || "12345",
-          country: user?.address?.country || "USA",
-          coordinates: user?.address?.coordinates || {
-            lat: 37.7749,
-            lng: -122.4194,
-          },
-        },
-        paymentMethod: "CARD", // Default payment method
-        paymentDetails: {
-          cardLastFour: "4242",
-          paymentProcessor: "stripe",
-        },
-      };
-
-      // Send order to backend
-      const response = await dataService.createOrder(orderData);
-      setOrderDetails(response.order || response);
-
-      // Show success modal
-      setSuccessModalVisible(true);
-
-      // Clear cart after successful order
-      clearCart();
-    } catch (error) {
-      console.error("Error during checkout:", error);
-      // Show error message to user
-      Alert.alert(
-        "Checkout Failed",
-        error.message ||
-          "There was a problem creating your order. Please try again."
-      );
-    } finally {
-      setOrderLoading(false);
-    }
+    setCheckoutConfirmVisible(true);
   };
+
+  const handleConfirmCheckout = () => {
+    // Close the confirmation modal
+    setCheckoutConfirmVisible(false);
+
+    // Navigate to the checkout screen
+    navigation.navigate("Checkout");
+  };
+
+  // const handleCheckout = async () => {
+  //   if (!items.length || !restaurant) {
+  //     return;
+  //   }
+
+  //   try {
+  //     setOrderLoading(true);
+
+  //     // Create order object
+  //     const orderData = {
+  //       type: "DELIVERY",
+  //       deliveryAddress: {
+  //         street: user?.address?.street || "123 Main St",
+  //         city: user?.address?.city || "Anytown",
+  //         state: user?.address?.state || "CA",
+  //         zipCode: user?.address?.zipCode || "12345",
+  //         country: user?.address?.country || "USA",
+  //         coordinates: user?.address?.coordinates || {
+  //           lat: 37.7749,
+  //           lng: -122.4194,
+  //         },
+  //       },
+  //       paymentMethod: "CARD", // Default payment method
+  //       paymentDetails: {
+  //         cardLastFour: "4242",
+  //         paymentProcessor: "stripe",
+  //       },
+  //     };
+
+  //     // Send order to backend
+  //     const response = await dataService.createOrder(orderData);
+  //     setOrderDetails(response.order || response);
+
+  //     // Show success modal
+  //     setSuccessModalVisible(true);
+
+  //     // Clear cart after successful order
+  //     clearCart();
+  //   } catch (error) {
+  //     console.error("Error during checkout:", error);
+  //     // Show error message to user
+  //     Alert.alert(
+  //       "Checkout Failed",
+  //       error.message ||
+  //         "There was a problem creating your order. Please try again."
+  //     );
+  //   } finally {
+  //     setOrderLoading(false);
+  //   }
+  // };
 
   const renderCartItem = ({ item }) => (
     <Card style={[styles.cartItem, { ...theme.shadow.small }]}>
       <View style={styles.cartItemContent}>
-        <Image source={{ uri: item.image }} style={styles.itemImage} />
+        <Image
+          source={
+            item.imageUrls && item.imageUrls.length > 0
+              ? { uri: item.imageUrls[0] }
+              : require("../../assets/no-image.png")
+          }
+          style={styles.itemImage}
+        />
 
         <View style={styles.itemDetails}>
           <Text style={styles.itemName}>{item.name}</Text>
@@ -111,7 +134,9 @@ const CartScreen = ({ navigation }) => {
           <IconButton
             icon="minus"
             size={16}
-            onPress={() => updateQuantity(item.id, item.quantity - 1)}
+            onPress={() =>
+              updateQuantity(item.id, item.itemId, item.quantity - 1)
+            }
             style={styles.quantityButton}
             iconColor={theme.colors.primary}
           />
@@ -119,7 +144,9 @@ const CartScreen = ({ navigation }) => {
           <IconButton
             icon="plus"
             size={16}
-            onPress={() => updateQuantity(item.id, item.quantity + 1)}
+            onPress={() =>
+              updateQuantity(item.id, item.itemId, item.quantity + 1)
+            }
             style={styles.quantityButton}
             iconColor={theme.colors.primary}
           />
@@ -128,7 +155,7 @@ const CartScreen = ({ navigation }) => {
         <IconButton
           icon="delete-outline"
           size={20}
-          onPress={() => removeItem(item.id)}
+          onPress={() => removeItem(item.id, item.itemId)}
           style={styles.deleteButton}
           iconColor={theme.colors.error}
         />
@@ -151,14 +178,19 @@ const CartScreen = ({ navigation }) => {
           }
         >
           <Image
-            source={{ uri: "restaurant.image" }}
+            source={
+              restaurant.imageUrls && restaurant.imageUrls.length > 0
+                ? { uri: restaurant.imageUrls[0] }
+                : require("../../assets/no-image-restaurant.png")
+            }
             style={styles.restaurantImage}
           />
           <View style={styles.restaurantInfo}>
             <Text style={styles.restaurantName}>{restaurant.name}</Text>
-            <Text style={styles.restaurantDelivery}>
-              Delivery: ${"restaurant.deliveryFee"} • {"restaurant.deliveryTime"}
-            </Text>
+            {/* <Text style={styles.restaurantDelivery}>
+              Delivery: ${"restaurant.deliveryFee"} •{" "}
+              {"restaurant.deliveryTime"}
+            </Text> */}
           </View>
           <Ionicons
             name="chevron-forward"
@@ -174,7 +206,7 @@ const CartScreen = ({ navigation }) => {
     if (items.length === 0) return null;
 
     const subtotal = getSubtotal();
-    const deliveryFee = restaurant ? parseFloat(restaurant.deliveryFee) : 0;
+    // const deliveryFee = restaurant ? parseFloat(restaurant.deliveryFee) : 0;
     const total = getTotal();
 
     return (
@@ -188,7 +220,7 @@ const CartScreen = ({ navigation }) => {
 
         <View style={styles.summaryRow}>
           <Text style={styles.summaryText}>Delivery Fee</Text>
-          <Text style={styles.summaryValue}>${deliveryFee.toFixed(2)}</Text>
+          <Text style={styles.summaryValue}>(Exclusive)</Text>
         </View>
 
         <Divider style={styles.divider} />
@@ -205,7 +237,7 @@ const CartScreen = ({ navigation }) => {
             { backgroundColor: theme.colors.primary },
           ]}
           labelStyle={styles.checkoutButtonLabel}
-          onPress={handleCheckout}
+          onPress={handleCheckoutRequest}
           loading={orderLoading}
           disabled={orderLoading}
         >
@@ -232,18 +264,58 @@ const CartScreen = ({ navigation }) => {
     </View>
   );
 
-  if (loading) {
+  const renderCheckoutConfirmDialog = () => {
     return (
-      <View
-        style={[
-          styles.loadingContainer,
-          { backgroundColor: theme.colors.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
+      <Portal>
+        <Modal
+          visible={checkoutConfirmVisible}
+          onDismiss={() => setCheckoutConfirmVisible(false)}
+          contentContainerStyle={[
+            styles.modalContainer,
+            { backgroundColor: theme.colors.surface },
+          ]}
+        >
+          <Title style={styles.modalTitle}>Confirm Checkout</Title>
+          <Text style={styles.modalText}>
+            Are you sure you want to proceed to checkout?
+          </Text>
+          <View style={styles.modalButtons}>
+            <Button
+              mode="outlined"
+              onPress={() => setCheckoutConfirmVisible(false)}
+              style={[styles.modalButton, styles.cancelButton]}
+            >
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              onPress={handleConfirmCheckout}
+              style={[
+                styles.modalButton,
+                styles.confirmButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+            >
+              Proceed
+            </Button>
+          </View>
+        </Modal>
+      </Portal>
     );
-  }
+  };
+
+  // if (loading) {
+  //   return (
+  //     <View
+  //       style={[
+  //         styles.loadingContainer,
+  //         { backgroundColor: theme.colors.background },
+  //       ]}
+  //     >
+  //       <ActivityIndicator size="large" color={theme.colors.primary} />
+  //     </View>
+  //   );
+  // }
 
   return (
     <SafeAreaView
@@ -252,9 +324,28 @@ const CartScreen = ({ navigation }) => {
       <View style={styles.header}>
         <Title style={styles.headerTitle}>My Cart</Title>
         {items.length > 0 && (
-          <TouchableOpacity onPress={() => clearCart()}>
-            <Text style={[styles.clearCartText, { color: theme.colors.error }]}>
-              Clear cart
+          <TouchableOpacity
+            style={styles.clearButton}
+            onPress={() => {
+              Alert.alert(
+                "Clear Cart",
+                "Are you sure you want to clear your cart?",
+                [
+                  {
+                    text: "Cancel",
+                    style: "cancel",
+                  },
+                  {
+                    text: "Clear",
+                    onPress: () => clearCart(),
+                    style: "destructive",
+                  },
+                ]
+              );
+            }}
+          >
+            <Text style={[styles.clearText, { color: theme.colors.error }]}>
+              Clear
             </Text>
           </TouchableOpacity>
         )}
@@ -262,13 +353,15 @@ const CartScreen = ({ navigation }) => {
 
       <FlatList
         data={items}
+        keyExtractor={(item) => item.id.toString()}
         renderItem={renderCartItem}
-        keyExtractor={(item) => item.id}
         ListHeaderComponent={renderHeader}
         ListFooterComponent={renderFooter}
         ListEmptyComponent={renderEmptyCart}
         contentContainerStyle={styles.listContent}
       />
+
+      {renderCheckoutConfirmDialog()}
 
       {/* Success Modal */}
       <Portal>
@@ -367,7 +460,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
   },
-  clearCartText: {
+  clearButton: {
+    padding: 8,
+  },
+  clearText: {
     fontSize: 14,
   },
   listContent: {
@@ -539,6 +635,36 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     paddingHorizontal: 30,
+  },
+  modalContainer: {
+    margin: 20,
+    borderRadius: 8,
+    padding: 20,
+    alignItems: "center",
+  },
+  modalTitle: {
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  modalText: {
+    fontSize: 16,
+    marginBottom: 24,
+    textAlign: "center",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  modalButton: {
+    flex: 1,
+    margin: 8,
+  },
+  cancelButton: {
+    borderColor: "#757575",
+  },
+  confirmButton: {
+    backgroundColor: "#FF6B6B",
   },
 });
 

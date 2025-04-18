@@ -58,9 +58,6 @@ const authService = {
       });
       if (response.data && response.data.token) {
         await setToken(response.data.token);
-        // Correctly await the getToken call to verify storage
-        const storedToken = await getToken();
-        console.log("Stored token:", storedToken);
         return response.data;
       } else {
         throw new Error("Login failed. Please check your credentials.");
@@ -174,7 +171,7 @@ const authService = {
   // Add a method to get the stored token
   getStoredToken: async () => {
     return await getToken();
-  }
+  },
 };
 
 // Error handler

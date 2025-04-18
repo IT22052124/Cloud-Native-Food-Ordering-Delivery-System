@@ -19,6 +19,7 @@ import {
   Modal,
   TextInput,
   Switch,
+  Portal,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
@@ -194,7 +195,7 @@ const ProfileScreen = ({ navigation }) => {
 
             <List.Item
               title="Phone Number"
-              description={user.phoneNumber || "Not set"}
+              description={user.phone || "Not set"}
               left={(props) => <List.Icon {...props} icon="phone" />}
               right={(props) => (
                 <IconButton
@@ -203,7 +204,7 @@ const ProfileScreen = ({ navigation }) => {
                   onPress={() =>
                     openEditModal(
                       "phoneNumber",
-                      user.phoneNumber || "",
+                      user.phone || "",
                       "Phone Number"
                     )
                   }
@@ -378,41 +379,43 @@ const ProfileScreen = ({ navigation }) => {
           Logout
         </Button>
 
-        <Modal
-          visible={editModalVisible}
-          onDismiss={() => setEditModalVisible(false)}
-          contentContainerStyle={[
-            styles.modalContent,
-            { backgroundColor: theme.colors.surface },
-          ]}
-        >
-          <Text style={styles.modalTitle}>Edit {editLabel}</Text>
+        <Portal>
+          <Modal
+            visible={editModalVisible}
+            onDismiss={() => setEditModalVisible(false)}
+            contentContainerStyle={[
+              styles.modalContent,
+              { backgroundColor: theme.colors.surface },
+            ]}
+          >
+            <Text style={styles.modalTitle}>Edit {editLabel}</Text>
 
-          <TextInput
-            label={editLabel}
-            value={editValue}
-            onChangeText={setEditValue}
-            mode="outlined"
-            style={styles.modalInput}
-          />
+            <TextInput
+              label={editLabel}
+              value={editValue}
+              onChangeText={setEditValue}
+              mode="outlined"
+              style={styles.modalInput}
+            />
 
-          <View style={styles.modalButtons}>
-            <Button
-              mode="text"
-              onPress={() => setEditModalVisible(false)}
-              style={styles.modalButton}
-            >
-              Cancel
-            </Button>
-            <Button
-              mode="contained"
-              onPress={saveProfileChanges}
-              style={styles.modalButton}
-            >
-              Save
-            </Button>
-          </View>
-        </Modal>
+            <View style={styles.modalButtons}>
+              <Button
+                mode="text"
+                onPress={() => setEditModalVisible(false)}
+                style={styles.modalButton}
+              >
+                Cancel
+              </Button>
+              <Button
+                mode="contained"
+                onPress={saveProfileChanges}
+                style={styles.modalButton}
+              >
+                Save
+              </Button>
+            </View>
+          </Modal>
+        </Portal>
       </ScrollView>
     </SafeAreaView>
   );
