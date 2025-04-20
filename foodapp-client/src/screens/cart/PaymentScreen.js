@@ -33,24 +33,6 @@ const PAYMENT_METHODS = [
     description: "Pay with your card",
   },
   {
-    id: "paypal",
-    name: "PayPal",
-    icon: PaymentIcons.paypal,
-    description: "Pay with PayPal",
-  },
-  {
-    id: "gpay",
-    name: "Google Pay",
-    icon: PaymentIcons.gpay,
-    description: "Pay with Google Pay",
-  },
-  {
-    id: "applepay",
-    name: "Apple Pay",
-    icon: PaymentIcons.applepay,
-    description: "Pay with Apple Pay",
-  },
-  {
     id: "cod",
     name: "Cash on Delivery",
     icon: PaymentIcons.cash,
@@ -72,7 +54,6 @@ const PaymentScreen = ({ navigation, route }) => {
   const [orderDetails, setOrderDetails] = useState(null);
 
   useEffect(() => {
-    // Set default payment method
     setSelectedPayment(PAYMENT_METHODS[0]);
   }, []);
 
@@ -103,25 +84,23 @@ const PaymentScreen = ({ navigation, route }) => {
               }
             : null,
         paymentMethod: selectedPayment.id.toUpperCase(),
-        // Additional payment details would be included here
       };
 
       const response = await dataService.createOrder(orderData);
-
-      // Simulate order creation
-      const mockOrderResponse = {
-        id: "ORD" + Math.floor(Math.random() * 1000000),
-        status: "CONFIRMED",
-        estimatedDeliveryTime: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now
-        paymentMethod: selectedPayment.id.toUpperCase(),
-        total: total,
+      const OrderResponse = {
+        _id: response.order._id,
+        id: response.order.orderId,
+        status: response.restaurantOrder.status,
+        estimatedDeliveryTime: new Date(Date.now() + 30 * 60 * 1000),
+        paymentMethod: response.order.paymentMethod(),
+        total: response.order.totalAmount,
       };
 
-      setOrderDetails(mockOrderResponse);
+      setOrderDetails(OrderResponse);
       setPaymentSuccess(true);
 
       // Clear cart after successful order
-      // clearCart();
+      clearCart();
     } catch (error) {
       console.error("Error during payment:", error);
       Alert.alert(
@@ -142,7 +121,7 @@ const PaymentScreen = ({ navigation, route }) => {
       routes: [
         {
           name: "OrderConfirmation",
-          params: { orderId: orderDetails.id },
+          params: { orderId: orderDetails._id },
         },
       ],
     });

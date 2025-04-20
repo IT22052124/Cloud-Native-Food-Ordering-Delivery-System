@@ -25,56 +25,59 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
 
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState(null);
+  const [restaurant, setRestaurant] = useState(null);
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
       try {
         setLoading(true);
-        // In a real app, fetch from API using dataService.getOrderById(orderId)
-        // For demo, simulate a response
-        const mockOrder = {
-          id: orderId,
-          status: "CONFIRMED",
-          date: new Date(),
-          estimatedDeliveryTime: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now
-          paymentMethod: "CARD",
-          total: 25.99,
-          deliveryFee: 3.99,
-          subtotal: 22.0,
-          items: [
-            {
-              id: "1",
-              name: "Margherita Pizza",
-              price: 12.0,
-              quantity: 1,
-              image: "https://via.placeholder.com/100",
-            },
-            {
-              id: "2",
-              name: "Garlic Bread",
-              price: 5.0,
-              quantity: 2,
-              image: "https://via.placeholder.com/100",
-            },
-          ],
-          restaurant: {
-            id: "1",
-            name: "Pizza Palace",
-            image: "https://via.placeholder.com/100",
-            address: "123 Food Street, Foodville",
-            phone: "(123) 456-7890",
-          },
-          deliveryAddress: {
-            street: "456 Home Street",
-            city: "Homeville",
-            state: "CA",
-            zipCode: "12345",
-            country: "USA",
-          },
-          type: "DELIVERY",
-        };
+        const response = await dataService.getOrderById(orderId);
 
-        setOrder(mockOrder);
+        // For demo, simulate a response
+        // const mockOrder = {
+        //   id: orderId,
+        //   status: "CONFIRMED",
+        //   date: new Date(),
+        //   estimatedDeliveryTime: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now
+        //   paymentMethod: "CARD",
+        //   total: 25.99,
+        //   deliveryFee: 3.99,
+        //   subtotal: 22.0,
+        //   items: [
+        //     {
+        //       id: "1",
+        //       name: "Margherita Pizza",
+        //       price: 12.0,
+        //       quantity: 1,
+        //       image: "https://via.placeholder.com/100",
+        //     },
+        //     {
+        //       id: "2",
+        //       name: "Garlic Bread",
+        //       price: 5.0,
+        //       quantity: 2,
+        //       image: "https://via.placeholder.com/100",
+        //     },
+        //   ],
+        //   restaurant: {
+        //     id: "1",
+        //     name: "Pizza Palace",
+        //     image: "https://via.placeholder.com/100",
+        //     address: "123 Food Street, Foodville",
+        //     phone: "(123) 456-7890",
+        //   },
+        //   deliveryAddress: {
+        //     street: "456 Home Street",
+        //     city: "Homeville",
+        //     state: "CA",
+        //     zipCode: "12345",
+        //     country: "USA",
+        //   },
+        //   type: "DELIVERY",
+        // };
+
+        setOrder(response.order);
+        setRestaurant(response.restaurant);
       } catch (error) {
         console.error("Error fetching order details:", error);
       } finally {
@@ -98,7 +101,7 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
           </View>
           <View style={styles.statusTextContainer}>
             <Title style={styles.statusTitle}>Order Confirmed!</Title>
-            <Text style={styles.orderNumber}>Order #{order.id}</Text>
+            <Text style={styles.orderNumber}>Order #{order.orderId}</Text>
             <Text style={styles.statusMessage}>
               Your order has been received and is being prepared.
             </Text>
@@ -109,7 +112,7 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
   };
 
   const renderDeliveryInfo = () => {
-    const timeString = order.estimatedDeliveryTime.toLocaleTimeString([], {
+    const timeString = order.estimatedDeliveryTime?.toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -135,7 +138,7 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
                   Estimated {order.type === "DELIVERY" ? "Delivery" : "Pickup"}{" "}
                   Time
                 </Text>
-                <Text style={styles.deliveryTime}>{timeString}</Text>
+                {/* <Text style={styles.deliveryTime}>{timeString}</Text> */}
               </View>
             </View>
 
@@ -169,7 +172,8 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
                 <View style={styles.deliveryTextContainer}>
                   <Text style={styles.deliveryLabel}>Pickup Address</Text>
                   <Text style={styles.deliveryAddress}>
-                    {order.restaurant.address}
+                    {restaurant.address.street}, {restaurant.address.city},{" "}
+                    {restaurant.address.province}{" "}
                   </Text>
                 </View>
               </View>
@@ -187,16 +191,17 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
         <Card style={styles.card}>
           <Card.Content style={styles.restaurantContent}>
             <Image
-              source={{ uri: order.restaurant.image }}
+              source={{ uri: restaurant.image ? "" : "" }}
               style={styles.restaurantImage}
             />
             <View style={styles.restaurantDetails}>
-              <Text style={styles.restaurantName}>{order.restaurant.name}</Text>
+              <Text style={styles.restaurantName}>{restaurant.name}</Text>
               <Text style={styles.restaurantAddress}>
-                {order.restaurant.address}
+                {restaurant.address.street}, {restaurant.address.city},{" "}
+                {restaurant.address.province}{" "}
               </Text>
               <Text style={styles.restaurantPhone}>
-                {order.restaurant.phone}
+                {restaurant.contact.phone}
               </Text>
             </View>
           </Card.Content>
@@ -226,7 +231,7 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
                   </View>
                 </View>
                 <Text style={styles.itemPrice}>
-                  ${(item.price * item.quantity).toFixed(2)}
+                  LKR{(item.price * item.quantity).toFixed(2)}
                 </Text>
               </View>
             ))}
@@ -272,12 +277,6 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
               <Text style={styles.paymentValue}>
                 {order.paymentMethod === "CARD"
                   ? "Credit/Debit Card"
-                  : order.paymentMethod === "PAYPAL"
-                  ? "PayPal"
-                  : order.paymentMethod === "GPAY"
-                  ? "Google Pay"
-                  : order.paymentMethod === "APPLEPAY"
-                  ? "Apple Pay"
                   : order.paymentMethod === "COD"
                   ? "Cash on Delivery"
                   : order.paymentMethod}

@@ -39,40 +39,62 @@ const CheckoutScreen = ({ navigation, route }) => {
   useEffect(() => {
     const loadAddresses = async () => {
       try {
-        // In a real app, fetch addresses from API
-        // For now, use sample data
-        const userAddresses = [
-          {
-            id: "1",
-            name: "Home",
-            street: user?.address?.street || "123 Main St",
-            city: user?.address?.city || "Anytown",
-            state: user?.address?.state || "CA",
-            zipCode: user?.address?.zipCode || "12345",
-            country: user?.address?.country || "USA",
-            isDefault: true,
-          },
-          {
-            id: "2",
-            name: "Work",
-            street: "456 Office Blvd",
-            city: "Business City",
-            state: "NY",
-            zipCode: "67890",
-            country: "USA",
-            isDefault: false,
-          },
-        ];
-
-        setAddresses(userAddresses);
-        // Set default address
-        setSelectedAddress(
-          userAddresses.find((addr) => addr.isDefault) || userAddresses[0]
-        );
+        setLoading(true);
+        const response = await dataService.getUserAddresses();
+        if (response.success) {
+          setAddresses(response.addresses);
+          setSelectedAddress(
+            response.addresses.find((addr) => addr.isDefault) ||
+              response.addresses[0]
+          );
+        } else {
+          Alert.alert("Error", response.message || "Failed to fetch addresses");
+        }
       } catch (error) {
-        console.error("Error loading addresses:", error);
+        console.error("Error fetching addresses:", error);
+        Alert.alert(
+          "Error",
+          "Failed to fetch your addresses. Please try again."
+        );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
     };
+    // const loadAddresses = async () => {
+    //   try {
+    //     const userAddresses = [
+    //       {
+    //         id: "1",
+    //         name: "Home",
+    //         street: user?.address?.street || "123 Main St",
+    //         city: user?.address?.city || "Anytown",
+    //         state: user?.address?.state || "CA",
+    //         zipCode: user?.address?.zipCode || "12345",
+    //         country: user?.address?.country || "USA",
+    //         isDefault: true,
+    //       },
+    //       {
+    //         id: "2",
+    //         name: "Work",
+    //         street: "456 Office Blvd",
+    //         city: "Business City",
+    //         state: "NY",
+    //         zipCode: "67890",
+    //         country: "USA",
+    //         isDefault: false,
+    //       },
+    //     ];
+
+    //     setAddresses(userAddresses);
+    //     // Set default address
+    //     setSelectedAddress(
+    //       userAddresses.find((addr) => addr.isDefault) || userAddresses[0]
+    //     );
+    //   } catch (error) {
+    //     console.error("Error loading addresses:", error);
+    //   }
+    // };
 
     // Load delivery fee
     const loadDeliveryFee = () => {
@@ -102,12 +124,7 @@ const CheckoutScreen = ({ navigation, route }) => {
   };
 
   const handleAddAddress = () => {
-    // Navigate to add address screen
-    // This would be implemented in a real app
-    Alert.alert(
-      "Add Address",
-      "Address management functionality would be implemented in a real app"
-    );
+    navigation.navigate("SavedAddresses");
   };
 
   const renderCartItems = () => {
@@ -148,27 +165,27 @@ const CheckoutScreen = ({ navigation, route }) => {
         <ScrollView style={styles.addressList}>
           {addresses.map((address) => (
             <TouchableOpacity
-              key={address.id}
+              key={address._id}
               style={[
                 styles.addressCard,
-                selectedAddress?.id === address.id &&
+                selectedAddress?._id === address._id &&
                   styles.selectedAddressCard,
               ]}
               onPress={() => setSelectedAddress(address)}
             >
               <RadioButton
-                value={address.id}
+                value={address._id}
                 status={
-                  selectedAddress?.id === address.id ? "checked" : "unchecked"
+                  selectedAddress?._id === address._id ? "checked" : "unchecked"
                 }
                 onPress={() => setSelectedAddress(address)}
                 color={theme.colors.primary}
               />
               <View style={styles.addressDetails}>
-                <Text style={styles.addressName}>{address.name}</Text>
+                <Text style={styles.addressName}>{address.label}</Text>
                 <Text style={styles.addressText}>
                   {address.street}, {address.city}, {address.state}{" "}
-                  {address.zipCode}
+                  {/* {address.zipCode} */}
                 </Text>
               </View>
               {address.isDefault && (
