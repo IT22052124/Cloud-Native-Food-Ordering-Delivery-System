@@ -75,7 +75,6 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
         //   },
         //   type: "DELIVERY",
         // };
-
         setOrder(response.order);
         setRestaurant(response.restaurant);
       } catch (error) {
@@ -191,7 +190,11 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
         <Card style={styles.card}>
           <Card.Content style={styles.restaurantContent}>
             <Image
-              source={{ uri: restaurant.image ? "" : "" }}
+              source={
+                restaurant.imageUrls && restaurant.imageUrls.length > 0
+                  ? { uri: restaurant.imageUrls[0] }
+                  : require("../../assets/no-image-restaurant.png")
+              }
               style={styles.restaurantImage}
             />
             <View style={styles.restaurantDetails}>
@@ -216,11 +219,15 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
         <Title style={styles.sectionTitle}>Order Summary</Title>
         <Card style={styles.card}>
           <Card.Content>
-            {order.items.map((item) => (
-              <View key={item.id} style={styles.orderItem}>
+            {order.restaurantOrder.items.map((item) => (
+              <View key={item._id} style={styles.orderItem}>
                 <View style={styles.orderItemLeft}>
                   <Image
-                    source={{ uri: item.image }}
+                    source={
+                      item.imageUrls && item.imageUrls.length > 0
+                        ? { uri: item.imageUrls[0] }
+                        : require("../../assets/no-image.png")
+                    }
                     style={styles.itemImage}
                   />
                   <View style={styles.itemDetails}>
@@ -231,7 +238,7 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
                   </View>
                 </View>
                 <Text style={styles.itemPrice}>
-                  LKR{(item.price * item.quantity).toFixed(2)}
+                  LKR {(item.price * item.quantity)?.toFixed(2)}
                 </Text>
               </View>
             ))}
@@ -241,23 +248,19 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
             <View style={styles.priceSummary}>
               <View style={styles.priceRow}>
                 <Text style={styles.priceLabel}>Subtotal</Text>
-                <Text style={styles.priceValue}>
-                  ${order.subtotal.toFixed(2)}
-                </Text>
+                <Text style={styles.priceValue}>LKR {(order.restaurantOrder?.subtotal)?.toFixed(2)}</Text>
               </View>
 
               {order.type === "DELIVERY" && (
                 <View style={styles.priceRow}>
                   <Text style={styles.priceLabel}>Delivery Fee</Text>
-                  <Text style={styles.priceValue}>
-                    ${order.deliveryFee.toFixed(2)}
-                  </Text>
+                  <Text style={styles.priceValue}>${order.deliveryFee}</Text>
                 </View>
               )}
 
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Total</Text>
-                <Text style={styles.totalValue}>${order.total.toFixed(2)}</Text>
+                <Text style={styles.totalValue}>${order.totalAmount}</Text>
               </View>
             </View>
           </Card.Content>
@@ -315,7 +318,7 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
         <IconButton
           icon="arrow-left"
           size={24}
-          onPress={() => navigation.navigate("Orders")}
+          onPress={() => navigation.navigate("Cart")}
           color={theme.colors.text}
         />
         <Text style={styles.headerTitle}>Order Confirmation</Text>
