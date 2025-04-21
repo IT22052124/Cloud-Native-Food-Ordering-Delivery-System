@@ -13,7 +13,7 @@ const router = express.Router();
 
 // Public routes
 router.post('/register', register); // Handles delivery registration only
-router.post('/login', login);
+router.post('/login',protect, login);
 router.post('/refresh-token', refreshToken);
 
 // Protected routes

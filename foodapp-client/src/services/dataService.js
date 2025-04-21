@@ -2,10 +2,10 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // API Base URLs
-const AUTH_API_URL = `http://192.168.1.3:5001/api`;
-const ORDER_API_URL = `http://192.168.1.3:5002/api/orders`;
-const CART_API_URL = `http://192.168.1.3:5002/api/cart`;
-const RESTAURANT_API_URL = `http://192.168.1.3:3000/api/restaurants`;
+const AUTH_API_URL = `http://192.168.1.2:5001/api`;
+const ORDER_API_URL = `http://192.168.1.2:5002/api/orders`;
+const CART_API_URL = `http://192.168.1.2:5002/api/cart`;
+const RESTAURANT_API_URL = `http://192.168.1.2:3000/api/restaurants`;
 
 // Sample data for the app
 const sampleRestaurants = [
@@ -757,34 +757,58 @@ const dataService = {
 
   // Order endpoints
   createOrder: async (orderData) => {
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      const token = await getToken();
+      const response = await axios.post(`${ORDER_API_URL}`, orderData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return {
+        success: true,
+        order: response.data,
+      };
+    } catch (error) {
+      console.error("Error creating order:", error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message,
+      };
+    }
+  },
 
-    // Create a new order with default values and user data
-    const newOrder = {
-      id: `order-${Date.now()}`,
-      orderId: `ORD-${new Date()
-        .toISOString()
-        .slice(2, 10)
-        .replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`,
-      status: ORDER_STATUS.PLACED,
-      createdAt: new Date().toISOString(),
-      restaurantOrder: orderData.restaurantOrder || {
-        restaurantId: orderData.restaurantId,
-        restaurantName: orderData.restaurantName,
-        items: orderData.items || [],
-        subtotal: orderData.subtotal || 0,
-        tax: orderData.tax || 0,
-        deliveryFee: orderData.deliveryFee || 0,
-        status: ORDER_STATUS.PLACED,
-      },
-      ...orderData,
-    };
+  getOrderById: async (orderId) => {
+    try {
+      const token = await getToken();
+      return await apiClient.get(`${ORDER_API_URL}/${orderId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (error) {
+      console.error("Error retrieving order by id:", error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message,
+      };
+    }
+  },
 
-    return {
-      success: true,
-      order: newOrder,
-    };
+  getOrders: async () => {
+    try {
+      const token = await getToken();
+      return await apiClient.get(`${ORDER_API_URL}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (error) {
+      console.error("Error retrieving order by id:", error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message,
+      };
+    }
   },
 
   // Payment methods
@@ -909,7 +933,6 @@ const dataService = {
           Authorization: `Bearer ${token}`,
         },
       });
-      console.log(response.data);
       return { success: true, addresses: response.data.addresses };
     } catch (error) {
       console.error("Error fetching user addresses:", error);
