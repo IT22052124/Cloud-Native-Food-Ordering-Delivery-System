@@ -261,7 +261,7 @@ const getOrderById = async (req, res) => {
       const dish = dishMap[item.itemId];
       return {
         ...item.toObject(),
-        image: dish ? dish.imageUrl[0] || null : null,
+        image: dish.imageUrl ? dish.imageUrl[0] || null : null,
       };
     });
 
@@ -336,6 +336,7 @@ const getUserOrders = async (req, res) => {
       createdAt: order.createdAt,
       totalAmount: order.totalAmount,
       status: order.restaurantOrder.status,
+      items: order.restaurantOrder.items,
       restaurant: order.restaurantOrder.restaurantName,
       totalItems: order.restaurantOrder.items.reduce(
         (total, item) => total + item.quantity,
