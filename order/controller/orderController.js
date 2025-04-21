@@ -15,6 +15,18 @@ const getRestaurantDishes = async (authorization, restaurantId) => {
   }
 };
 
+const getRestaurantById = async (authorization, restaurantId) => {
+  try {
+    const response = await axios.get(
+      `${global.gConfig.restaurant_url}/api/restaurants/${restaurantId}`,
+      { headers: { authorization } }
+    );
+    return response;
+  } catch (error) {
+    console.error("Error fetching restaurant:", error);
+  }
+};
+
 /**
  * Create a new order from cart items
  * @route POST /api/orders
@@ -208,15 +220,18 @@ const getOrderById = async (req, res) => {
       });
     }
 
-    // Check permissions
+    // Check permissions and get full restaurant details
     const isRestaurant = false;
+    const response = await getRestaurantById(
+      req.headers.authorization,
+      order.restaurantOrder.restaurantId
+    );
+
+    const restaurant = response.data;
     if (req.user.role === "RESTAURANT") {
-      const response = await axios.get(
-        `${global.gConfig.restaurant_url}/api/restaurants/${req.user.id}/restaurant`,
-        { headers: { authorization } }
-      );
-      isRestaurant = response.data.ownerId === req.user.id;
+      isRestaurant = restaurant.ownerId === req.user.id;
     }
+
     const isAdmin = req.user.role === "ADMIN";
     const isCustomer = order.customerId.toString() === req.user.id;
 
@@ -227,29 +242,62 @@ const getOrderById = async (req, res) => {
       });
     }
 
+    // Fetch current dish data to get images
+    const dishesResponse = await getRestaurantDishes(
+      req.headers.authorization,
+      order.restaurantOrder.restaurantId
+    );
+
+    // Create a map of dish IDs to their data
+    const dishMap = {};
+    if (dishesResponse && dishesResponse.data && dishesResponse.data.dishes) {
+      dishesResponse.data.dishes.forEach((dish) => {
+        dishMap[dish._id] = dish;
+      });
+    }
+
+    // Add image URLs to order items
+    const enhancedItems = order.restaurantOrder.items.map((item) => {
+      const dish = dishMap[item.itemId];
+      return {
+        ...item.toObject(),
+        image: dish ? dish.imageUrl[0] || null : null,
+      };
+    });
+
+    // Create a new order object with enhanced items
+    const enhancedOrder = {
+      ...order.toObject(),
+      restaurantOrder: {
+        ...order.restaurantOrder.toObject(),
+        items: enhancedItems,
+      },
+    };
+
     // For restaurant users, only return their part of the order
     if (isRestaurant) {
       return res.status(200).json({
         status: 200,
         order: {
-          orderId: order.orderId,
-          customerName: order.customerName,
-          customerPhone: order.customerPhone,
-          type: order.type,
-          deliveryAddress: order.deliveryAddress,
-          status: order.restaurantOrder.status,
-          items: order.restaurantOrder.items,
-          subtotal: order.restaurantOrder.subtotal,
-          tax: order.restaurantOrder.tax,
-          deliveryFee: order.restaurantOrder.deliveryFee,
-          estimatedReadyTime: order.restaurantOrder.estimatedReadyTime,
+          orderId: enhancedOrder.orderId,
+          customerName: enhancedOrder.customerName,
+          customerPhone: enhancedOrder.customerPhone,
+          type: enhancedOrder.type,
+          deliveryAddress: enhancedOrder.deliveryAddress,
+          status: enhancedOrder.restaurantOrder.status,
+          items: enhancedOrder.restaurantOrder.items, // Now includes images
+          subtotal: enhancedOrder.restaurantOrder.subtotal,
+          tax: enhancedOrder.restaurantOrder.tax,
+          deliveryFee: enhancedOrder.restaurantOrder.deliveryFee,
+          estimatedReadyTime: enhancedOrder.restaurantOrder.estimatedReadyTime,
         },
       });
     }
 
     res.status(200).json({
       status: 200,
-      order,
+      order: enhancedOrder,
+      restaurant,
     });
   } catch (error) {
     console.error("Error getting order:", error);
