@@ -179,8 +179,10 @@ const SavedAddressesScreen = ({ navigation }) => {
         city,
         state,
         isDefault,
-        latitude,
-        longitude,
+        coordinates: {
+          lat: latitude,
+          lng: longitude,
+        },
       };
 
       let response;
