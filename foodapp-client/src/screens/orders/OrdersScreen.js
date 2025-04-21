@@ -27,7 +27,7 @@ const OrdersScreen = ({ navigation }) => {
     try {
       setLoading(true);
       const ordersData = await dataService.getOrders();
-      setOrders(ordersData);
+      setOrders(ordersData.orders);
     } catch (error) {
       console.error("Error loading orders:", error);
     } finally {
@@ -93,17 +93,20 @@ const OrdersScreen = ({ navigation }) => {
   const renderOrderItem = ({ item }) => (
     <Card
       style={[styles.orderCard, { ...theme.shadow.small }]}
-      onPress={() => navigation.navigate("OrderDetail", { orderId: item.id })}
+      onPress={() =>
+        navigation.navigate("OrderDetail", { orderId: item.orderId })
+      }
     >
       <Card.Content>
         <View style={styles.orderHeader}>
           <View style={styles.restaurantInfo}>
             <Image
-              source={{ uri: item.restaurantImage }}
+              // source={{ uri: item.restaurantImage }}
+              source={require("../../assets/no-image-restaurant.png")}
               style={styles.restaurantImage}
             />
             <View>
-              <Text style={styles.restaurantName}>{item.restaurantName}</Text>
+              <Text style={styles.restaurantName}>{item.restaurant}</Text>
               <Text style={styles.orderDate}>{formatDate(item.createdAt)}</Text>
             </View>
           </View>
@@ -129,10 +132,8 @@ const OrdersScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.orderFooter}>
-          <Text style={styles.totalItems}>
-            {item.items.reduce((sum, item) => sum + item.quantity, 0)} items
-          </Text>
-          <Text style={styles.totalPrice}>${item.total.toFixed(2)}</Text>
+          <Text style={styles.totalItems}>{item.totalItems} items</Text>
+          <Text style={styles.totalPrice}>LKR {item.totalAmount}</Text>
         </View>
       </Card.Content>
     </Card>
@@ -233,7 +234,7 @@ const OrdersScreen = ({ navigation }) => {
       <FlatList
         data={filteredOrders}
         renderItem={renderOrderItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.orderId}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={renderEmptyOrders}
       />

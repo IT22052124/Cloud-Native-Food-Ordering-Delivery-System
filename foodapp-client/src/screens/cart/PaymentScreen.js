@@ -81,6 +81,10 @@ const PaymentScreen = ({ navigation, route }) => {
                 state: selectedAddress?.state || "",
                 zipCode: selectedAddress?.zipCode || "",
                 country: selectedAddress?.country || "",
+                coordinates: {
+                  lat: selectedAddress?.coordinates.lat,
+                  lng: selectedAddress?.coordinates.lng,
+                },
               }
             : null,
         paymentMethod: selectedPayment.id.toUpperCase(),
@@ -88,12 +92,12 @@ const PaymentScreen = ({ navigation, route }) => {
 
       const response = await dataService.createOrder(orderData);
       const OrderResponse = {
-        _id: response.order._id,
-        id: response.order.orderId,
-        status: response.restaurantOrder.status,
+        _id: response.order.order._id,
+        id: response.order.order.orderId,
+        status: response.order.order.restaurantOrder.status,
         estimatedDeliveryTime: new Date(Date.now() + 30 * 60 * 1000),
-        paymentMethod: response.order.paymentMethod(),
-        total: response.order.totalAmount,
+        paymentMethod: response.order.order.paymentMethod,
+        total: response.order.order.totalAmount,
       };
 
       setOrderDetails(OrderResponse);
@@ -121,7 +125,7 @@ const PaymentScreen = ({ navigation, route }) => {
       routes: [
         {
           name: "OrderConfirmation",
-          params: { orderId: orderDetails._id },
+          params: { orderId: orderDetails.id },
         },
       ],
     });

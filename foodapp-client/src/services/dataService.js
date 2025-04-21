@@ -775,38 +775,29 @@ const dataService = {
         message: error.response?.data?.message || error.message,
       };
     }
-
-    // // Create a new order with default values and user data
-    // const newOrder = {
-    //   id: `order-${Date.now()}`,
-    //   orderId: `ORD-${new Date()
-    //     .toISOString()
-    //     .slice(2, 10)
-    //     .replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`,
-    //   status: ORDER_STATUS.PLACED,
-    //   createdAt: new Date().toISOString(),
-    //   restaurantOrder: orderData.restaurantOrder || {
-    //     restaurantId: orderData.restaurantId,
-    //     restaurantName: orderData.restaurantName,
-    //     items: orderData.items || [],
-    //     subtotal: orderData.subtotal || 0,
-    //     tax: orderData.tax || 0,
-    //     deliveryFee: orderData.deliveryFee || 0,
-    //     status: ORDER_STATUS.PLACED,
-    //   },
-    //   ...orderData,
-    // };
-
-    // return {
-    //   success: true,
-    //   order: newOrder,
-    // };
   },
 
   getOrderById: async (orderId) => {
     try {
       const token = await getToken();
       return await apiClient.get(`${ORDER_API_URL}/${orderId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (error) {
+      console.error("Error retrieving order by id:", error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message,
+      };
+    }
+  },
+
+  getOrders: async () => {
+    try {
+      const token = await getToken();
+      return await apiClient.get(`${ORDER_API_URL}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

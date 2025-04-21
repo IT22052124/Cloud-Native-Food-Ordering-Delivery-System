@@ -26,6 +26,7 @@ const OrderDetailScreen = ({ route, navigation }) => {
   const { orderId } = route.params;
   const theme = useTheme();
   const [order, setOrder] = useState(null);
+  const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mapRegion, setMapRegion] = useState(null);
 
@@ -38,16 +39,17 @@ const OrderDetailScreen = ({ route, navigation }) => {
       setLoading(true);
       const orderData = await dataService.getOrderById(orderId);
       setOrder(orderData);
-
+      setOrder(orderData.order);
+      setRestaurant(orderData.restaurant);
       // Set map region if delivery address is available
       if (
-        orderData.deliveryAddress &&
-        orderData.deliveryAddress.latitude &&
-        orderData.deliveryAddress.longitude
+        orderData.order.deliveryAddress &&
+        orderData.order.deliveryAddress.coordinates.lat &&
+        orderData.order.deliveryAddress.coordinates.lng
       ) {
         setMapRegion({
-          latitude: orderData.deliveryAddress.latitude,
-          longitude: orderData.deliveryAddress.longitude,
+          latitude: orderData?.order?.deliveryAddress?.coordinates?.lat,
+          longitude: orderData.order?.deliveryAddress?.coordinates?.lng,
           latitudeDelta: 0.005,
           longitudeDelta: 0.005,
         });
@@ -96,37 +98,37 @@ const OrderDetailScreen = ({ route, navigation }) => {
   };
 
   const handleContactDriver = () => {
-    if (order.driver && order.driver.phoneNumber) {
-      Linking.openURL(`tel:${order.driver.phoneNumber}`);
-    }
+    // if (order.driver && order.driver.phoneNumber) {
+    //   Linking.openURL(`tel:${order.driver.phoneNumber}`);
+    // }
   };
 
   const handleTrackOrder = () => {
-    navigation.navigate("OrderTracking", { orderId: order.id });
+    // navigation.navigate("OrderTracking", { orderId: order.id });
   };
 
   const handleCancelOrder = async () => {
-    try {
-      // Only allow cancellation for pending orders
-      if (order.status === ORDER_STATUS.PENDING) {
-        await dataService.cancelOrder(order.id);
-        loadOrderDetails(); // Reload order to get updated status
-      }
-    } catch (error) {
-      console.error("Error cancelling order:", error);
-    }
+    // try {
+    //   // Only allow cancellation for pending orders
+    //   if (order.status === ORDER_STATUS.PENDING) {
+    //     await dataService.cancelOrder(order.id);
+    //     loadOrderDetails(); // Reload order to get updated status
+    //   }
+    // } catch (error) {
+    //   console.error("Error cancelling order:", error);
+    // }
   };
 
   const canCancelOrder = () => {
-    return order && order.status === ORDER_STATUS.PENDING;
+    // return order && order.status === ORDER_STATUS.PENDING;
   };
 
   const isActiveOrder = () => {
-    return (
-      order &&
-      order.status !== ORDER_STATUS.DELIVERED &&
-      order.status !== ORDER_STATUS.CANCELLED
-    );
+    // return (
+    //   order &&
+    //   order.status !== ORDER_STATUS.DELIVERED &&
+    //   order.status !== ORDER_STATUS.CANCELLED
+    // );
   };
 
   if (loading) {
@@ -181,7 +183,7 @@ const OrderDetailScreen = ({ route, navigation }) => {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         />
-        <Text style={styles.headerTitle}>Order #{order.orderNumber}</Text>
+        <Text style={styles.headerTitle}>Order #{order.orderId}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -194,7 +196,7 @@ const OrderDetailScreen = ({ route, navigation }) => {
               ]}
               textStyle={{ color: "white", fontWeight: "bold" }}
             >
-              {getStatusText(order.status)}
+              {getStatusText(order.restaurantOrder.status)}
             </Chip>
 
             <Text style={styles.orderDate}>
@@ -220,13 +222,12 @@ const OrderDetailScreen = ({ route, navigation }) => {
           <Card.Content>
             <View style={styles.restaurantHeader}>
               <Image
-                source={{ uri: order.restaurantImage }}
+                // source={{ uri: item.restaurantImage }}
+                source={require("../../assets/no-image-restaurant.png")}
                 style={styles.restaurantImage}
               />
               <View style={styles.restaurantInfo}>
-                <Text style={styles.restaurantName}>
-                  {order.restaurantName}
-                </Text>
+                <Text style={styles.restaurantName}>{restaurant.name}</Text>
                 <TouchableOpacity
                   onPress={() =>
                     navigation.navigate("RestaurantDetail", {
@@ -253,7 +254,7 @@ const OrderDetailScreen = ({ route, navigation }) => {
           <Card.Content>
             <Text style={styles.sectionTitle}>Order Items</Text>
 
-            {order.items.map((item, index) => (
+            {order.restaurantOrder.items.map((item, index) => (
               <View key={index}>
                 <View style={styles.orderItem}>
                   <View style={styles.orderItemInfo}>
@@ -263,10 +264,10 @@ const OrderDetailScreen = ({ route, navigation }) => {
                     </Text>
                   </View>
                   <Text style={styles.orderItemPrice}>
-                    ${item.price * item.quantity}
+                    LKR {item.price * item.quantity}
                   </Text>
                 </View>
-                {index < order.items.length - 1 && (
+                {index < order.restaurantOrder.items.length - 1 && (
                   <Divider style={styles.itemDivider} />
                 )}
               </View>
@@ -280,31 +281,39 @@ const OrderDetailScreen = ({ route, navigation }) => {
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
-              <Text style={styles.summaryValue}>${order.subtotal}</Text>
+              <Text style={styles.summaryValue}>
+              LKR {order.restaurantOrder.subtotal}
+              </Text>
             </View>
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Delivery Fee</Text>
-              <Text style={styles.summaryValue}>${order.deliveryFee}</Text>
+              <Text style={styles.summaryValue}>
+              LKR {order.restaurantOrder.deliveryFee}
+              </Text>
             </View>
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Tax</Text>
-              <Text style={styles.summaryValue}>${order.tax}</Text>
+              <Text style={styles.summaryValue}>
+              LKR {order.restaurantOrder.tax}
+              </Text>
             </View>
 
-            {order.tip > 0 && (
+            {/* {order.tip > 0 && (
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Tip</Text>
                 <Text style={styles.summaryValue}>${order.tip}</Text>
               </View>
-            )}
+            )} */}
 
             <Divider style={styles.summaryDivider} />
 
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>${order.total}</Text>
+              <Text style={styles.totalValue}>
+                LKR {order.totalAmount}
+              </Text>
             </View>
 
             <View style={styles.paymentMethod}>
@@ -349,8 +358,8 @@ const OrderDetailScreen = ({ route, navigation }) => {
                   >
                     <Marker
                       coordinate={{
-                        latitude: order.deliveryAddress.latitude,
-                        longitude: order.deliveryAddress.longitude,
+                        latitude: order.deliveryAddress.coordinates.lat,
+                        longitude: order.deliveryAddress.coordinates.lng,
                       }}
                     />
                   </MapView>
