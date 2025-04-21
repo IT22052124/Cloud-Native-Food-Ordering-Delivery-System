@@ -3,7 +3,7 @@
 import { useState, useEffect, useContext } from "react"
 import { useNavigate } from "react-router-dom"
 import { AuthContext } from "../context/AuthContext"
-import { getRestaurants } from "../utils/api"
+import { getRestaurants, deleteRestaurant } from "../utils/api"
 import Sidebar from "../components/Sidebar"
 import Navbar from "../components/Navbar"
 import LoadingSpinner from "../components/LoadingSpinner"
@@ -14,7 +14,7 @@ const Dashboard = () => {
   const [restaurants, setRestaurants] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [showDeleteModal, setShowDeleteModal] = useState(null) // Store restaurant ID for deletion
+  const [showDeleteModal, setShowDeleteModal] = useState(null)
   const { user } = useContext(AuthContext)
   const navigate = useNavigate()
 
@@ -27,7 +27,6 @@ const Dashboard = () => {
       try {
         const data = await getRestaurants()
         setRestaurants(Array.isArray(data) ? data : [])
-        console.log("dashbord", restaurants)
       } catch (error) {
         setError("Failed to fetch restaurants")
         toast.error("Failed to fetch restaurants")
@@ -50,8 +49,7 @@ const Dashboard = () => {
   const handleDelete = async () => {
     if (!showDeleteModal) return
     try {
-      // Replace with real delete API call (e.g., deleteRestaurant(showDeleteModal))
-      // await deleteRestaurant(showDeleteModal);
+      await deleteRestaurant(showDeleteModal)
       setRestaurants((prev) => prev.filter((restaurant) => restaurant._id !== showDeleteModal))
       toast.success("Restaurant deleted successfully!")
     } catch (err) {
@@ -175,25 +173,45 @@ const Dashboard = () => {
                     onClick={() => handleView(restaurant._id)}
                     className="bg-white dark:bg-gray-800 overflow-hidden rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 transition-all duration-300 hover:shadow-2xl group cursor-pointer transform hover:-translate-y-2 hover:border-orange-300 dark:hover:border-orange-700"
                   >
-                    {/* Card Header with Gradient Banner */}
-                    <div className="h-16 bg-gradient-to-r from-orange-400 to-pink-500 relative group-hover:from-orange-500 group-hover:to-pink-600 transition-all duration-300">
-                      <div className="absolute -bottom-10 left-6 h-20 w-20 bg-white dark:bg-gray-700 rounded-xl shadow-lg flex items-center justify-center border-4 border-white dark:border-gray-700 group-hover:scale-110 transition-transform duration-300">
-                        <span className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-orange-500 to-pink-600">
-                          {restaurant.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
+                    {/* Cover Image */}
+                    <div className="h-48 w-full">
+                      {restaurant.coverImageUrl ? (
+                        <img
+                          src={restaurant.coverImageUrl}
+                          alt={`${restaurant.name} cover`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                          <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">No cover image</p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Restaurant Info */}
-                    <div className="pt-12 px-6 pb-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="text-xl font-bold text-gray-800 dark:text-white group-hover:text-orange-500 dark:group-hover:text-orange-400 transition-colors duration-300">
-                            {restaurant.name}
-                          </h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {restaurant.address.city}, {restaurant.address.province}
-                          </p>
+                    <div className="px-6 py-4">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center space-x-4">
+                          {/* Restaurant Image */}
+                          {restaurant.imageUrls && restaurant.imageUrls.length > 0 ? (
+                            <img
+                              src={restaurant.imageUrls[0]}
+                              alt={`${restaurant.name} image`}
+                              className="w-16 h-16 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-700">
+                              <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">No image</p>
+                            </div>
+                          )}
+                          <div>
+                            <h4 className="text-xl font-bold text-gray-800 dark:text-white group-hover:text-orange-500 dark:group-hover:text-orange-400 transition-colors duration-300">
+                              {restaurant.name}
+                            </h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {restaurant.address.city}, {restaurant.address.province}
+                            </p>
+                          </div>
                         </div>
                         <span
                           className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
@@ -212,7 +230,7 @@ const Dashboard = () => {
                       </div>
 
                       {/* Description */}
-                      <div className="mt-4">
+                      <div className="mb-4">
                         <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Description</p>
                         <p className="text-gray-800 dark:text-white text-sm line-clamp-2 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
                           {restaurant.description || "No description provided."}
@@ -220,7 +238,7 @@ const Dashboard = () => {
                       </div>
 
                       {/* Stats */}
-                      <div className="mt-4 flex items-center gap-4">
+                      <div className="flex items-center gap-4">
                         <div className="flex-1 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center">
                           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Dishes</p>
                           <div className="flex items-center justify-center">
@@ -237,20 +255,20 @@ const Dashboard = () => {
                       </div>
                     </div>
 
-                    {/* View Button */}
+                    {/* Action Buttons */}
                     <div className="bg-gray-50 dark:bg-gray-700/50 p-4 flex justify-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleView(restaurant._id)
-                        }}
-                        className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-lg hover:from-orange-600 hover:to-pink-600 transition-all duration-300 flex items-center shadow-md hover:shadow-lg transform hover:scale-105 font-medium"
-                        aria-label={`View details for ${restaurant.name}`}
-                      >
-                        <FaEye className="mr-2" />
-                        View Restaurant
-                      </button>
-                    </div>
+  <button
+    onClick={(e) => {
+      e.stopPropagation()
+      handleView(restaurant._id)
+    }}
+    className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-lg hover:from-orange-600 hover:to-pink-600 transition-all duration-300 flex items-center shadow-md hover:shadow-lg transform hover:scale-105 font-medium"
+    aria-label={`View details for ${restaurant.name}`}
+  >
+    <FaEye className="mr-2" />
+    View Restaurant
+  </button>
+</div>
                   </div>
                 ))}
               </div>

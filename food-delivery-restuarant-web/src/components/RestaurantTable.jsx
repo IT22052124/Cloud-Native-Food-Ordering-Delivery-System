@@ -128,21 +128,30 @@ const RestaurantTable = ({ restaurants = [] }) => {
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredRestaurants.map((restaurant, index) => (
+              {filteredRestaurants.map((restaurant) => (
                 <tr
                   key={restaurant._id}
                   className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200"
                 >
                   <td className="px-6 py-5 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="flex-shrink-0 h-12 w-12 bg-gradient-to-br from-orange-400 to-pink-500 rounded-lg shadow-md flex items-center justify-center">
-                        <span className="text-white font-bold text-lg">
-                          {restaurant?.name?.charAt(0)?.toUpperCase()}
-                        </span>
+                      <div className="flex-shrink-0 h-12 w-12 rounded-lg shadow-md overflow-hidden">
+                        {restaurant.imageUrls && restaurant.imageUrls.length > 0 ? (
+                          <img
+                            src={restaurant.imageUrls[0]}
+                            alt={restaurant.name}
+                            className="h-12 w-12 object-cover"
+                          />
+                        ) : (
+                          <img
+                            src="https://via.placeholder.com/48?text=No+Image"
+                            alt="No Image"
+                            className="h-12 w-12 object-cover"
+                          />
+                        )}
                       </div>
                       <div className="ml-4">
                         <div className="text-base font-semibold text-gray-900 dark:text-white">{restaurant.name}</div>
-                        
                       </div>
                     </div>
                   </td>
