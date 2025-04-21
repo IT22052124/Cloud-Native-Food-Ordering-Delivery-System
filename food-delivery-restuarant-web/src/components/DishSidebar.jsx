@@ -9,6 +9,7 @@ const DishSidebar = () => {
   const [orderCounts, setOrderCounts] = useState({
     incoming: 0,
     processing: 0,
+    ready: 0,
     history: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -18,16 +19,31 @@ const DishSidebar = () => {
     const fetchOrderCounts = async () => {
       try {
         setLoading(true);
-        const [incomingOrders, processingOrders, historyOrders] = await Promise.all([
+        const [incomingOrders, processingOrders, readyOrders, historyOrders] = await Promise.all([
           getOrders('PLACED'),
           getOrders('PREPARING'),
+          getOrders('READY_FOR_PICKUP'),
           getOrders('DELIVERED,CANCELLED'),
         ]);
-        setOrderCounts({
-          incoming: incomingOrders.length,
-          processing: processingOrders.length,
-          history: historyOrders.length,
-        });
+
+        // Filter orders with case-insensitive status comparison
+        const filteredCounts = {
+          incoming: incomingOrders.filter(order => 
+            order.status && order.status.toUpperCase() === 'PLACED'
+          ).length,
+          processing: processingOrders.filter(order => 
+            order.status && order.status.toUpperCase() === 'PREPARING'
+          ).length,
+          ready: readyOrders.filter(order => 
+            order.status && order.status.toUpperCase() === 'READY_FOR_PICKUP'
+          ).length,
+          history: historyOrders.filter(order => 
+            order.status && ['DELIVERED', 'CANCELLED'].includes(order.status?.toUpperCase())
+          ).length,
+        };
+
+        setOrderCounts(filteredCounts);
+        console.log('Filtered Order Counts:', filteredCounts);
       } catch (error) {
         console.error('Failed to fetch order counts:', error);
       } finally {
@@ -140,6 +156,30 @@ const DishSidebar = () => {
           ) : null}
         </NavLink>
 
+        {/* Ready to Pickup Orders */}
+        <NavLink
+          to="/orders/ready"
+          className={({ isActive }) =>
+            `flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 ${
+              isActive
+                ? 'bg-accent text-white shadow-md'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`
+          }
+        >
+          <FaClipboardList className="flex-shrink-0" />
+          <span className="font-medium">Ready to Pickup</span>
+          {loading ? (
+            <span className="ml-auto text-gray-500 dark:text-gray-400 text-xs">
+              <FaSpinner className="animate-spin" />
+            </span>
+          ) : orderCounts.ready > 0 ? (
+            <span className="ml-auto bg-accent text-white text-xs px-2 py-1 rounded-full">
+              {orderCounts.ready}
+            </span>
+          ) : null}
+        </NavLink>
+
         {/* Order History */}
         <NavLink
           to="/orders/history"
@@ -164,7 +204,7 @@ const DishSidebar = () => {
           ) : null}
         </NavLink>
 
-        <NavLink
+        {/* <NavLink
           to="/users"
           className={({ isActive }) =>
             `flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 ${
@@ -176,7 +216,7 @@ const DishSidebar = () => {
         >
           <FaUsers className="flex-shrink-0" />
           <span className="font-medium">Users</span>
-        </NavLink>
+        </NavLink> */}
       </nav>
 
       {/* User profile/settings at bottom */}

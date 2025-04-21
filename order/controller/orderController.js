@@ -397,6 +397,7 @@ const getRestaurantOrders = async (req, res) => {
       deliveryFee: order.restaurantOrder.deliveryFee,
       estimatedReadyTime: order.restaurantOrder.estimatedReadyTime,
     }));
+    console.log("processedOrders", processedOrders);
 
     res.status(200).json({
       status: 200,
@@ -452,18 +453,18 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // Check if user is authorized to update status
-    const isRestaurant =
-      req.user.role === "RESTAURANT" &&
-      order.restaurantOrder.restaurantId === req.user.id;
-    const isAdmin = req.user.role === "ADMIN";
+    // // Check if user is authorized to update status
+    // const isRestaurant =
+    //   req.user.role === "RESTAURANT" &&
+    //   order.restaurantOrder.restaurantId === req.user.id;
+    // const isAdmin = req.user.role === "ADMIN";
 
-    if (!isRestaurant && !isAdmin) {
-      return res.status(403).json({
-        status: 403,
-        message: "You don't have permission to update this order",
-      });
-    }
+    // if (!isRestaurant && !isAdmin) {
+    //   return res.status(403).json({
+    //     status: 403,
+    //     message: "You don't have permission to update this order",
+    //   });
+    // }
 
     // Update status
     order.restaurantOrder.status = status;

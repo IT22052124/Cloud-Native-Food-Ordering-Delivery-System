@@ -17,27 +17,38 @@ const AdminDashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
         const [dishData, orderData] = await Promise.all([
           getDishes(user.restaurantId),
-    
-         // getOrders(),
+          getOrders('PLACED'), // Fetch orders with status PLACED
         ]);
-        setDishes(dishData.dishes);
-        console.log(dishes)
-     //   setOrders(orderData);
+        setDishes(dishData.dishes || []);
+        setOrders(orderData || []);
+        console.log('Fetched Dishes:', dishData.dishes);
+        console.log('Fetched Orders:', orderData);
       } catch (error) {
         toast.error('Failed to fetch dashboard data');
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchData();
   }, [user, navigate]);
 
   if (loading) return <LoadingSpinner />;
-  const dishesCount = dishes.length;
+
   const countAvailableDishes = (dishes) => {
     if (!dishes || dishes.length === 0) return 0;
     return dishes.filter(dish => dish.isAvailable === true).length;
+  };
+
+  // Count orders with status PLACED (case-insensitive)
+  const countPlacedOrders = (orders) => {
+    if (!orders || orders.length === 0) return 0;
+    return orders.filter(order => 
+      order.status && order.status.toUpperCase() === 'PLACED'
+    ).length;
   };
 
   return (
@@ -63,7 +74,7 @@ const AdminDashboard = () => {
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
               <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">Pending Orders</h3>
               <p className="text-3xl font-semibold text-orange-600 dark:text-orange-400">
-                {orders.filter((o) => o.status === 'Pending').length}
+                {countPlacedOrders(orders)}
               </p>
             </div>
           </div>

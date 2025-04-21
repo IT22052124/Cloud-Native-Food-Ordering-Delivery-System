@@ -3,7 +3,7 @@ import {
   createDish,
   restaurantAdminLogin,
   getAllDishes,
- // getDishById,
+  getDishById,
   deleteDish,
   updateDishById,
   getOrdersForRestaurant,
@@ -16,7 +16,7 @@ const router = express.Router();
 router.post("/add", authMiddlewareAdmin, createDish);
 router.post("/login", restaurantAdminLogin);
  router.get("/", authMiddlewareAdmin, getAllDishes);
- //router.get("/:id", authMiddlewareAdmin, getDishById);
+ router.get("/:id", authMiddlewareAdmin, getDishById);
  router.put("/:id", authMiddlewareAdmin, updateDishById);
  router.delete("/:id", authMiddlewareAdmin, deleteDish);
  router.get("/orders",authMiddlewareAdmin,authorizeRole("restaurant"),getOrdersForRestaurant)

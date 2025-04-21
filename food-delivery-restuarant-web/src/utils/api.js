@@ -140,19 +140,24 @@ export const deleteDish = async (id) => {
 };
 
 // Updated getOrders to fetch orders with a specific status
+// Updated getOrders to fetch orders with a specific status
 export const getOrders = async (status) => {
   try {
-    const token = localStorage.getItem('token');
-
-    const response = await api.get('/branch/orders', {
-      params: { status },
-      headers: {   Authorization: `Bearer ${token}`,},
-    });
+    const token = localStorage.getItem("token");
+    const response = await axios.post(
+      "http://localhost:5002/api/orders/restaurant",
+      status,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
     return response.data.orders || [];
   } catch (error) {
-    console.error('getOrders: Error:', error);
-    throw error;
-  }
+    console.error("getOrders: Error:", error);
+    throw error;
+  }
 };
 
 // Updated updateOrderStatus to call the orders microservice directly

@@ -68,6 +68,7 @@ export const restaurantAdminLogin = async (req, res) => {
         resturantId: restaurant._id,
         name: restaurant.name,
         ownerId: restaurant.ownerId,
+        
         // Include other fields you need, but avoid sensitive data
       },
     });
@@ -261,22 +262,22 @@ export const deleteDish = async (req, res) => {
   }
 };
 
-// controller function to get dishById
-// export const getDishById = async (req, res) => {
-//   try {
-//     const dishId = req.params.id;
+//controller function to get dishById
+export const getDishById = async (req, res) => {
+  try {
+    const dishId = req.params.id;
 
-//     const dish =  await Dish.findOne({_id:dishId});
-//     if(!dish){
-//       return res.status(404).json({message:"Dish not found"});
-//     }
+    const dish =  await Dish.findOne({_id:dishId});
+    if(!dish){
+      return res.status(404).json({message:"Dish not found"});
+    }
    
-//     return res.status(200).json({ dish });
-//   } catch (error) {
-//     console.log("error in getDishbyId", error);
-//     return res.status(500).json({ message: "Server error", error });
-//   }
-// };
+    return res.status(200).json({ dish });
+  } catch (error) {
+    console.log("error in getDishbyId", error);
+    return res.status(500).json({ message: "Server error", error });
+  }
+};
 
 // Existing getOrdersForRestaurant controller (from previous context)
 export const getOrdersForRestaurant = async (req, res) => {
