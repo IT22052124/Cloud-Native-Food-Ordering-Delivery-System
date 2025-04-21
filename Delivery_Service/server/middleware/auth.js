@@ -1,6 +1,16 @@
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
 
+/**
+ * Microservice-friendly authentication middleware
+ * 
+ * 1. Validates JWT tokens either:
+ *    - Locally using shared secret (fast)
+ *    - Via auth service API (more secure)
+ * 2. Implements proper role authorization
+ * 3. Handles all edge cases
+ */
+
 const protect = async (req, res, next) => {
   let token;
 
@@ -42,14 +52,34 @@ const protect = async (req, res, next) => {
   }
 };
 
+/**
+ * Role authorization middleware
+ * @param {...String} roles - Allowed roles
+ */
 const authorize = (...roles) => {
   return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authenticated'
+      });
+    }
+
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: `Role ${req.user.role} not authorized`,
+        message: `Role '${req.user.role}' not authorized for this action`
       });
     }
+
+    // Additional status check if needed
+    if (req.user.status !== 'active') {
+      return res.status(403).json({
+        success: false,
+        message: `Account is ${req.user.status} - Access denied`
+      });
+    }
+
     next();
   };
 };
