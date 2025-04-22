@@ -2,10 +2,11 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // API Base URLs
-const AUTH_API_URL = `http://192.168.1.2:5001/api`;
-const ORDER_API_URL = `http://192.168.1.2:5002/api/orders`;
-const CART_API_URL = `http://192.168.1.2:5002/api/cart`;
-const RESTAURANT_API_URL = `http://192.168.1.2:3000/api/restaurants`;
+const AUTH_API_URL = `http://192.168.8.196:5001/api`;
+const ORDER_API_URL = `http://192.168.8.196:5002/api/orders`;
+const CART_API_URL = `http://192.168.8.196:5002/api/cart`;
+const RESTAURANT_API_URL = `http://192.168.8.196/api/restaurants`;
+const PAYMENT_API_URL = `http://192.168.8.196:3001/api/payment`;
 
 // Sample data for the app
 const sampleRestaurants = [
@@ -1084,6 +1085,37 @@ const dataService = {
       return {
         success: false,
         message: error.response?.data?.message || error.message,
+      };
+    }
+  },
+
+  createPaymentIntent: async (paymentData) => {
+    try {
+      const token = await getToken();
+      const response = await axios.post(
+        `${PAYMENT_API_URL}/initiate`,
+        {
+          amount: paymentData.amount,
+          currency: paymentData.currency || "lkr", // Default to LKR if not specified
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      return {
+        success: true,
+        clientSecret: response.data.clientSecret, // Ensure your backend returns this
+      };
+    } catch (error) {
+      console.error("Error creating payment intent:", error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message,
+        error: error,
       };
     }
   },
