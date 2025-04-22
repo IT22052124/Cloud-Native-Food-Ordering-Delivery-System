@@ -1,19 +1,31 @@
-/*import express from 'express';
-import { validateToken } from '../middleware/auth.js';
-import {
-  toggleAvailability,
-  getAssignedOrders,
-  updateOrderStatus,
+import express from 'express';
+import { 
+  assignDelivery,
+  updateDeliveryStatus,
+  updateDriverLocation,
+  getDeliveryDetails,
+  getDriverDeliveries,
+  confirmCashPayment,
+  toggleAvailability
 } from '../controllers/deliveryController.js';
+import { protect, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Protected routes (require valid JWT)
-router.use(validateToken);
+// Protect all routes
+router.use(protect);
 
-// Delivery-specific endpoints
-router.put('/availability/toggle', toggleAvailability);
-router.get('/orders', getAssignedOrders);
-router.put('/orders/:id/status', updateOrderStatus);
+// Restaurant endpoints
+router.post('/assign', authorize('restaurant'), assignDelivery);
 
-export default router;*/
+// Driver endpoints
+router.get('/driver', authorize('delivery'), getDriverDeliveries);
+router.patch('/availability', protect, authorize('delivery'), toggleAvailability);
+router.patch('/:id/status', authorize('delivery'), updateDeliveryStatus);
+router.patch('/:id/location', authorize('delivery'), updateDriverLocation);
+router.patch('/:id/confirm-payment', authorize('delivery'), confirmCashPayment);
+
+// Shared endpoints
+router.get('/:id', authorize('customer', 'restaurant', 'delivery', 'admin'), getDeliveryDetails);
+
+export default router;
