@@ -37,9 +37,10 @@ const RestaurantSchema = new mongoose.Schema(
     ],
     imageUrls: [
       {
-        url: String,
-        alt_text: String,
-      },
+        type: String,
+        trim: true,
+       
+      }
     ],
 
     dishes: [Types.ObjectId],

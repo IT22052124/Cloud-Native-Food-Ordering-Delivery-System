@@ -16,6 +16,20 @@ const dishSchema = mongoose.Schema(
     },
     category: {
       type: String,
+      enum: [
+        "Appetizers",
+        "Main Course",
+        "Desserts",
+        "Beverages",
+        "Salads",
+        "Soups",
+        "Breads",
+        "Rice Dishes",
+        "Noodles",
+        "Seafood",
+        "Grilled",
+        "Fast Food",
+      ],
     },
     isAvailable: {
       type: Boolean,

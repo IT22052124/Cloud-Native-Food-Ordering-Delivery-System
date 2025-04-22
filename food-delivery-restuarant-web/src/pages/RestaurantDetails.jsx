@@ -6,7 +6,7 @@ import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import { getRestaurantById, updateRestaurantStatus, deleteRestaurant } from "../utils/api";
 import { toast } from "react-toastify";
-import { FaStore, FaMapMarkerAlt, FaPhone, FaEnvelope, FaEdit, FaArrowLeft, FaTrash } from "react-icons/fa";
+import { FaMapMarkerAlt, FaPhone, FaEnvelope, FaEdit, FaArrowLeft, FaTrash } from "react-icons/fa";
 import LoadingSpinner from "../components/LoadingSpinner";
 
 const RestaurantDetails = () => {
@@ -92,10 +92,7 @@ const RestaurantDetails = () => {
               >
                 <FaArrowLeft className="text-lg" />
               </button>
-              <h2 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center">
-                <FaStore className="mr-2 text-orange-500" />
-                {restaurant.name}
-              </h2>
+              <h2 className="text-3xl font-bold text-gray-800 dark:text-white">{restaurant.name}</h2>
             </div>
             <div className="flex space-x-4">
               <button
@@ -115,6 +112,45 @@ const RestaurantDetails = () => {
                 Delete Restaurant
               </button>
             </div>
+          </div>
+
+          {/* Cover Image */}
+          <div className="mb-6">
+            {restaurant.coverImageUrl ? (
+              <img
+                src={restaurant.coverImageUrl}
+                alt={`${restaurant.name} cover`}
+                className="w-full h-64 object-cover rounded-xl shadow-lg border border-gray-200 dark:border-gray-700"
+              />
+            ) : (
+              <div className="w-full h-64 bg-gray-200 dark:bg-gray-700 rounded-xl flex items-center justify-center border border-gray-200 dark:border-gray-700">
+                <p className="text-gray-500 dark:text-gray-400 text-lg font-medium">No cover image available</p>
+              </div>
+            )}
+          </div>
+
+          {/* Other Images */}
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white flex items-center">
+              <span className="w-1 h-6 bg-orange-500 rounded-full mr-2"></span>
+              Gallery
+            </h3>
+            {restaurant.imageUrls && restaurant.imageUrls.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {restaurant.imageUrls.map((url, index) => (
+                  <img
+                    key={index}
+                    src={url}
+                    alt={`${restaurant.name} image ${index + 1}`}
+                    className="w-full h-40 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-700">
+                <p className="text-gray-500 dark:text-gray-400">No additional images available</p>
+              </div>
+            )}
           </div>
 
           {/* Restaurant Details */}

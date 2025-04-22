@@ -2,7 +2,7 @@ import { Restaurant } from "../model/resturant.js";
 import { Dish } from "../model/dish.js";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
-
+import { ref, deleteObject } from "firebase/storage";
 dotenv.config();
 
 export const addRestaurant = async (req, res) => {
@@ -21,6 +21,8 @@ export const addRestaurant = async (req, res) => {
       email,
       username,
       password,
+      imageUrls,
+      coverImageUrl,
     } = req.body;
 
     // First check if username already exists in any restaurant
@@ -42,8 +44,6 @@ export const addRestaurant = async (req, res) => {
         message: "Restaurant already exists in this location.",
       });
     }
-
-    
 
     // Hash restaurant admin password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -70,6 +70,8 @@ export const addRestaurant = async (req, res) => {
         username: username,
         password: hashedPassword,
       },
+      imageUrls: Array.isArray(imageUrls) ? imageUrls : [],
+      coverImageUrl: coverImageUrl || " ",
     };
 
     const resturants = await Restaurant.create(restaurant);
@@ -127,10 +129,9 @@ export const getRestaurantById = async (req, res) => {
  */
 export const updateRestaurant = async (req, res) => {
   try {
-
     // Check if req.body exists
     if (!req.body) {
-      return res.status(400).json({ message: 'Request body is missing' });
+      return res.status(400).json({ message: "Request body is missing" });
     }
     const {
       name,
@@ -140,7 +141,10 @@ export const updateRestaurant = async (req, res) => {
       openingHours,
       menu,
       restaurantAdmin,
+      imageUrls: newImageUrls,
+      coverImageUrl,
     } = req.body;
+
     const restaurant = await Restaurant.findById(req.params.id);
 
     if (!restaurant || restaurant.ownerId.toString() !== req.owner) {
@@ -152,6 +156,45 @@ export const updateRestaurant = async (req, res) => {
       restaurant.restaurantAdmin.password = hashedPassword;
     }
 
+    if (Array.isArray(newImageUrls)) {
+      const imagesToDelete = restaurant.imageUrls.filter(
+        (url) => !newImageUrls.includes(url)
+      );
+
+      for (const oldImageUrl of imagesToDelete) {
+        try {
+          const imageRef = ref(storage, oldImageUrl);
+          await deleteObject(imageRef);
+        } catch (err) {
+          console.error("Failed to delete old image:", err);
+        }
+      }
+
+      restaurant.imageUrls = newImageUrls; // Update with new URLs
+    }
+    if (coverImageUrl && coverImageUrl !== restaurant.coverImageUrl) {
+      if (restaurant.coverImageUrl) {
+        try {
+          const imageRef = ref(storage, restaurant.coverImageUrl);
+          await deleteObject(imageRef);
+        } catch (err) {
+          console.error("Failed to delete old cover image:", err);
+        }
+      }
+      restaurant.coverImageUrl = coverImageUrl;
+    } else if (coverImageUrl === "") {
+      if (restaurant.coverImageUrl) {
+        try {
+          const imageRef = ref(storage, restaurant.coverImageUrl);
+          await deleteObject(imageRef);
+        } catch (err) {
+          console.error("Failed to delete old cover image:", err);
+        }
+      }
+      restaurant.coverImageUrl = "";
+    } else {
+      restaurant.coverImageUrl = restaurant.coverImageUrl;
+    }
     restaurant.name = name || restaurant.name;
     restaurant.description = description || restaurant.description;
     restaurant.address = address || restaurant.address;
@@ -183,6 +226,26 @@ export const deleteRestaurant = async (req, res) => {
     if (!restaurant) {
       return res.status(404).json({ message: "Restaurant not found!" });
     }
+    if (restaurant.coverImageUrl) {
+      try {
+        const imageRef = ref(storage, restaurant.coverImageUrl);
+        await deleteObject(imageRef);
+      } catch (error) {
+        console.error(
+          `Failed to delete cover image ${restaurant.coverImageUrl}:`,
+          error
+        );
+      }
+    }
+
+    for (const imageUrl of restaurant.imageUrls) {
+      try {
+        const imageRef = ref(storage, imageUrl);
+        await deleteObject(imageRef);
+      } catch (error) {
+        console.error(`Failed to delete image ${imageUrl}:`, error);
+      }
+    }
     res.json({ message: "Restaurant deleted successfully!" });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
@@ -195,29 +258,34 @@ export const updateRestaurantStatus = async (req, res) => {
     const { isActive } = req.body;
 
     // Validate request body
-    if (typeof isActive !== 'boolean') {
-      return res.status(400).json({ message: 'isActive must be a boolean value' });
+    if (typeof isActive !== "boolean") {
+      return res
+        .status(400)
+        .json({ message: "isActive must be a boolean value" });
     }
 
     // Find the restaurant
     const restaurant = await Restaurant.findById(id);
     if (!restaurant) {
-      return res.status(404).json({ message: 'Restaurant not found!' });
+      return res.status(404).json({ message: "Restaurant not found!" });
     }
 
     // Check if the requester is the owner
     if (restaurant.ownerId.toString() !== req.owner) {
-      return res.status(403).json({ message: 'Access denied!' });
+      return res.status(403).json({ message: "Access denied!" });
     }
 
     // Update the status
     restaurant.isActive = isActive;
     await restaurant.save();
 
-    res.json({ message: 'Restaurant status updated successfully!', restaurant });
+    res.json({
+      message: "Restaurant status updated successfully!",
+      restaurant,
+    });
   } catch (error) {
-    console.log('Error in updating restaurant status', error);
-    res.status(500).json({ message: 'Server error', error });
+    console.log("Error in updating restaurant status", error);
+    res.status(500).json({ message: "Server error", error });
   }
 };
 
