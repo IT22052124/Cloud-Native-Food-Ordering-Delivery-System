@@ -8,6 +8,7 @@ import { ThemeProvider } from "./src/context/ThemeContext";
 import { AuthProvider } from "./src/context/AuthContext";
 import { CartProvider } from "./src/context/CartContext";
 import AppNavigator from "./src/navigation/AppNavigator";
+import { StripeProvider } from "@stripe/stripe-react-native";
 
 // Define paper theme to match our app theme
 const paperTheme = {

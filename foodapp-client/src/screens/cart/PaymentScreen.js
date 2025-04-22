@@ -24,6 +24,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useCart } from "../../context/CartContext";
 import dataService from "../../services/dataService";
 import * as PaymentIcons from "../../assets/index";
+import { useStripe } from "@stripe/stripe-react-native";
 
 const PAYMENT_METHODS = [
   {
@@ -43,6 +44,7 @@ const PAYMENT_METHODS = [
 const PaymentScreen = ({ navigation, route }) => {
   const theme = useTheme();
   const { clearCart } = useCart();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const { orderType, selectedAddress, subtotal, deliveryFee, total } =
     route.params;
@@ -57,19 +59,51 @@ const PaymentScreen = ({ navigation, route }) => {
     setSelectedPayment(PAYMENT_METHODS[0]);
   }, []);
 
-  const handlePayment = async () => {
-    if (!selectedPayment) {
-      Alert.alert("Error", "Please select a payment method");
-      return;
-    }
-
+  const handleStripePayment = async () => {
     try {
       setProcessingPayment(true);
 
-      // In a real app, we would process the payment with a payment gateway
-      // For this demo, we'll simulate a payment processing delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // 1. Create Payment Intent on your backend
+      const response = await dataService.createPaymentIntent({
+        amount: total * 100, // Convert to cents
+        currency: "usd",
+      });
 
+      if (!response.clientSecret) {
+        throw new Error("No client secret returned");
+      }
+
+      // 2. Initialize Payment Sheet
+      const { error } = await initPaymentSheet({
+        merchantDisplayName: "My Food App",
+        paymentIntentClientSecret: response.clientSecret,
+        returnURL: "myfoodapp://stripe-redirect",
+      });
+
+      if (error) throw error;
+
+      // 3. Present Payment Sheet
+      const { error: paymentError } = await presentPaymentSheet();
+
+      if (paymentError) {
+        throw paymentError;
+      }
+
+      // If we get here, payment was successful
+      await createOrder();
+    } catch (error) {
+      console.error("Payment error:", error);
+      Alert.alert(
+        "Payment Failed",
+        error.message || "There was an error processing your payment"
+      );
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const createOrder = async () => {
+    try {
       // Create order object
       const orderData = {
         type: orderType,
@@ -102,23 +136,36 @@ const PaymentScreen = ({ navigation, route }) => {
 
       setOrderDetails(OrderResponse);
       setPaymentSuccess(true);
-
-      // Clear cart after successful order
       clearCart();
     } catch (error) {
-      console.error("Error during payment:", error);
+      console.error("Order creation error:", error);
       Alert.alert(
-        "Payment Failed",
-        error.message ||
-          "There was a problem processing your payment. Please try again."
+        "Order Failed",
+        error.message || "There was a problem creating your order"
       );
-    } finally {
-      setProcessingPayment(false);
+    }
+  };
+
+  const handlePayment = async () => {
+    if (!selectedPayment) {
+      Alert.alert("Error", "Please select a payment method");
+      return;
+    }
+
+    if (selectedPayment.id === "card") {
+      await handleStripePayment();
+    } else {
+      // For Cash on Delivery
+      setProcessingPayment(true);
+      try {
+        await createOrder();
+      } finally {
+        setProcessingPayment(false);
+      }
     }
   };
 
   const handleViewOrder = () => {
-    // Close success modal and navigate to order details
     setPaymentSuccess(false);
     navigation.reset({
       index: 0,
@@ -217,10 +264,19 @@ const PaymentScreen = ({ navigation, route }) => {
               color={theme.colors.success}
               style={styles.successIcon}
             />
-            <Title style={styles.modalTitle}>Payment Successful!</Title>
+            <Title style={styles.modalTitle}>
+              {selectedPayment?.id === "cod"
+                ? "Order Placed!"
+                : "Payment Successful!"}
+            </Title>
             <Text style={styles.modalText}>
               Your order #{orderDetails?.id} has been placed successfully.
             </Text>
+            {selectedPayment?.id === "cod" && (
+              <Text style={styles.modalText}>
+                Please have cash ready when your order arrives.
+              </Text>
+            )}
             <Text style={styles.estimatedTime}>
               Estimated {orderType === "DELIVERY" ? "delivery" : "pickup"} time:{" "}
               {orderDetails?.estimatedDeliveryTime.toLocaleTimeString([], {
@@ -285,7 +341,11 @@ const PaymentScreen = ({ navigation, route }) => {
             loading={processingPayment}
             disabled={processingPayment || !selectedPayment}
           >
-            {processingPayment ? "Processing..." : `Pay $${total.toFixed(2)}`}
+            {processingPayment
+              ? "Processing..."
+              : selectedPayment?.id === "cod"
+              ? `Place Order`
+              : `Pay $${total.toFixed(2)}`}
           </Button>
         </View>
       </ScrollView>
