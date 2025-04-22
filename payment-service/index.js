@@ -11,6 +11,11 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+global.gConfig = {
+  auth_url: process.env.AUTH_SERVICE_URL,
+  restaurant_url: process.env.RESTAURANT_SERVICE_URL,
+};
+
 // Database Connection
 mongoose
   .connect(process.env.MONGO_URI)
