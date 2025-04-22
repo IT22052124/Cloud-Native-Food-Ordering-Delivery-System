@@ -102,7 +102,6 @@ const UserSchema = new Schema(
     },
     refreshToken: {
       type: String,
-      select: false,
     },
     verified: {
       type: Boolean,
@@ -141,7 +140,7 @@ UserSchema.methods.generateAuthToken = function () {
     { id: this._id, role: this.role },
     process.env.JWT_SECRET || "jwt-secret-key-develop-only",
     {
-      expiresIn: "1h",
+      expiresIn: "1d",
     }
   );
 };
