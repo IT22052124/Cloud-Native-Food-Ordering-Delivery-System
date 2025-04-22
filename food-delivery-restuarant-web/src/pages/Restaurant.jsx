@@ -38,10 +38,9 @@ const Resturant = () => {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <div className="flex-1 ml-64 bg-primary-bg dark:dark-bg">
+      <div className="flex-1 ml-64 bg-gray-900 dark:dark-bg">
         <Navbar />
         <div className="p-6">
-          <h2 className="text-2xl font-bold mb-4 text-text-primary dark:dark-text">Owner Dashboard</h2>
           {restaurants.length > 0 ? (
             <RestaurantTable restaurants={restaurants} />
           ) : (

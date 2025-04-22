@@ -9,7 +9,7 @@ const Navbar = () => {
   const { theme, toggleTheme } = useContext(ThemeContext);
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-
+ console.log("users", user);
   const handleLogout = () => {
     logout();
     navigate('/login');

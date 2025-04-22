@@ -182,3 +182,30 @@ export const updateOrderStatus = async (id, status, notes = '', estimatedReadyMi
     throw error;
   }
 };
+// Fetch current user details
+export const getCurrentUser = async (token) => {
+  try {
+    const response = await axios.get('http://localhost:5001/api/auth/me', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching current user:', error);
+    throw error.response?.data || { success: false, message: 'Failed to fetch user data' };
+  }
+};
+
+// Update user profile
+export const updateProfile = async (token, updates) => {
+  try {
+    const response = await axios.put('http://localhost:5001/api/users/me', updates, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    throw error.response?.data || { success: false, message: 'Failed to update profile' };
+  }
+};
