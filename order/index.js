@@ -4,11 +4,16 @@ import cors from "cors";
 import dotenv from "dotenv";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
+import http from "http";
 import orderRoutes from "./routes/orderRoute.js";
 import cartRoutes from "./routes/cartRoute.js";
+import { setupWebSocket } from "./websocket.js";
 
 dotenv.config();
 const app = express();
+
+// Create HTTP server for WebSocket support
+const server = http.createServer(app);
 
 // Middleware
 app.use(
@@ -25,6 +30,7 @@ app.use(cookieParser());
 global.gConfig = {
   auth_url: process.env.AUTH_SERVICE_URL,
   restaurant_url: process.env.RESTAURANT_SERVICE_URL,
+  notification_url: process.env.NOTIFICATION_SERVICE_URL,
 };
 
 // Routes
@@ -58,8 +64,15 @@ const PORT = process.env.PORT || 5002;
 mongoose
   .connect(process.env.MONGODB_URI)
   .then(() => {
-    app.listen(PORT, () => {
+    // Initialize and setup WebSocket server
+    const wss = setupWebSocket(server);
+
+    // Start HTTP server instead of Express app directly
+    server.listen(PORT, () => {
       console.log(`Order Service is running on port ${PORT}`);
+      console.log(
+        `WebSocket server is running on ws://localhost:${PORT}/ws/orders/:id`
+      );
     });
   })
   .catch((err) => {

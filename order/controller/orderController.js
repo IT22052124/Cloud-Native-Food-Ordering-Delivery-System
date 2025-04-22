@@ -417,6 +417,154 @@ const getRestaurantOrders = async (req, res) => {
 };
 
 /**
+ * Get tracking information for an order
+ * @route GET /api/orders/:id/tracking
+ * @access Private
+ */
+const getOrderTracking = async (req, res) => {
+  try {
+    const order = await Order.findOne({ orderId: req.params.id });
+
+    if (!order) {
+      return res.status(404).json({
+        status: 404,
+        message: "Order not found",
+      });
+    }
+
+    // Check permissions
+    const isAdmin = req.user.role === "ADMIN";
+    const isCustomer = order.customerId.toString() === req.user.id;
+    const isRestaurant =
+      req.user.role === "RESTAURANT" &&
+      order.restaurantOrder.restaurantId.toString() === req.user.restaurantId;
+
+    if (!isAdmin && !isCustomer && !isRestaurant) {
+      return res.status(403).json({
+        status: 403,
+        message: "You don't have permission to view this order tracking",
+      });
+    }
+
+    // Only provide tracking for certain order statuses
+    if (
+      order.restaurantOrder.status === "PLACED" ||
+      order.restaurantOrder.status === "CANCELLED"
+    ) {
+      return res.status(400).json({
+        status: 400,
+        message: "Tracking not available for this order status",
+      });
+    }
+
+    const restaurantLocation = order.restaurantOrder.restaurantLocation || null;
+
+    // Determine driver location and route based on order status
+    let driverLocation = null;
+    let route = null;
+    let estimatedDeliveryTime = null;
+
+    if (order.delivery && order.delivery.deliveryPerson) {
+      // If order has delivery person assigned
+      if (order.delivery.deliveryPerson.currentLocation) {
+        driverLocation = {
+          latitude: order.delivery.deliveryPerson.currentLocation.lat,
+          longitude: order.delivery.deliveryPerson.currentLocation.lng,
+        };
+      }
+
+      // If status is OUT_FOR_DELIVERY, calculate route and ETA
+      if (order.restaurantOrder.status === "OUT_FOR_DELIVERY") {
+        // In a real app, we would call a routing service like Google Maps
+        // For this demo, we'll use a simplified mock route
+
+        // Mock route between driver and delivery address
+        if (driverLocation && order.deliveryAddress) {
+          route = [
+            driverLocation,
+            // Add some intermediate points for realistic route
+            {
+              latitude:
+                (driverLocation.latitude + order.deliveryAddress.latitude) / 2,
+              longitude:
+                (driverLocation.longitude + order.deliveryAddress.longitude) /
+                2,
+            },
+            {
+              latitude: order.deliveryAddress.latitude,
+              longitude: order.deliveryAddress.longitude,
+            },
+          ];
+
+          // Calculate estimated delivery time (mock)
+          const now = new Date();
+          estimatedDeliveryTime = new Date(now.getTime() + 20 * 60000); // 20 minutes from now
+        }
+      } else if (order.restaurantOrder.status === "READY_FOR_PICKUP") {
+        // Driver is at or going to restaurant
+        driverLocation = restaurantLocation;
+
+        // Calculate estimated delivery time for this status
+        const now = new Date();
+        estimatedDeliveryTime = new Date(now.getTime() + 30 * 60000); // 30 minutes from now
+      }
+    } else {
+      // If no delivery person assigned yet but status indicates delivery
+      if (order.restaurantOrder.status === "READY_FOR_PICKUP") {
+        driverLocation = restaurantLocation;
+      } else if (order.type === "DELIVERY") {
+        // For other statuses, provide some mock data for demo purposes
+        driverLocation = {
+          latitude: 37.7765,
+          longitude: -122.4075,
+        };
+
+        // Mock route
+        if (order.deliveryAddress) {
+          route = [
+            driverLocation,
+            {
+              latitude:
+                (driverLocation.latitude + order.deliveryAddress.latitude) / 2,
+              longitude:
+                (driverLocation.longitude + order.deliveryAddress.longitude) /
+                2,
+            },
+            order.deliveryAddress,
+          ];
+        }
+      }
+    }
+
+    // When no real driver data is available, provide mock data for demo
+    // if (!driverLocation && order.restaurantOrder.status === "PREPARING") {
+      // Simulate driver at the restaurant
+      driverLocation = restaurantLocation;
+    // }
+
+    const trackingData = {
+      orderId: order.orderId,
+      status: order.restaurantOrder.status,
+      restaurantLocation,
+      driverLocation,
+      route,
+      estimatedDeliveryTime: estimatedDeliveryTime
+        ? estimatedDeliveryTime.toISOString()
+        : null,
+      lastUpdated: new Date().toISOString(),
+    };
+
+    res.status(200).json(trackingData);
+  } catch (error) {
+    console.error("Error getting order tracking:", error);
+    res.status(500).json({
+      status: 500,
+      message: error.message || "Failed to get order tracking information",
+    });
+  }
+};
+
+/**
  * Update order status
  * @route PATCH /api/orders/:id/status
  * @access Private - Restaurant
@@ -429,7 +577,6 @@ const updateOrderStatus = async (req, res) => {
     // Validate status
     const validStatuses = [
       "PLACED",
-      "CONFIRMED",
       "PREPARING",
       "READY_FOR_PICKUP",
       "OUT_FOR_DELIVERY",
@@ -477,7 +624,7 @@ const updateOrderStatus = async (req, res) => {
     });
 
     // Handle special statuses
-    if (status === "CONFIRMED" && estimatedReadyMinutes) {
+    if (status === "PREPARING" && estimatedReadyMinutes) {
       order.restaurantOrder.estimatedReadyTime = new Date(
         Date.now() + estimatedReadyMinutes * 60000
       );
@@ -488,26 +635,42 @@ const updateOrderStatus = async (req, res) => {
     // Save updated order
     const updatedOrder = await order.save();
 
-    // Notify customer about status change
+    // Notify customer about status change via WebSocket
     try {
-      await axios.post(
-        `${global.gConfig.notification_url}/notifications`,
-        {
-          type: "ORDER_STATUS_UPDATE",
-          recipientId: order.customerId,
-          recipientType: "CUSTOMER",
-          data: {
-            orderId: order.orderId,
-            status,
-            restaurantName: order.restaurantOrder.restaurantName,
-            estimatedReadyTime: order.restaurantOrder.estimatedReadyTime,
-          },
-        },
-        { headers: { authorization: req.headers.authorization } }
-      );
-    } catch (error) {
-      console.error("Failed to send notification to customer:", error);
+      // Import the notifyOrderStatusUpdate function from websocket.js
+      const { notifyOrderStatusUpdate } = await import("../websocket.js");
+
+      // Send WebSocket update to all connected clients for this order
+      notifyOrderStatusUpdate(order.orderId, {
+        orderId: order.orderId,
+        status: status,
+        statusHistory: updatedOrder.restaurantOrder.statusHistory,
+      });
+    } catch (socketError) {
+      console.error("Failed to send WebSocket notification:", socketError);
+      // Continue without WebSocket notification if it fails
     }
+
+    // Notify customer about status change via notification service (existing code)
+    // try {
+    //   await axios.post(
+    //     `${global.gConfig.notification_url}/notifications`,
+    //     {
+    //       type: "ORDER_STATUS_UPDATE",
+    //       recipientId: order.customerId,
+    //       recipientType: "CUSTOMER",
+    //       data: {
+    //         orderId: order.orderId,
+    //         status,
+    //         restaurantName: order.restaurantOrder.restaurantName,
+    //         estimatedReadyTime: order.restaurantOrder.estimatedReadyTime,
+    //       },
+    //     },
+    //     { headers: { authorization: req.headers.authorization } }
+    //   );
+    // } catch (error) {
+    //   console.error("Failed to send notification to customer:", error);
+    // }
 
     res.status(200).json({
       status: 200,
@@ -692,7 +855,7 @@ const assignDeliveryPerson = async (req, res) => {
     }
 
     // Check if order is in a valid status to assign delivery person
-    const validStatuses = ["CONFIRMED", "PREPARING", "READY_FOR_PICKUP"];
+    const validStatuses = ["PREPARING", "READY_FOR_PICKUP"];
     if (!validStatuses.includes(order.restaurantOrder.status)) {
       return res.status(400).json({
         status: 400,
@@ -849,4 +1012,5 @@ export {
   updateOrderStatus,
   assignDeliveryPerson,
   updateDeliveryLocation,
+  getOrderTracking,
 };

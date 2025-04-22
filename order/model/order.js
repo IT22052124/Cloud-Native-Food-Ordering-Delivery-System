@@ -122,7 +122,6 @@ const restaurantOrderSchema = new Schema({
     required: true,
     enum: [
       "PLACED",
-      "CONFIRMED",
       "PREPARING",
       "READY_FOR_PICKUP",
       "OUT_FOR_DELIVERY",

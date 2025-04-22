@@ -39,8 +39,8 @@ const OrderDetailScreen = ({ route, navigation }) => {
       setLoading(true);
       const orderData = await dataService.getOrderById(orderId);
       setOrder(orderData);
-      setOrder(orderData.order);
-      setRestaurant(orderData.restaurant);
+      setOrder(orderData.order.order);
+      setRestaurant(orderData.order.restaurant);
       // Set map region if delivery address is available
       if (
         orderData.order.deliveryAddress &&
@@ -63,10 +63,8 @@ const OrderDetailScreen = ({ route, navigation }) => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case ORDER_STATUS.PENDING:
+      case ORDER_STATUS.PLACED:
         return theme.colors.warning;
-      case ORDER_STATUS.CONFIRMED:
-        return theme.colors.info;
       case ORDER_STATUS.PREPARING:
         return theme.colors.info;
       case ORDER_STATUS.READY_FOR_PICKUP:
@@ -98,37 +96,37 @@ const OrderDetailScreen = ({ route, navigation }) => {
   };
 
   const handleContactDriver = () => {
-    // if (order.driver && order.driver.phoneNumber) {
-    //   Linking.openURL(`tel:${order.driver.phoneNumber}`);
-    // }
+    if (order.deliveryPerson && order.deliveryPerson.phone) {
+      Linking.openURL(`tel:${order.deliveryPerson.phone}`);
+    }
   };
 
   const handleTrackOrder = () => {
-    // navigation.navigate("OrderTracking", { orderId: order.id });
+    navigation.navigate("OrderTracking", { orderId: order.orderId });
   };
 
   const handleCancelOrder = async () => {
-    // try {
-    //   // Only allow cancellation for pending orders
-    //   if (order.status === ORDER_STATUS.PENDING) {
-    //     await dataService.cancelOrder(order.id);
-    //     loadOrderDetails(); // Reload order to get updated status
-    //   }
-    // } catch (error) {
-    //   console.error("Error cancelling order:", error);
-    // }
+    try {
+      // Only allow cancellation for placed orders
+      if (order.restaurantOrder.status === ORDER_STATUS.PLACED) {
+        // await dataService.cancelOrder(order.id);
+        // loadOrderDetails(); // Reload order to get updated status
+      }
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+    }
   };
 
   const canCancelOrder = () => {
-    // return order && order.status === ORDER_STATUS.PENDING;
+    return order && order.restaurantOrder.status === ORDER_STATUS.PLACED;
   };
 
   const isActiveOrder = () => {
-    // return (
-    //   order &&
-    //   order.status !== ORDER_STATUS.DELIVERED &&
-    //   order.status !== ORDER_STATUS.CANCELLED
-    // );
+    return (
+      order &&
+      order.restaurantOrder.status !== ORDER_STATUS.DELIVERED &&
+      order.restaurantOrder.status !== ORDER_STATUS.CANCELLED
+    );
   };
 
   if (loading) {
@@ -192,7 +190,9 @@ const OrderDetailScreen = ({ route, navigation }) => {
             <Chip
               style={[
                 styles.statusChip,
-                { backgroundColor: getStatusColor(order.status) },
+                {
+                  backgroundColor: getStatusColor(order.restaurantOrder.status),
+                },
               ]}
               textStyle={{ color: "white", fontWeight: "bold" }}
             >
@@ -282,21 +282,21 @@ const OrderDetailScreen = ({ route, navigation }) => {
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
               <Text style={styles.summaryValue}>
-              LKR {order.restaurantOrder.subtotal}
+                LKR {order.restaurantOrder.subtotal}
               </Text>
             </View>
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Delivery Fee</Text>
               <Text style={styles.summaryValue}>
-              LKR {order.restaurantOrder.deliveryFee}
+                LKR {order.restaurantOrder.deliveryFee}
               </Text>
             </View>
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Tax</Text>
               <Text style={styles.summaryValue}>
-              LKR {order.restaurantOrder.tax}
+                LKR {order.restaurantOrder.tax}
               </Text>
             </View>
 
@@ -311,9 +311,7 @@ const OrderDetailScreen = ({ route, navigation }) => {
 
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>
-                LKR {order.totalAmount}
-              </Text>
+              <Text style={styles.totalValue}>LKR {order.totalAmount}</Text>
             </View>
 
             <View style={styles.paymentMethod}>
