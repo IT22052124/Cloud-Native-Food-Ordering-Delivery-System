@@ -14,25 +14,11 @@ import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import dataService from "../../services/dataService";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const HomeScreen = ({ navigation }) => {
   const theme = useTheme();
   const { user } = useAuth();
 
-  useEffect(() => {
-    // Function to get and log token
-    const checkToken = async () => {
-      try {
-        const token = await AsyncStorage.getItem("authToken");
-        console.log("Current authToken:", token);
-      } catch (error) {
-        console.error("Error retrieving token:", error);
-      }
-    };
-
-    checkToken();
-  }, []);
   const [searchQuery, setSearchQuery] = useState("");
   const [categories, setCategories] = useState([]);
   const [restaurants, setRestaurants] = useState([]);
