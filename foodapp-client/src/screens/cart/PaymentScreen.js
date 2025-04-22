@@ -69,8 +69,6 @@ const PaymentScreen = ({ navigation, route }) => {
         currency: "lkr",
       });
 
-      console.log(response)
-
       if (!response.clientSecret) {
         throw new Error("No client secret returned");
       }
