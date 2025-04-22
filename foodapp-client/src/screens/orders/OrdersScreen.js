@@ -58,8 +58,6 @@ const OrdersScreen = ({ navigation }) => {
     switch (status) {
       case ORDER_STATUS.PENDING:
         return theme.colors.warning;
-      case ORDER_STATUS.CONFIRMED:
-        return theme.colors.info;
       case ORDER_STATUS.PREPARING:
         return theme.colors.info;
       case ORDER_STATUS.READY_FOR_PICKUP:
@@ -75,8 +73,17 @@ const OrdersScreen = ({ navigation }) => {
     }
   };
 
+  // Simplified status text to make UI more beautiful
   const getStatusText = (status) => {
-    return status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+    // Handle specific long statuses
+    if (status === ORDER_STATUS.READY_FOR_PICKUP) {
+      return "Ready for Pickup";
+    } 
+    
+    // General case: convert snake_case to Title Case
+    return status
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   const formatDate = (dateString) => {
@@ -101,12 +108,13 @@ const OrdersScreen = ({ navigation }) => {
         <View style={styles.orderHeader}>
           <View style={styles.restaurantInfo}>
             <Image
-              // source={{ uri: item.restaurantImage }}
               source={require("../../assets/no-image-restaurant.png")}
               style={styles.restaurantImage}
             />
-            <View>
-              <Text style={styles.restaurantName}>{item.restaurant}</Text>
+            <View style={styles.restaurantTextContainer}>
+              <Text style={styles.restaurantName} numberOfLines={1}>
+                {item.restaurant}
+              </Text>
               <Text style={styles.orderDate}>{formatDate(item.createdAt)}</Text>
             </View>
           </View>
@@ -115,7 +123,7 @@ const OrdersScreen = ({ navigation }) => {
               styles.statusChip,
               { backgroundColor: getStatusColor(item.status) },
             ]}
-            textStyle={{ color: "white" }}
+            textStyle={styles.statusText}
           >
             {getStatusText(item.status)}
           </Chip>
@@ -124,16 +132,21 @@ const OrdersScreen = ({ navigation }) => {
         <Divider style={styles.divider} />
 
         <View style={styles.orderItems}>
-          {item.items.map((orderItem, index) => (
-            <Text key={index} style={styles.orderItemText}>
+          {item.items.slice(0, 3).map((orderItem, index) => (
+            <Text key={index} style={styles.orderItemText} numberOfLines={1}>
               {orderItem.quantity} x {orderItem.name}
             </Text>
           ))}
+          {item.items.length > 3 && (
+            <Text style={styles.moreItemsText}>
+              +{item.items.length - 3} more items
+            </Text>
+          )}
         </View>
 
         <View style={styles.orderFooter}>
           <Text style={styles.totalItems}>{item.totalItems} items</Text>
-          <Text style={styles.totalPrice}>LKR {item.totalAmount}</Text>
+          <Text style={styles.totalPrice}>LKR {item.totalAmount.toLocaleString()}</Text>
         </View>
       </Card.Content>
     </Card>
@@ -257,6 +270,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 22,
+    fontWeight: "700",
   },
   filterContainer: {
     flexDirection: "row",
@@ -292,11 +306,16 @@ const styles = StyleSheet.create({
   restaurantInfo: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
+    marginRight: 8,
+  },
+  restaurantTextContainer: {
+    flex: 1,
   },
   restaurantImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     marginRight: 12,
   },
   restaurantName: {
@@ -305,11 +324,20 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   orderDate: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#666",
   },
   statusChip: {
     height: 32,
+    paddingHorizontal: 8,
+    minWidth: 90,
+    justifyContent: "center",
+  },
+  statusText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "500",
+    textAlign: "center",
   },
   divider: {
     marginVertical: 12,
@@ -321,6 +349,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 4,
   },
+  moreItemsText: {
+    fontSize: 13,
+    color: "#666",
+    fontStyle: "italic",
+    marginTop: 2,
+  },
   orderFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -331,7 +365,7 @@ const styles = StyleSheet.create({
     color: "#666",
   },
   totalPrice: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "bold",
   },
   emptyContainer: {

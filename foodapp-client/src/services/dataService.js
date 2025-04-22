@@ -312,8 +312,7 @@ const samplePaymentMethods = [
 
 // Order status constants
 export const ORDER_STATUS = {
-  PENDING: "PENDING",
-  CONFIRMED: "CONFIRMED",
+  PLACED: "PLACED",
   PREPARING: "PREPARING",
   READY_FOR_PICKUP: "READY_FOR_PICKUP",
   OUT_FOR_DELIVERY: "OUT_FOR_DELIVERY",
@@ -780,11 +779,52 @@ const dataService = {
   getOrderById: async (orderId) => {
     try {
       const token = await getToken();
-      return await apiClient.get(`${ORDER_API_URL}/${orderId}`, {
+      const response = await axios.get(`${ORDER_API_URL}/${orderId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+
+      console.log(response.data);
+
+      // Process the response to match the expected format in the client
+      return {
+        success: true,
+        order: {
+          ...response.data,
+          id: response.data.order.orderId,
+          status: response.data.order.restaurantOrder.status,
+          deliveryAddress: response.data.order.deliveryAddress,
+          statusUpdates:
+            response.data.order.restaurantOrder.statusHistory?.reduce(
+              (acc, status) => {
+                const timestamp = new Date(status.timestamp).toLocaleString();
+                switch (status.status) {
+                  case "PLACED":
+                    acc.placed = timestamp;
+                    break;
+                  case "PREPARING":
+                    acc.preparing = timestamp;
+                    break;
+                  case "READY_FOR_PICKUP":
+                    acc.readyForPickup = timestamp;
+                    break;
+                  case "OUT_FOR_DELIVERY":
+                    acc.outForDelivery = timestamp;
+                    break;
+                  case "DELIVERED":
+                    acc.delivered = timestamp;
+                    break;
+                  case "CANCELLED":
+                    acc.cancelled = timestamp;
+                    break;
+                }
+                return acc;
+              },
+              {}
+            ),
+        },
+      };
     } catch (error) {
       console.error("Error retrieving order by id:", error);
       return {
@@ -830,78 +870,95 @@ const dataService = {
 
   // Get order tracking information
   getOrderTracking: async (orderId) => {
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const token = await getToken();
+      const response = await axios.get(`${ORDER_API_URL}/${orderId}/tracking`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    // Find the order
-    const order = sampleOrders.find((o) => o.id === orderId);
-
-    if (!order) {
-      throw new Error("Order not found");
-    }
-
-    // Only provide tracking for certain order statuses
-    if (
-      order.status === ORDER_STATUS.PENDING ||
-      order.status === ORDER_STATUS.CANCELLED
-    ) {
-      throw new Error("Tracking not available for this order status");
-    }
-
-    // Mock tracking data
-    const restaurantLocation = {
-      latitude: 37.7825,
-      longitude: -122.4078,
-    };
-
-    // Mock driver location (different based on status)
-    let driverLocation;
-    let routeCoordinates;
-    let estimatedArrival;
-
-    if (order.status === ORDER_STATUS.OUT_FOR_DELIVERY) {
-      // Driver is on the way
-      driverLocation = {
-        latitude: 37.7865,
-        longitude: -122.4095,
+      // Process and return the tracking data
+      return {
+        orderId,
+        status: response.data.status,
+        restaurantLocation: response.data.restaurantLocation,
+        driverLocation: response.data.driverLocation,
+        routeCoordinates: response.data.route,
+        estimatedArrival: response.data.estimatedDeliveryTime
+          ? `${Math.ceil(
+              (new Date(response.data.estimatedDeliveryTime) - new Date()) /
+                60000
+            )} minutes`
+          : "Calculating...",
+        lastUpdated: response.data.lastUpdated || new Date().toISOString(),
       };
+    } catch (error) {
+      console.error("Error getting order tracking:", error);
+      // If tracking API fails, fall back to mock data for demo purposes
+      if (sampleOrders) {
+        const order = sampleOrders.find((o) => o.id === orderId);
+        if (!order) throw new Error("Order not found");
 
-      // Mock route coordinates
-      routeCoordinates = [
-        driverLocation,
-        { latitude: 37.7855, longitude: -122.405 },
-        { latitude: 37.7845, longitude: -122.401 },
-        { latitude: 37.7835, longitude: -122.399 },
-        order.deliveryAddress,
-      ];
+        if (
+          order.status === ORDER_STATUS.PLACED ||
+          order.status === ORDER_STATUS.CANCELLED
+        ) {
+          throw new Error("Tracking not available for this order status");
+        }
 
-      estimatedArrival = "15-20 minutes";
-    } else if (order.status === ORDER_STATUS.READY_FOR_PICKUP) {
-      // Driver is at the restaurant
-      driverLocation = { ...restaurantLocation };
-      routeCoordinates = [
-        driverLocation,
-        { latitude: 37.7835, longitude: -122.403 },
-        { latitude: 37.7825, longitude: -122.4 },
-        order.deliveryAddress,
-      ];
-      estimatedArrival = "25-30 minutes";
-    } else {
-      // Driver location not available for other statuses
-      driverLocation = null;
-      routeCoordinates = null;
-      estimatedArrival = null;
+        const restaurantLocation = {
+          latitude: 37.7825,
+          longitude: -122.4078,
+        };
+
+        let driverLocation;
+        let routeCoordinates;
+        let estimatedArrival;
+
+        if (order.status === ORDER_STATUS.OUT_FOR_DELIVERY) {
+          driverLocation = {
+            latitude: 37.7865,
+            longitude: -122.4095,
+          };
+
+          routeCoordinates = [
+            driverLocation,
+            { latitude: 37.7855, longitude: -122.405 },
+            { latitude: 37.7845, longitude: -122.401 },
+            { latitude: 37.7835, longitude: -122.399 },
+            order.deliveryAddress,
+          ];
+
+          estimatedArrival = "15-20 minutes";
+        } else if (order.status === ORDER_STATUS.READY_FOR_PICKUP) {
+          driverLocation = { ...restaurantLocation };
+          routeCoordinates = [
+            driverLocation,
+            { latitude: 37.7835, longitude: -122.403 },
+            { latitude: 37.7825, longitude: -122.4 },
+            order.deliveryAddress,
+          ];
+          estimatedArrival = "25-30 minutes";
+        } else {
+          driverLocation = null;
+          routeCoordinates = null;
+          estimatedArrival = null;
+        }
+
+        return {
+          orderId,
+          status: order.status,
+          restaurantLocation,
+          driverLocation,
+          routeCoordinates,
+          estimatedArrival,
+          lastUpdated: new Date().toISOString(),
+        };
+      }
+
+      throw error;
     }
-
-    return {
-      orderId,
-      status: order.status,
-      restaurantLocation,
-      driverLocation,
-      routeCoordinates,
-      estimatedArrival,
-      lastUpdated: new Date().toISOString(),
-    };
   },
 
   // Place order

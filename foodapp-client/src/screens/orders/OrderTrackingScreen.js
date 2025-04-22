@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Linking,
   ScrollView,
+  Alert,
 } from "react-native";
 import { Text, Card, Chip, Divider, IconButton } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,25 +16,31 @@ import { useTheme } from "../../context/ThemeContext";
 import dataService, { ORDER_STATUS } from "../../services/dataService";
 import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
+
+// WebSocket URL - match it with your backend WebSocket server address
+const WS_URL = "ws://192.168.1.2:5002";
 
 const OrderTrackingScreen = ({ route, navigation }) => {
   const { orderId } = route.params;
   const theme = useTheme();
+  const socketRef = useRef(null);
 
   const [order, setOrder] = useState(null);
   const [tracking, setTracking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [region, setRegion] = useState(null);
   const [error, setError] = useState(null);
+  const [connected, setConnected] = useState(false);
 
   useEffect(() => {
     loadOrderAndTracking();
-
-    // Set up interval to refresh tracking data
-    const trackingInterval = setInterval(() => {
+    initWebSocket();
+    const pollingInterval = setInterval(() => {
       if (
+        !connected &&
         order &&
         order.status !== ORDER_STATUS.DELIVERED &&
         order.status !== ORDER_STATUS.CANCELLED
@@ -42,8 +49,98 @@ const OrderTrackingScreen = ({ route, navigation }) => {
       }
     }, 30000); // Every 30 seconds
 
-    return () => clearInterval(trackingInterval);
-  }, [orderId, order?.status]);
+    // Clean up WebSocket connection and intervals on unmount
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.close();
+      }
+      clearInterval(pollingInterval);
+    };
+  }, [orderId, connected]);
+
+  const initWebSocket = async () => {
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+
+      // Create WebSocket connection
+      socketRef.current = new WebSocket(
+        `${WS_URL}/ws/orders/${orderId}?token=${token}`
+      );
+
+      socketRef.current.onopen = () => {
+        console.log("WebSocket connected");
+        setConnected(true);
+      };
+
+      socketRef.current.onclose = (event) => {
+        console.log("WebSocket disconnected", event.code, event.reason);
+        setConnected(false);
+
+        // Try to reconnect after 5 seconds if not intentionally closed
+        if (event.code !== 1000) {
+          setTimeout(() => {
+            if (
+              order &&
+              order.status !== ORDER_STATUS.DELIVERED &&
+              order.status !== ORDER_STATUS.CANCELLED
+            ) {
+              initWebSocket();
+            }
+          }, 5000);
+        }
+      };
+
+      socketRef.current.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        setConnected(false);
+      };
+
+      socketRef.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log("WebSocket message received:", data);
+
+          if (data.type === "ORDER_UPDATE") {
+            // Update order status
+            if (data.order) {
+              setOrder((prevOrder) => ({
+                ...prevOrder,
+                ...data.order,
+                status: data.order.status,
+                statusUpdates: {
+                  ...prevOrder?.statusUpdates,
+                  ...data.order.statusUpdates,
+                },
+              }));
+            }
+          } else if (data.type === "TRACKING_UPDATE") {
+            // Update tracking data
+            if (data.tracking) {
+              setTracking((prevTracking) => ({
+                ...prevTracking,
+                ...data.tracking,
+              }));
+
+              // Update map region if driver location changed
+              if (data.tracking.driverLocation) {
+                setRegion({
+                  latitude: data.tracking.driverLocation.latitude,
+                  longitude: data.tracking.driverLocation.longitude,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                });
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Error parsing WebSocket message:", err);
+        }
+      };
+    } catch (error) {
+      console.error("Error initializing WebSocket:", error);
+      setConnected(false);
+    }
+  };
 
   const loadOrderAndTracking = async () => {
     try {
@@ -51,36 +148,35 @@ const OrderTrackingScreen = ({ route, navigation }) => {
       setError(null);
 
       // Load order data
-      const orderData = await dataService.getOrderById(orderId);
-      if (!orderData) {
+      const response = await dataService.getOrderById(orderId);
+      if (!response || !response.order) {
         setError("Order not found");
         setLoading(false);
         return;
       }
 
-      setOrder(orderData);
+      setOrder(response.order);
 
       // Load tracking data
       if (
-        orderData.status !== ORDER_STATUS.PENDING &&
-        orderData.status !== ORDER_STATUS.CANCELLED
+        response.order.status !== ORDER_STATUS.PLACED &&
+        response.order.status !== ORDER_STATUS.CANCELLED
       ) {
         try {
           const trackingData = await dataService.getOrderTracking(orderId);
           setTracking(trackingData);
-
           // Set map region
           if (trackingData.driverLocation) {
             setRegion({
-              latitude: trackingData.driverLocation.latitude,
-              longitude: trackingData.driverLocation.longitude,
+              latitude: trackingData.driverLocation.lat,
+              longitude: trackingData.driverLocation.lng,
               latitudeDelta: 0.01,
               longitudeDelta: 0.01,
             });
-          } else if (orderData.deliveryAddress) {
+          } else if (response.order.deliveryAddress) {
             setRegion({
-              latitude: orderData.deliveryAddress.latitude,
-              longitude: orderData.deliveryAddress.longitude,
+              latitude: response.order.deliveryAddress.coordinates.lat,
+              longitude: response.order.deliveryAddress.coordinates.lng,
               latitudeDelta: 0.01,
               longitudeDelta: 0.01,
             });
@@ -126,10 +222,8 @@ const OrderTrackingScreen = ({ route, navigation }) => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case ORDER_STATUS.PENDING:
+      case ORDER_STATUS.PLACED:
         return theme.colors.warning;
-      case ORDER_STATUS.CONFIRMED:
-        return theme.colors.info;
       case ORDER_STATUS.PREPARING:
         return theme.colors.info;
       case ORDER_STATUS.READY_FOR_PICKUP:
@@ -214,7 +308,7 @@ const OrderTrackingScreen = ({ route, navigation }) => {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         />
-        <Text style={styles.headerTitle}>Track Order #{order.orderNumber}</Text>
+        <Text style={styles.headerTitle}>Track #{order.order.orderId}</Text>
       </View>
 
       <ScrollView
@@ -237,13 +331,20 @@ const OrderTrackingScreen = ({ route, navigation }) => {
                 {tracking.restaurantLocation && (
                   <Marker
                     coordinate={{
-                      latitude: tracking.restaurantLocation.latitude,
-                      longitude: tracking.restaurantLocation.longitude,
+                      latitude: tracking.restaurantLocation.lat,
+                      longitude: tracking.restaurantLocation.lng,
                     }}
-                    title={order.restaurantName}
+                    title={order.restaurant.name}
                   >
-                    <View style={styles.restaurantMarker}>
-                      <Ionicons name="restaurant" size={24} color="white" />
+                    <View style={styles.markerContainer}>
+                      <View style={styles.restaurantMarker}>
+                        <Ionicons name="restaurant" size={24} color="white" />
+                      </View>
+                      <View style={styles.markerLabelContainer}>
+                        <Text style={styles.markerLabel}>
+                          {order.restaurantName}
+                        </Text>
+                      </View>
                     </View>
                   </Marker>
                 )}
@@ -252,8 +353,8 @@ const OrderTrackingScreen = ({ route, navigation }) => {
                 {order.deliveryAddress && (
                   <Marker
                     coordinate={{
-                      latitude: order.deliveryAddress.latitude,
-                      longitude: order.deliveryAddress.longitude,
+                      latitude: order.deliveryAddress.coordinates.lat,
+                      longitude: order.deliveryAddress.coordinates.lng,
                     }}
                     title="Delivery Address"
                   >
@@ -264,7 +365,7 @@ const OrderTrackingScreen = ({ route, navigation }) => {
                 )}
 
                 {/* Driver Marker */}
-                {tracking.driverLocation && (
+                {/* {tracking.driverLocation && (
                   <Marker
                     coordinate={{
                       latitude: tracking.driverLocation.latitude,
@@ -276,10 +377,10 @@ const OrderTrackingScreen = ({ route, navigation }) => {
                       <Ionicons name="car" size={24} color="white" />
                     </View>
                   </Marker>
-                )}
+                )} */}
 
                 {/* Route from driver to destination */}
-                {tracking.driverLocation &&
+                {/* {tracking.driverLocation &&
                   order.deliveryAddress &&
                   tracking.routeCoordinates && (
                     <Polyline
@@ -287,17 +388,15 @@ const OrderTrackingScreen = ({ route, navigation }) => {
                       strokeColor={theme.colors.primary}
                       strokeWidth={4}
                     />
-                  )}
+                  )} */}
               </MapView>
             </View>
           ) : (
             <View style={styles.noMapContainer}>
               <Ionicons
                 name={
-                  order.status === ORDER_STATUS.PENDING
+                  order.status === ORDER_STATUS.PLACED
                     ? "time-outline"
-                    : order.status === ORDER_STATUS.CONFIRMED
-                    ? "checkmark-circle-outline"
                     : order.status === ORDER_STATUS.PREPARING
                     ? "restaurant-outline"
                     : order.status === ORDER_STATUS.DELIVERED
@@ -310,10 +409,8 @@ const OrderTrackingScreen = ({ route, navigation }) => {
                 color={getStatusColor(order.status)}
               />
               <Text style={styles.noMapText}>
-                {order.status === ORDER_STATUS.PENDING
+                {order.status === ORDER_STATUS.PLACED
                   ? "Waiting for restaurant to confirm your order"
-                  : order.status === ORDER_STATUS.CONFIRMED
-                  ? "Order confirmed! The restaurant is getting ready to prepare your food"
                   : order.status === ORDER_STATUS.PREPARING
                   ? "Your food is being prepared"
                   : order.status === ORDER_STATUS.DELIVERED
@@ -376,35 +473,6 @@ const OrderTrackingScreen = ({ route, navigation }) => {
                         backgroundColor:
                           order.status === ORDER_STATUS.CANCELLED
                             ? theme.colors.error
-                            : order.status !== ORDER_STATUS.PENDING
-                            ? theme.colors.success
-                            : theme.colors.gray,
-                      },
-                    ]}
-                  >
-                    {order.status === ORDER_STATUS.CANCELLED ? (
-                      <Ionicons name="close" size={16} color="white" />
-                    ) : order.status !== ORDER_STATUS.PENDING ? (
-                      <Ionicons name="checkmark" size={16} color="white" />
-                    ) : null}
-                  </View>
-                  <View style={styles.timelineConnector} />
-                  <View style={styles.timelineContent}>
-                    <Text style={styles.timelineTitle}>Order Confirmed</Text>
-                    <Text style={styles.timelineTime}>
-                      {order.statusUpdates?.confirmed || "Waiting"}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.timelineItem}>
-                  <View
-                    style={[
-                      styles.timelineDot,
-                      {
-                        backgroundColor:
-                          order.status === ORDER_STATUS.CANCELLED
-                            ? theme.colors.error
                             : [
                                 ORDER_STATUS.PREPARING,
                                 ORDER_STATUS.READY_FOR_PICKUP,
@@ -432,6 +500,43 @@ const OrderTrackingScreen = ({ route, navigation }) => {
                     <Text style={styles.timelineTitle}>Preparing</Text>
                     <Text style={styles.timelineTime}>
                       {order.statusUpdates?.preparing || "Waiting"}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.timelineItem}>
+                  <View
+                    style={[
+                      styles.timelineDot,
+                      {
+                        backgroundColor:
+                          order.status === ORDER_STATUS.CANCELLED
+                            ? theme.colors.error
+                            : [
+                                ORDER_STATUS.READY_FOR_PICKUP,
+                                ORDER_STATUS.OUT_FOR_DELIVERY,
+                                ORDER_STATUS.DELIVERED,
+                              ].includes(order.status)
+                            ? theme.colors.success
+                            : theme.colors.gray,
+                      },
+                    ]}
+                  >
+                    {order.status === ORDER_STATUS.CANCELLED ? (
+                      <Ionicons name="close" size={16} color="white" />
+                    ) : [
+                        ORDER_STATUS.READY_FOR_PICKUP,
+                        ORDER_STATUS.OUT_FOR_DELIVERY,
+                        ORDER_STATUS.DELIVERED,
+                      ].includes(order.status) ? (
+                      <Ionicons name="checkmark" size={16} color="white" />
+                    ) : null}
+                  </View>
+                  <View style={styles.timelineConnector} />
+                  <View style={styles.timelineContent}>
+                    <Text style={styles.timelineTitle}>Ready For Pickup</Text>
+                    <Text style={styles.timelineTime}>
+                      {order.statusUpdates?.confirmed || "Waiting"}
                     </Text>
                   </View>
                 </View>
@@ -548,14 +653,14 @@ const OrderTrackingScreen = ({ route, navigation }) => {
                 />
                 <View style={styles.restaurantDetails}>
                   <Text style={styles.restaurantName}>
-                    {order.restaurantName}
+                    {order.restaurant.name}
                   </Text>
                   {order.status !== ORDER_STATUS.DELIVERED &&
                     order.status !== ORDER_STATUS.CANCELLED && (
                       <TouchableOpacity
                         onPress={() =>
                           navigation.navigate("RestaurantDetail", {
-                            restaurantId: order.restaurantId,
+                            restaurantId: order.restaurant._id,
                           })
                         }
                         style={styles.viewRestaurantButton}
@@ -816,6 +921,22 @@ const styles = StyleSheet.create({
   viewRestaurantText: {
     fontSize: 14,
     fontWeight: "500",
+  },
+  markerContainer: {
+    alignItems: "center",
+  },
+  markerLabelContainer: {
+    backgroundColor: "white",
+    borderRadius: 4,
+    padding: 4,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  markerLabel: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#333",
   },
 });
 
