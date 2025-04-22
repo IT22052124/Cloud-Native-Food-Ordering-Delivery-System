@@ -66,8 +66,10 @@ const PaymentScreen = ({ navigation, route }) => {
       // 1. Create Payment Intent on your backend
       const response = await dataService.createPaymentIntent({
         amount: total * 100, // Convert to cents
-        currency: "usd",
+        currency: "lkr",
       });
+
+      console.log(response)
 
       if (!response.clientSecret) {
         throw new Error("No client secret returned");

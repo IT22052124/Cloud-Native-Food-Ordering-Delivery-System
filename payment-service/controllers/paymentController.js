@@ -12,6 +12,8 @@ import Payment from "../models/Payment.js";
 
 // Initiate Payment
 const initiatePayment = async (req, res) => {
+
+  console.log("Here")
   try {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(req.body.amount * 100),
@@ -19,7 +21,7 @@ const initiatePayment = async (req, res) => {
       automatic_payment_methods: { enabled: true },
     });
 
-    res.send({ client_secret: paymentIntent.client_secret });
+    res.send({ clientSecret: paymentIntent.client_secret });
   } catch (err) {
     console.error("Stripe error:", err);
     res.status(500).json({ error: err.message });

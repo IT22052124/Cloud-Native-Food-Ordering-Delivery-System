@@ -6,7 +6,7 @@ const AUTH_API_URL = `http://192.168.8.196:5001/api`;
 const ORDER_API_URL = `http://192.168.8.196:5002/api/orders`;
 const CART_API_URL = `http://192.168.8.196:5002/api/cart`;
 const RESTAURANT_API_URL = `http://192.168.8.196/api/restaurants`;
-const PAYMENT_API_URL = `http://192.168.8.196/api/payment`;
+const PAYMENT_API_URL = `http://192.168.8.196:3001/api/payment`;
 
 // Sample data for the app
 const sampleRestaurants = [
@@ -1093,7 +1093,7 @@ const dataService = {
     try {
       const token = await getToken();
       const response = await axios.post(
-        `${AUTH_API_URL}/initiate`,
+        `${PAYMENT_API_URL}/initiate`,
         {
           amount: paymentData.amount,
           currency: paymentData.currency || "lkr", // Default to LKR if not specified
