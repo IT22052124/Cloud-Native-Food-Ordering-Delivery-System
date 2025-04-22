@@ -1,12 +1,13 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 
 // API Base URLs
-const AUTH_API_URL = `http://192.168.8.196:5001/api`;
-const ORDER_API_URL = `http://192.168.8.196:5002/api/orders`;
-const CART_API_URL = `http://192.168.8.196:5002/api/cart`;
-const RESTAURANT_API_URL = `http://192.168.8.196/api/restaurants`;
-const PAYMENT_API_URL = `http://192.168.8.196:3001/api/payment`;
+const AUTH_API_URL = `http://192.168.1.3:5001/api`;
+const ORDER_API_URL = `http://192.168.1.3:5002/api/orders`;
+const CART_API_URL = `http://192.168.1.3:5002/api/cart`;
+const RESTAURANT_API_URL = `http://192.168.1.3/api/restaurants`;
+const PAYMENT_API_URL = `http://192.168.1.3:5004/api/payment`;
 
 // Sample data for the app
 const sampleRestaurants = [
@@ -581,10 +582,14 @@ const apiClient = {
 // Helper functions
 const getToken = async () => {
   try {
-    console.log(AsyncStorage.getItem("authToken"));
-    return AsyncStorage.getItem("authToken");
-  } catch (error) {
-    console.error("Failed to get token:", error);
+    let token = await SecureStore.getItemAsync("token");
+    if (!token) {
+      // Fall back to AsyncStorage
+      token = await AsyncStorage.getItem("authToken");
+    }
+    return token;
+  } catch (e) {
+    console.warn("Could not retrieve token from AsyncStorage:", e);
     return null;
   }
 };
@@ -651,12 +656,7 @@ const dataService = {
   // Cart endpoints
   getCart: async () => {
     try {
-      const token = await AsyncStorage.getItem("authToken");
-      const response = await axios.get(CART_API_URL, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiClient.get(CART_API_URL);
       return response;
     } catch (error) {
       console.warn("Failed to fetch cart from API:", error);
@@ -673,12 +673,7 @@ const dataService = {
 
   addToCart: async (itemData) => {
     try {
-      const token = await AsyncStorage.getItem("authToken");
-      const response = await axios.post(CART_API_URL, itemData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiClient.post(CART_API_URL, itemData);
       return response;
     } catch (error) {
       console.error("Failed to add item to cart:", error);
@@ -688,13 +683,7 @@ const dataService = {
 
   updateCartItem: async (cartId, data) => {
     try {
-      const token = await AsyncStorage.getItem("authToken");
-      const response = await axios.put(`${CART_API_URL}/${cartId}`, data, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
+      const response = await apiClient.put(`${CART_API_URL}/${cartId}`, data);
       return response;
     } catch (error) {
       console.error("Failed to update cart item:", error);
@@ -704,12 +693,7 @@ const dataService = {
 
   deleteCartItem: async (cartId) => {
     try {
-      const token = await AsyncStorage.getItem("authToken");
-      const response = await axios.delete(`${CART_API_URL}/${cartId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiClient.delete(`${CART_API_URL}/${cartId}`);
       return response;
     } catch (error) {
       console.error("Failed to delete cart item:", error);
@@ -719,15 +703,9 @@ const dataService = {
 
   bulkUpdateCart: async (items) => {
     try {
-      const response = await axios.post(
-        `${CART_API_URL}/bulk-update`,
-        { items },
-        {
-          headers: {
-            Authorization: `Bearer ${AsyncStorage.getItem("authToken")}`,
-          },
-        }
-      );
+      const response = await apiClient.post(`${CART_API_URL}/bulk-update`, {
+        items,
+      });
       return response;
     } catch (error) {
       console.error("Failed to bulk update cart:", error);
@@ -738,16 +716,7 @@ const dataService = {
   // Reset cart (clear all items)
   resetCart: async () => {
     try {
-      const token = await AsyncStorage.getItem("authToken");
-      const response = await axios.post(
-        `${CART_API_URL}/reset`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await apiClient.post(`${CART_API_URL}/reset`, {});
       return response;
     } catch (error) {
       console.error("Failed to reset cart:", error);
@@ -758,15 +727,10 @@ const dataService = {
   // Order endpoints
   createOrder: async (orderData) => {
     try {
-      const token = await getToken();
-      const response = await axios.post(`${ORDER_API_URL}`, orderData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiClient.post(`${ORDER_API_URL}`, orderData);
       return {
         success: true,
-        order: response.data,
+        order: response,
       };
     } catch (error) {
       console.error("Error creating order:", error);
@@ -779,51 +743,43 @@ const dataService = {
 
   getOrderById: async (orderId) => {
     try {
-      const token = await getToken();
-      const response = await axios.get(`${ORDER_API_URL}/${orderId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      console.log(response.data);
+      const response = await apiClient.get(`${ORDER_API_URL}/${orderId}`);
 
       // Process the response to match the expected format in the client
       return {
         success: true,
         order: {
-          ...response.data,
-          id: response.data.order.orderId,
-          status: response.data.order.restaurantOrder.status,
-          deliveryAddress: response.data.order.deliveryAddress,
-          statusUpdates:
-            response.data.order.restaurantOrder.statusHistory?.reduce(
-              (acc, status) => {
-                const timestamp = new Date(status.timestamp).toLocaleString();
-                switch (status.status) {
-                  case "PLACED":
-                    acc.placed = timestamp;
-                    break;
-                  case "PREPARING":
-                    acc.preparing = timestamp;
-                    break;
-                  case "READY_FOR_PICKUP":
-                    acc.readyForPickup = timestamp;
-                    break;
-                  case "OUT_FOR_DELIVERY":
-                    acc.outForDelivery = timestamp;
-                    break;
-                  case "DELIVERED":
-                    acc.delivered = timestamp;
-                    break;
-                  case "CANCELLED":
-                    acc.cancelled = timestamp;
-                    break;
-                }
-                return acc;
-              },
-              {}
-            ),
+          ...response,
+          id: response.order.orderId,
+          status: response.order.restaurantOrder.status,
+          deliveryAddress: response.order.deliveryAddress,
+          statusUpdates: response.order.restaurantOrder.statusHistory?.reduce(
+            (acc, status) => {
+              const timestamp = new Date(status.timestamp).toLocaleString();
+              switch (status.status) {
+                case "PLACED":
+                  acc.placed = timestamp;
+                  break;
+                case "PREPARING":
+                  acc.preparing = timestamp;
+                  break;
+                case "READY_FOR_PICKUP":
+                  acc.readyForPickup = timestamp;
+                  break;
+                case "OUT_FOR_DELIVERY":
+                  acc.outForDelivery = timestamp;
+                  break;
+                case "DELIVERED":
+                  acc.delivered = timestamp;
+                  break;
+                case "CANCELLED":
+                  acc.cancelled = timestamp;
+                  break;
+              }
+              return acc;
+            },
+            {}
+          ),
         },
       };
     } catch (error) {
@@ -837,12 +793,7 @@ const dataService = {
 
   getOrders: async () => {
     try {
-      const token = await getToken();
-      return await apiClient.get(`${ORDER_API_URL}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      return await apiClient.get(`${ORDER_API_URL}`);
     } catch (error) {
       console.error("Error retrieving order by id:", error);
       return {
@@ -872,27 +823,23 @@ const dataService = {
   // Get order tracking information
   getOrderTracking: async (orderId) => {
     try {
-      const token = await getToken();
-      const response = await axios.get(`${ORDER_API_URL}/${orderId}/tracking`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiClient.get(
+        `${ORDER_API_URL}/${orderId}/tracking`
+      );
 
       // Process and return the tracking data
       return {
         orderId,
-        status: response.data.status,
-        restaurantLocation: response.data.restaurantLocation,
-        driverLocation: response.data.driverLocation,
-        routeCoordinates: response.data.route,
-        estimatedArrival: response.data.estimatedDeliveryTime
+        status: response.status,
+        restaurantLocation: response.restaurantLocation,
+        driverLocation: response.driverLocation,
+        routeCoordinates: response.route,
+        estimatedArrival: response.estimatedDeliveryTime
           ? `${Math.ceil(
-              (new Date(response.data.estimatedDeliveryTime) - new Date()) /
-                60000
+              (new Date(response.estimatedDeliveryTime) - new Date()) / 60000
             )} minutes`
           : "Calculating...",
-        lastUpdated: response.data.lastUpdated || new Date().toISOString(),
+        lastUpdated: response.lastUpdated || new Date().toISOString(),
       };
     } catch (error) {
       console.error("Error getting order tracking:", error);
@@ -962,36 +909,13 @@ const dataService = {
     }
   },
 
-  // Place order
-  placeOrder: async (orderData) => {
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // Create a new order with default values and user data
-    const newOrder = {
-      id: `order-${Date.now()}`,
-      orderNumber: Math.floor(10000 + Math.random() * 90000).toString(),
-      status: ORDER_STATUS.PENDING,
-      createdAt: new Date().toISOString(),
-      ...orderData,
-    };
-
-    return {
-      success: true,
-      order: newOrder,
-    };
-  },
-
   // User Address Management
   getUserAddresses: async () => {
     try {
-      const token = await getToken();
-      const response = await axios.get(`${AUTH_API_URL}/users/me/addresses`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      return { success: true, addresses: response.data.addresses };
+      const response = await apiClient.get(
+        `${AUTH_API_URL}/users/me/addresses`
+      );
+      return { success: true, addresses: response.addresses };
     } catch (error) {
       console.error("Error fetching user addresses:", error);
       return {
@@ -1003,18 +927,11 @@ const dataService = {
 
   addAddress: async (addressData) => {
     try {
-      const token = await getToken();
-      console.log(token);
-      const response = await axios.post(
+      const response = await apiClient.post(
         `${AUTH_API_URL}/users/me/addresses`,
-        addressData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        addressData
       );
-      return { success: true, address: response.data.address };
+      return { success: true, address: response.address };
     } catch (error) {
       console.error("Error adding address:", error);
       return {
@@ -1026,17 +943,11 @@ const dataService = {
 
   updateAddress: async (addressId, addressData) => {
     try {
-      const token = await getToken();
-      const response = await axios.put(
+      const response = await apiClient.put(
         `${AUTH_API_URL}/users/me/addresses/${addressId}`,
-        addressData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        addressData
       );
-      return { success: true, address: response.data.address };
+      return { success: true, address: response.address };
     } catch (error) {
       console.error("Error updating address:", error);
       return {
@@ -1048,17 +959,11 @@ const dataService = {
 
   setDefaultAddress: async (addressId) => {
     try {
-      const token = await getToken();
-      const response = await axios.put(
+      const response = await apiClient.put(
         `${AUTH_API_URL}/users/me/addresses/${addressId}/default`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        {}
       );
-      return { success: true, address: response.data.address };
+      return { success: true, address: response.address };
     } catch (error) {
       console.error("Error setting default address:", error);
       return {
@@ -1070,15 +975,7 @@ const dataService = {
 
   deleteAddress: async (addressId) => {
     try {
-      const token = await getToken();
-      const response = await axios.delete(
-        `${AUTH_API_URL}/users/me/addresses/${addressId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      await apiClient.delete(`${AUTH_API_URL}/users/me/addresses/${addressId}`);
       return { success: true };
     } catch (error) {
       console.error("Error deleting address:", error);
@@ -1091,24 +988,14 @@ const dataService = {
 
   createPaymentIntent: async (paymentData) => {
     try {
-      const token = await getToken();
-      const response = await axios.post(
-        `${PAYMENT_API_URL}/initiate`,
-        {
-          amount: paymentData.amount,
-          currency: paymentData.currency || "lkr", // Default to LKR if not specified
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await apiClient.post(`${PAYMENT_API_URL}/initiate`, {
+        amount: paymentData.amount,
+        currency: paymentData.currency || "lkr", // Default to LKR if not specified
+      });
 
       return {
         success: true,
-        clientSecret: response.data.clientSecret, // Ensure your backend returns this
+        clientSecret: response.clientSecret, // Ensure your backend returns this
       };
     } catch (error) {
       console.error("Error creating payment intent:", error);

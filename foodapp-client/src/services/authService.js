@@ -1,45 +1,116 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 
 // Use consistent API URL configuration
-const API_BASE_URL = "http://192.168.8.196:5001/api";
+const API_BASE_URL = "http://192.168.1.3:5001/api";
 const AUTH_API_URL = `${API_BASE_URL}/auth`;
+
+// Create axios instance
+const api = axios.create({
+  baseURL: AUTH_API_URL, // Fix: Use API_BASE_URL instead of AUTH_API_URL
+});
 
 // Store token in AsyncStorage for React Native
 const setToken = async (token) => {
   if (token) {
     try {
+      await SecureStore.setItemAsync("token", token);
+    } catch {
       await AsyncStorage.setItem("authToken", token);
-    } catch (e) {
-      console.warn("Could not store token in AsyncStorage:", e);
     }
   } else {
+    console.warn("No token found");
+  }
+};
+
+// Store refresh token in AsyncStorage
+const setRefreshToken = async (refreshToken) => {
+  if (refreshToken) {
     try {
-      await AsyncStorage.removeItem("authToken");
-    } catch (e) {
-      console.warn("Could not remove token from AsyncStorage:", e);
+      await SecureStore.setItemAsync("refreshToken", token);
+    } catch {
+      await AsyncStorage.setItem("refreshToken2", refreshToken);
     }
+  } else {
+    console.warn("No refresh token found");
   }
 };
 
 // Get token from AsyncStorage
 const getToken = async () => {
   try {
-    return await AsyncStorage.getItem("authToken");
+    let token = await SecureStore.getItemAsync("token");
+    if (!token) {
+      token = await AsyncStorage.getItem("authToken");
+    }
+    return token;
   } catch (e) {
     console.warn("Could not retrieve token from AsyncStorage:", e);
     return null;
   }
 };
 
+// Get refresh token from AsyncStorage
+const getRefreshToken = async () => {
+  try {
+    let token = await SecureStore.getItemAsync("refreshToken");
+    if (!token) {
+      // Fall back to AsyncStorage
+      token = await AsyncStorage.getItem("refreshToken2");
+    }
+    return token;
+  } catch (e) {
+    console.warn("Could not retrieve refresh token from AsyncStorage:", e);
+    return null;
+  }
+};
+
+// Handle API errors
+const handleError = (error) => {
+  if (error.response) {
+    // Server responded with a status code outside the 2xx range
+    const errorMessage = error.response.data?.message || "An error occurred";
+    const errorObj = new Error(errorMessage);
+    errorObj.statusCode = error.response.status;
+    errorObj.data = error.response.data;
+    return errorObj;
+  } else if (error.request) {
+    // Request was made but no response received
+    return new Error(
+      "Cannot connect to server. Please check your internet connection."
+    );
+  } else {
+    // Error setting up the request
+    return new Error("Network error. Please try again later.");
+  }
+};
+
+// Setup axios request interceptor
+api.interceptors.request.use(
+  async (config) => {
+    const token = await getToken();
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 const authService = {
   // Register a new user
   register: async (userData) => {
     try {
-      const response = await axios.post(`${AUTH_API_URL}/register`, userData);
+      // Fix: Use correct path
+      const response = await api.post(`/register`, userData);
 
       if (response.data && response.data.token) {
         await setToken(response.data.token);
+        if (response.data.refreshToken) {
+          await setRefreshToken(response.data.refreshToken);
+        }
         return response.data;
       } else {
         throw new Error("Registration failed. Please try again.");
@@ -52,12 +123,16 @@ const authService = {
   // Login user
   login: async (email, password) => {
     try {
-      const response = await axios.post(`${AUTH_API_URL}/login`, {
+      // Fix: Use correct path
+      const response = await api.post(`/login`, {
         email,
         password,
       });
       if (response.data && response.data.token) {
         await setToken(response.data.token);
+        if (response.data.refreshToken) {
+          await setRefreshToken(response.data.refreshToken);
+        }
         return response.data;
       } else {
         throw new Error("Login failed. Please check your credentials.");
@@ -78,14 +153,10 @@ const authService = {
   },
 
   // Get current user details
-  getCurrentUser: async (token) => {
+  getCurrentUser: async () => {
     try {
-      const response = await axios.get(`${AUTH_API_URL}/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
+      // Fix: Use correct path
+      const response = await api.get(`/me`);
       if (response.data && response.data.user) {
         return response.data.user;
       } else {
@@ -98,35 +169,58 @@ const authService = {
   },
 
   // Logout user
-  logout: async (token) => {
+  logout: async () => {
     try {
-      if (!token) {
-        await setToken(null);
-        return true;
-      }
-
-      await axios.post(
-        `${AUTH_API_URL}/logout`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      // Fix: Use correct path
+      await api.post(`/logout`);
       await setToken(null);
+      await setRefreshToken(null);
       return true;
     } catch (error) {
       // Clear token even if logout request fails
       await setToken(null);
+      await setRefreshToken(null);
       return false;
+    }
+  },
+
+  // Refresh token
+  refreshToken: async () => {
+    try {
+      const refreshToken = await getRefreshToken();
+      if (!refreshToken) {
+        throw new Error("No refresh token available");
+      }
+
+      // Fix: Use correct path
+      const response = await api.post(`/refresh-token`, {
+        refreshToken,
+      });
+
+      if (!response.data || !response.data.token) {
+        throw new Error("Failed to refresh token");
+      }
+
+      // Store the new tokens
+      await setToken(response.data.token);
+      if (response.data.refreshToken) {
+        await setRefreshToken(response.data.refreshToken);
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error("Token refresh failed:", error);
+      await setToken(null);
+      await setRefreshToken(null);
+      throw handleError(error);
     }
   },
 
   // Forgot password
   forgotPassword: async (email) => {
     try {
-      const response = await axios.post(`${AUTH_API_URL}/forgot-password`, {
+      // Fix: Use correct path
+      const response = await api.post(`/forgot-password`, {
         email,
       });
       return response.data;
@@ -138,12 +232,10 @@ const authService = {
   // Reset password
   resetPassword: async (token, password) => {
     try {
-      const response = await axios.post(
-        `${AUTH_API_URL}/reset-password/${token}`,
-        {
-          password,
-        }
-      );
+      // Fix: Use correct path
+      const response = await api.post(`/reset-password/${token}`, {
+        password,
+      });
       return response.data;
     } catch (error) {
       throw handleError(error);
@@ -151,17 +243,10 @@ const authService = {
   },
 
   // Validate token (useful for protected routes)
-  validateToken: async (token) => {
+  validateToken: async () => {
     try {
-      if (!token) {
-        return false;
-      }
-
-      const response = await axios.get(`${AUTH_API_URL}/validate-token`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // Fix: Use correct path
+      const response = await api.get(`/validate-token`);
       return response.data && response.data.success;
     } catch (error) {
       return false;
@@ -172,26 +257,11 @@ const authService = {
   getStoredToken: async () => {
     return await getToken();
   },
-};
 
-// Error handler
-const handleError = (error) => {
-  if (error.response) {
-    // Server responded with a status code outside the 2xx range
-    const errorMessage = error.response.data?.message || "An error occurred";
-    const errorObj = new Error(errorMessage);
-    errorObj.statusCode = error.response.status;
-    errorObj.data = error.response.data;
-    return errorObj;
-  } else if (error.request) {
-    // Request was made but no response received
-    return new Error(
-      "Cannot connect to server. Please check your internet connection."
-    );
-  } else {
-    // Error setting up the request
-    return new Error("Network error. Please try again later.");
-  }
+  // Get the stored refresh token
+  getStoredRefreshToken: async () => {
+    return await getRefreshToken();
+  },
 };
 
 export default authService;

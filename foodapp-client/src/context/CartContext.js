@@ -30,8 +30,7 @@ export const CartProvider = ({ children }) => {
   const fetchCartFromApi = async () => {
     try {
       setLoading(true);
-      const response = await dataService.getCart();
-      const cartData = response.data;
+      const cartData = await dataService.getCart();
       if (cartData && cartData.items && cartData.items.length > 0) {
         setItems(
           cartData.items.map((item) => ({

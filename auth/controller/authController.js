@@ -66,6 +66,7 @@ const register = async (req, res) => {
       success: true,
       message: "User registered successfully",
       token,
+      refreshToken,
       user: userResponse,
     });
   } catch (error) {
@@ -138,6 +139,7 @@ const login = async (req, res) => {
       success: true,
       message: "Login successful",
       token,
+      refreshToken,
       user: userResponse,
     });
   } catch (error) {
@@ -152,13 +154,14 @@ const login = async (req, res) => {
 
 /**
  * Refresh access token
- * @route POST /api/auth/refresh
+ * @route POST /api/auth/refresh-token
  * @access Public (with refresh token)
  */
 const refreshToken = async (req, res) => {
   try {
-    const refreshToken = req.cookies.refreshToken;
+    const refreshToken = req.body.refreshToken;
 
+    console.log("Refresh token received:", refreshToken);
     if (!refreshToken) {
       return res.status(401).json({
         success: false,
@@ -171,11 +174,13 @@ const refreshToken = async (req, res) => {
       process.env.JWT_REFRESH_SECRET || "jwt-refresh-secret-key-develop-only"
     );
 
+    console.log(decoded.id);
     const user = await User.findOne({
       _id: decoded.id,
       refreshToken,
     });
 
+    console.log(user);
     if (!user) {
       return res.status(403).json({
         success: false,
@@ -183,28 +188,23 @@ const refreshToken = async (req, res) => {
       });
     }
 
-    const newToken = user.generateAuthToken();
+    const newToken = user.generateAuthToken(); // This will generate a 1-minute token
     const newRefreshToken = user.generateRefreshToken();
 
     user.refreshToken = newRefreshToken;
     await user.save();
 
-    res.cookie("refreshToken", newRefreshToken, {
-      httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-    });
-
     res.status(200).json({
       success: true,
       token: newToken,
+      refreshToken: newRefreshToken, // Include refreshToken in response for mobile apps
     });
   } catch (error) {
     console.error("Token refresh error:", error);
     res.status(401).json({
       success: false,
       message: "Invalid or expired refresh token",
+      error: error.message,
     });
   }
 };
