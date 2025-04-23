@@ -989,6 +989,7 @@ const dataService = {
   createPaymentIntent: async (paymentData) => {
     try {
       const response = await apiClient.post(`${PAYMENT_API_URL}/initiate`, {
+        orderId:paymentData.orderId,
         amount: paymentData.amount,
         currency: paymentData.currency || "lkr", // Default to LKR if not specified
       });

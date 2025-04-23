@@ -23,9 +23,7 @@ const initiatePayment = async (req, res) => {
       }
     );
 
-    console.log(order);
-
-    const order = orderResponse.data;
+    const order = orderResponse.data?.order;
 
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
@@ -62,7 +60,7 @@ const initiatePayment = async (req, res) => {
 
     // 4. Update order with payment reference
     await axios.patch(
-      `${process.env.ORDER_SERVICE_URL}/orders/${orderId}/payment`,
+      `${process.env.ORDER_SERVICE_URL}/api/orders/${orderId}/payment`,
       {
         paymentDetails: {
           transactionId: paymentIntent.id,
@@ -87,6 +85,7 @@ const initiatePayment = async (req, res) => {
 
 // Webhook handler
 const handleWebhook = async (req, res) => {
+  console.log("here");
   const sig = req.headers["stripe-signature"];
   let event;
 
@@ -94,7 +93,7 @@ const handleWebhook = async (req, res) => {
     event = stripe.webhooks.constructEvent(
       req.body,
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET
+      "whsec_09fdf4e0f25152ad70f721f6217f6ae3ed197455c2eddb806d8214a6330abe9b"
     );
   } catch (err) {
     console.error("Webhook verification failed:", err);
@@ -131,7 +130,7 @@ const handleWebhook = async (req, res) => {
 
       // 2. Update order status
       await axios.patch(
-        `${process.env.ORDER_SERVICE_URL}/orders/${orderId}/status`,
+        `${process.env.ORDER_SERVICE_URL}/api/orders/${orderId}/payment/status`,
         {
           status: "PAID",
           paymentDetails: {
@@ -141,7 +140,7 @@ const handleWebhook = async (req, res) => {
             receiptUrl: paymentIntent.charges?.data[0]?.receipt_url,
           },
         },
-        { headers: { Authorization: `Bearer ${process.env.SERVICE_TOKEN}` } }
+        { headers: { Authorization: req.headers.authorization } }
       );
 
       console.log(`Successfully processed payment for order ${orderId}`);

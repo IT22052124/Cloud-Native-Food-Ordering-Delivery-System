@@ -8,8 +8,18 @@ dotenv.config();
 
 // Initialize Express
 const app = express();
-app.use(express.json());
+
+// Apply CORS globally
 app.use(cors());
+
+// Important: Only apply json parsing to non-webhook routes
+app.use((req, res, next) => {
+  if (req.originalUrl === "/api/payment/webhook") {
+    next(); // Skip body parsing for webhook route
+  } else {
+    express.json()(req, res, next); // Apply JSON parsing to other routes
+  }
+});
 
 global.gConfig = {
   auth_url: process.env.AUTH_SERVICE_URL,
