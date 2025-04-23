@@ -36,12 +36,12 @@ const Dishes = () => {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-gray dark:bg-gray-900">
       <DishSidebar />
-      <div className="flex-1 ml-64 ">
+      <div className="flex-1 ml-64 bg-gray  ">
         <Navbar />
-        <div className="p-6 bg-gray">
-          <h2 className="text-2xl font-bold mb-4 dark:text-black">Manage Dishes</h2>
+        <div className="p-6 bg-gray -50 dark:bg-gray-900">
+
         
           <DishTable dishes={dishes}  />
         </div>
