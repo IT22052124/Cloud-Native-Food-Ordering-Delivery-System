@@ -4,17 +4,24 @@ import { protect, authorize } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-// Protect all payment routes
-router.use(protect);
+// Apply protection to all routes EXCEPT webhook
+router.use((req, res, next) => {
+  if (req.path === "/webhook") return next();
+  protect(req, res, next);
+});
 
 // Payment initiation - accessible by customers only
 router.post(
   "/initiate",
-  authorize("customer"), // Only customers can initiate payments
+  authorize("customer"),
   paymentController.initiatePayment
 );
 
-// Webhook endpoint - should be public (no protection)
-router.post("/callback", paymentController.handleWebhook);
+// Stripe webhook endpoint - must use raw body parser
+router.post(
+  "/webhook",
+  express.raw({ type: "application/json" }), // Critical for Stripe
+  paymentController.handleWebhook
+);
 
 export default router;
