@@ -538,8 +538,8 @@ const getOrderTracking = async (req, res) => {
 
     // When no real driver data is available, provide mock data for demo
     // if (!driverLocation && order.restaurantOrder.status === "PREPARING") {
-      // Simulate driver at the restaurant
-      driverLocation = restaurantLocation;
+    // Simulate driver at the restaurant
+    driverLocation = restaurantLocation;
     // }
 
     const trackingData = {
@@ -1002,6 +1002,157 @@ const updateDeliveryLocation = async (req, res) => {
   }
 };
 
+const updateOrderPayment = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { paymentDetails } = req.body;
+
+    // Validate input
+    if (
+      !paymentDetails ||
+      !paymentDetails.transactionId ||
+      !paymentDetails.paymentProcessor
+    ) {
+      return res.status(400).json({
+        error: "Transaction ID and payment processor are required",
+      });
+    }
+
+    // Find and update the order
+    const updatedOrder = await Order.findOneAndUpdate(
+      { orderId },
+      {
+        $set: {
+          paymentStatus: "PROCESSING",
+          paymentDetails: {
+            transactionId: paymentDetails.transactionId,
+            paymentProcessor: paymentDetails.paymentProcessor,
+            updatedAt: new Date(),
+          },
+        },
+        $push: {
+          paymentHistory: {
+            status: "PROCESSING",
+            timestamp: new Date(),
+            transactionId: paymentDetails.transactionId,
+          },
+        },
+      },
+      { new: true }
+    );
+
+    if (!updatedOrder) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    // Optionally: Send notification to customer
+    // await sendPaymentNotification(updatedOrder);
+
+    res.status(200).json({
+      success: true,
+      order: updatedOrder,
+    });
+  } catch (error) {
+    console.error("Error updating order payment:", error);
+    res.status(500).json({
+      error: "Failed to update order payment status",
+      details: error.message,
+    });
+  }
+};
+
+const updateOrderPaymentStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status, paymentDetails } = req.body;
+
+    // Validate input
+    if (!status || !paymentDetails?.transactionId) {
+      return res.status(400).json({
+        error: "Status and transaction details are required",
+      });
+    }
+
+    // Validate payment status
+    const validPaymentStatuses = [
+      "PAID",
+      "FAILED",
+      "REFUND_INITIATED",
+      "REFUNDED",
+    ];
+    if (!validPaymentStatuses.includes(status)) {
+      return res.status(400).json({
+        error: `Invalid payment status. Must be one of: ${validPaymentStatuses.join(
+          ", "
+        )}`,
+      });
+    }
+
+    // Determine the appropriate order status based on payment status
+    let orderStatus;
+    switch (status) {
+      case "PAID":
+        orderStatus = "CONFIRMED";
+        break;
+      case "FAILED":
+        orderStatus = "CANCELLED";
+        break;
+      default:
+        orderStatus = "PLACED"; // For refund cases
+    }
+
+    // Find and update the order
+    const updatedOrder = await Order.findOneAndUpdate(
+      { orderId },
+      {
+        $set: {
+          paymentStatus: status,
+          "restaurantOrder.status": orderStatus,
+          paymentDetails: {
+            ...paymentDetails,
+            updatedAt: new Date(),
+          },
+        },
+        $push: {
+          "restaurantOrder.statusHistory": {
+            status: orderStatus,
+            timestamp: new Date(),
+            updatedBy: null, // System initiated
+            notes: `Payment status changed to ${status}`,
+          },
+          customerNotificationHistory: {
+            type: status === "PAID" ? "ORDER_CONFIRMED" : "STATUS_UPDATE",
+            timestamp: new Date(),
+            success: true,
+            details: `Payment ${status.toLowerCase()}`,
+          },
+        },
+      },
+      { new: true }
+    );
+
+    if (!updatedOrder) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      order: {
+        orderId: updatedOrder.orderId,
+        status: updatedOrder.restaurantOrder.status,
+        paymentStatus: updatedOrder.paymentStatus,
+        paymentDetails: updatedOrder.paymentDetails,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating order payment status:", error);
+    res.status(500).json({
+      error: "Failed to update order payment status",
+      details: error.message,
+    });
+  }
+};
+
 export {
   createOrder,
   getOrderById,
@@ -1013,4 +1164,6 @@ export {
   assignDeliveryPerson,
   updateDeliveryLocation,
   getOrderTracking,
+  updateOrderPayment,
+  updateOrderPaymentStatus,
 };

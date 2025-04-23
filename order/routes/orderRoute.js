@@ -11,11 +11,17 @@ import {
   assignDeliveryPerson,
   updateDeliveryLocation,
   getOrderTracking,
+  updateOrderPayment,
+  updateOrderPaymentStatus,
 } from "../controller/orderController.js";
 
 const router = express.Router();
 
-// Protect all routes
+// Payment update endpoint - UNPROTECTED
+
+router.patch("/:orderId/payment/status", updateOrderPaymentStatus);
+
+// Protect all remaining routes
 router.use(protect);
 
 // Customer routes
@@ -24,13 +30,13 @@ router
   .post(authorize("customer"), createOrder)
   .get(authorize("customer"), getUserOrders);
 
-// Order details route - accessible by customer, restaurant (if part of the order), or admin
+// Order details route
 router
   .route("/:id")
   .get(authorize("customer", "restaurant", "admin", "delivery"), getOrderById)
   .delete(authorize("customer", "admin"), deleteOrder);
 
-// Order tracking route - accessible by customer, restaurant (if part of the order), or admin
+// Order tracking route
 router
   .route("/:id/tracking")
   .get(
@@ -44,7 +50,7 @@ router.route("/restaurant").post(authorize("restaurant"), getRestaurantOrders);
 // Admin routes
 router.route("/admin/all").get(authorize("admin"), getAllOrders);
 
-// Update order status - accessible by the restaurant or admin
+// Update order status
 router
   .route("/:id/status")
   .patch(authorize("restaurant", "admin", "customer"), updateOrderStatus);
@@ -57,5 +63,7 @@ router
 router
   .route("/:id/delivery-location")
   .patch(authorize("delivery"), updateDeliveryLocation);
+
+router.patch("/:orderId/payment", updateOrderPayment);
 
 export default router;
