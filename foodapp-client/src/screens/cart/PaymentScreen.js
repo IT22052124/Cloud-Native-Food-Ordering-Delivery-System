@@ -59,52 +59,8 @@ const PaymentScreen = ({ navigation, route }) => {
     setSelectedPayment(PAYMENT_METHODS[0]);
   }, []);
 
-  const handleStripePayment = async () => {
-    try {
-      setProcessingPayment(true);
-
-      // 1. Create Payment Intent on your backend
-      const response = await dataService.createPaymentIntent({
-        amount: total * 100, // Convert to cents
-        currency: "lkr",
-      });
-
-      if (!response.clientSecret) {
-        throw new Error("No client secret returned");
-      }
-
-      // 2. Initialize Payment Sheet
-      const { error } = await initPaymentSheet({
-        merchantDisplayName: "My Food App",
-        paymentIntentClientSecret: response.clientSecret,
-        returnURL: "myfoodapp://stripe-redirect",
-      });
-
-      if (error) throw error;
-
-      // 3. Present Payment Sheet
-      const { error: paymentError } = await presentPaymentSheet();
-
-      if (paymentError) {
-        throw paymentError;
-      }
-
-      // If we get here, payment was successful
-      await createOrder();
-    } catch (error) {
-      console.error("Payment error:", error);
-      Alert.alert(
-        "Payment Failed",
-        error.message || "There was an error processing your payment"
-      );
-    } finally {
-      setProcessingPayment(false);
-    }
-  };
-
   const createOrder = async () => {
     try {
-      // Create order object
       const orderData = {
         type: orderType,
         deliveryAddress:
@@ -122,6 +78,7 @@ const PaymentScreen = ({ navigation, route }) => {
               }
             : null,
         paymentMethod: selectedPayment.id.toUpperCase(),
+        status: selectedPayment.id === "cod" ? "PAID" : "PENDING_PAYMENT",
       };
 
       const response = await dataService.createOrder(orderData);
@@ -134,7 +91,70 @@ const PaymentScreen = ({ navigation, route }) => {
         total: response.order.order.totalAmount,
       };
 
-      setOrderDetails(OrderResponse);
+      return OrderResponse;
+    } catch (error) {
+      console.error("Order creation error:", error);
+      throw error;
+    }
+  };
+
+  const handleStripePayment = async () => {
+    try {
+      setProcessingPayment(true);
+
+      // 1. First create the order
+      const order = await createOrder();
+      setOrderDetails(order);
+
+      // 2. Create Payment Intent with order ID
+      const response = await dataService.createPaymentIntent({
+        orderId: order.id,
+        amount: total * 100,
+        currency: "lkr",
+      });
+
+      if (!response.clientSecret) {
+        throw new Error("No client secret returned");
+      }
+
+      // 3. Initialize Payment Sheet
+      const { error } = await initPaymentSheet({
+        merchantDisplayName: "My Food App",
+        paymentIntentClientSecret: response.clientSecret,
+        returnURL: "myfoodapp://stripe-redirect",
+      });
+
+      if (error) throw error;
+
+      // 4. Present Payment Sheet
+      const { error: paymentError } = await presentPaymentSheet();
+
+      if (paymentError) {
+        throw paymentError;
+      }
+
+      // Payment successful
+      setPaymentSuccess(true);
+      clearCart();
+    } catch (error) {
+      console.error("Payment error:", error);
+      Alert.alert(
+        "Payment Failed",
+        error.message || "There was an error processing your payment"
+      );
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const handleCodPayment = async () => {
+    try {
+      setProcessingPayment(true);
+
+      // Create order with status=PAID for COD
+      const order = await createOrder();
+
+      setOrderDetails(order);
       setPaymentSuccess(true);
       clearCart();
     } catch (error) {
@@ -143,6 +163,8 @@ const PaymentScreen = ({ navigation, route }) => {
         "Order Failed",
         error.message || "There was a problem creating your order"
       );
+    } finally {
+      setProcessingPayment(false);
     }
   };
 
@@ -155,13 +177,7 @@ const PaymentScreen = ({ navigation, route }) => {
     if (selectedPayment.id === "card") {
       await handleStripePayment();
     } else {
-      // For Cash on Delivery
-      setProcessingPayment(true);
-      try {
-        await createOrder();
-      } finally {
-        setProcessingPayment(false);
-      }
+      await handleCodPayment();
     }
   };
 
