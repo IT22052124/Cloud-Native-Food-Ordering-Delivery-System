@@ -28,7 +28,7 @@ mongoose
 app.use("/api/payment", paymentRoutes);
 
 // Start Server
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 5004;
 app.listen(PORT, () => {
   console.log(`Payment service running on port ${PORT}`);
 });
