@@ -11,6 +11,7 @@ import { checkHealth } from './middleware/health.js';
 import authRoutes from './routes/authRoutes.js'
 import Delivery from './models/Delivery.js';
 import axios from 'axios';
+import { retryDeliveryAssignment } from './controllers/deliveryController.js';
 
 dotenv.config();
 
@@ -169,13 +170,7 @@ io.on('connection', (socket) => {
         
         // Notify restaurant if no more proposed drivers
         if (delivery.proposedDrivers.length === 0) {
-          delivery.status = 'DRIVER_TIMEOUT';
-          await delivery.save();
-          
-          io.to(`user_${delivery.restaurant.id}`).emit('deliveryAssignmentFailed', {
-            orderId: delivery.orderId,
-            reason: 'All drivers declined'
-          });
+          await retryDeliveryAssignment(deliveryId, io, socket.handshake.auth.token);
         }
 
         socket.emit('responseSuccess', { 

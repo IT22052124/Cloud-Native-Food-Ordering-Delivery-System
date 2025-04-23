@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useContext } from 'react';
+
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,6 +12,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { toast } from 'react-toastify';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '../../firebase-config';
+import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 
 // Define Sri Lankan provinces for the dropdown
 const provinces = [
@@ -25,7 +27,7 @@ const provinces = [
   'Western',
 ];
 
-// Zod schema without categories
+// Zod schema
 const schema = zod.object({
   name: zod.string().min(1, 'Name is required'),
   description: zod.string().optional(),
@@ -49,17 +51,35 @@ const schema = zod.object({
     isClosed: zod.boolean(),
   }).optional(),
   isActive: zod.boolean().optional(),
-  menu: zod.array(zod.object({
-    name: zod.string().min(1, 'Menu item name is required'),
-    description: zod.string().optional(),
-    price: zod.number().min(0, 'Price must be positive'),
-    category: zod.string().min(1, 'Category is required'),
-  })).optional(),
-  restaurantAdmin: zod.object({
-    username: zod.string().min(1, 'Username is required'),
-    email: zod.string().email('Invalid email').optional(),
-  }).optional(),
+  menu: zod
+    .array(
+      zod.object({
+        name: zod.string().min(1, 'Menu item name is required'),
+        description: zod.string().optional(),
+        price: zod.number().min(0, 'Price must be positive'),
+        category: zod.string().min(1, 'Category is required'),
+      })
+    )
+    .optional(),
+  restaurantAdmin: zod
+    .object({
+      username: zod.string().min(1, 'Username is required'),
+      email: zod.string().email('Invalid email').optional(),
+    })
+    .optional(),
 });
+
+// Google Maps container style
+const mapContainerStyle = {
+  width: '100%',
+  height: '400px',
+};
+
+// Default center (Colombo, Sri Lanka)
+const defaultCenter = {
+  lat: 6.9271,
+  lng: 79.8612,
+};
 
 const EditRestaurant = () => {
   const { id } = useParams();
@@ -71,21 +91,34 @@ const EditRestaurant = () => {
   const [uploading, setUploading] = useState({ cover: false, images: false });
   const [uploadProgress, setUploadProgress] = useState({ cover: 0, images: 0 });
   const [uploadError, setUploadError] = useState({ cover: '', images: '' });
+  const [isMapLoaded, setIsMapLoaded] = useState(false); // Track map API loading
+  const [markerPosition, setMarkerPosition] = useState(defaultCenter);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
     getValues,
   } = useForm({
     resolver: zodResolver(schema),
   });
 
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+  // Log form values on render
   useEffect(() => {
     console.log('Form values on render:', getValues());
   }, [getValues]);
 
+  // Log component mount
+  useEffect(() => {
+    console.log('EditRestaurant mounted');
+    return () => console.log('EditRestaurant unmounted');
+  }, []);
+
+  // Fetch restaurant data
   useEffect(() => {
     const fetchRestaurant = async () => {
       try {
@@ -100,8 +133,8 @@ const EditRestaurant = () => {
             province: data.address?.province || '',
             postalCode: data.address?.postalCode || '',
             coordinates: {
-              lat: data.address?.coordinates?.lat || 0,
-              lng: data.address?.coordinates?.lng || 0,
+              lat: data.address?.coordinates?.lat || defaultCenter.lat,
+              lng: data.address?.coordinates?.lng || defaultCenter.lng,
             },
           },
           contact: {
@@ -116,6 +149,10 @@ const EditRestaurant = () => {
         });
         setCoverImageUrl(data.coverImageUrl || '');
         setImageUrls(data.imageUrls || []);
+        setMarkerPosition({
+          lat: data.address?.coordinates?.lat || defaultCenter.lat,
+          lng: data.address?.coordinates?.lng || defaultCenter.lng,
+        });
       } catch (error) {
         console.error('Fetch error:', error);
         toast.error('Failed to fetch restaurant');
@@ -125,6 +162,78 @@ const EditRestaurant = () => {
     };
     fetchRestaurant();
   }, [id, user, navigate, reset]);
+
+  // Handle map click to set marker and autofill address
+  const handleMapClick = useCallback(
+    (event) => {
+      const newLat = event.latLng.lat();
+      const newLng = event.latLng.lng();
+      setMarkerPosition({ lat: newLat, lng: newLng });
+      setValue('address.coordinates.lat', newLat, { shouldValidate: true });
+      setValue('address.coordinates.lng', newLng, { shouldValidate: true });
+
+      if (!apiKey) {
+        toast.error('Google Maps API key is missing. Please contact support.');
+        return;
+      }
+
+      // Reverse geocode to autofill address
+      fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${newLat},${newLng}&key=${apiKey}`
+      )
+        .then((response) => response.json())
+        .then((data) => {
+          console.log('Geocoding response:', data);
+          if (data.results && data.results[0]) {
+            const addressComponents = data.results[0].address_components;
+            let street = '';
+            let city = '';
+            let province = '';
+            let postalCode = '';
+
+            addressComponents.forEach((component) => {
+              if (component.types.includes('route')) street = component.long_name;
+              if (component.types.includes('locality')) city = component.long_name;
+              if (component.types.includes('administrative_area_level_1'))
+                province = component.long_name;
+              if (component.types.includes('postal_code')) postalCode = component.long_name;
+            });
+
+            setValue('address.street', street || getValues('address.street'), {
+              shouldValidate: true,
+            });
+            setValue('address.city', city || getValues('address.city'), { shouldValidate: true });
+            setValue('address.province', provinces.includes(province) ? province : getValues('address.province'), {
+              shouldValidate: true,
+            });
+            setValue('address.postalCode', postalCode || getValues('address.postalCode'), {
+              shouldValidate: true,
+            });
+            toast.info('Address auto-filled from selected location');
+          } else {
+            console.error('No geocoding results:', data);
+            toast.error('No address details found');
+          }
+        })
+        .catch((error) => {
+          console.error('Error reverse geocoding:', error);
+          toast.error('Failed to fetch address details');
+        });
+    },
+    [apiKey, setValue, getValues]
+  );
+
+  // Handle marker drag to update coordinates
+  const handleMarkerDragEnd = useCallback(
+    (event) => {
+      const newLat = event.latLng.lat();
+      const newLng = event.latLng.lng();
+      setMarkerPosition({ lat: newLat, lng: newLng });
+      setValue('address.coordinates.lat', newLat, { shouldValidate: true });
+      setValue('address.coordinates.lng', newLng, { shouldValidate: true });
+    },
+    [setValue]
+  );
 
   // Handle cover image upload
   const handleCoverImageChange = async (e) => {
@@ -179,7 +288,10 @@ const EditRestaurant = () => {
 
     const maxImages = 5;
     if (files.length + imageUrls.length > maxImages) {
-      setUploadError((prev) => ({ ...prev, images: `You can upload a maximum of ${maxImages} images.` }));
+      setUploadError((prev) => ({
+        ...prev,
+        images: `You can upload a maximum of ${maxImages} images.`,
+      }));
       return;
     }
 
@@ -214,13 +326,14 @@ const EditRestaurant = () => {
       const updatedImageUrls = imageUrls.filter((url) => url !== imageUrl);
       setImageUrls(updatedImageUrls);
       setUploadError((prev) => ({ ...prev, images: '' }));
-      console.log('Updated imageUrls:', updatedImageUrls); // Debug log
+      console.log('Updated imageUrls:', updatedImageUrls);
     } catch (error) {
       console.error('Error deleting image:', error);
       setUploadError((prev) => ({ ...prev, images: 'Failed to delete image.' }));
     }
   };
 
+  // Handle form submission
   const onSubmit = async (data, event) => {
     console.log('onSubmit called with:', { data, event });
     if (!data) {
@@ -244,6 +357,10 @@ const EditRestaurant = () => {
   };
 
   if (loading) return <LoadingSpinner />;
+  if (!apiKey) {
+    toast.error('Google Maps API key is missing. Please contact support.');
+    return <div className="text-red-500 p-6">Error: Google Maps API key is missing.</div>;
+  }
 
   return (
     <div className="flex min-h-screen">
@@ -379,7 +496,9 @@ const EditRestaurant = () => {
                     {...register('address.street')}
                     className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
                   />
-                  {errors.address?.street && <p className="text-red-600 dark:text-red-400">{errors.address.street.message}</p>}
+                  {errors.address?.street && (
+                    <p className="text-red-600 dark:text-red-400">{errors.address.street.message}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-gray-700 mb-2 dark:text-gray-300">City*</label>
@@ -387,7 +506,9 @@ const EditRestaurant = () => {
                     {...register('address.city')}
                     className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
                   />
-                  {errors.address?.city && <p className="text-red-600 dark:text-red-400">{errors.address.city.message}</p>}
+                  {errors.address?.city && (
+                    <p className="text-red-600 dark:text-red-400">{errors.address.city.message}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-gray-700 mb-2 dark:text-gray-300">Province*</label>
@@ -402,7 +523,9 @@ const EditRestaurant = () => {
                       </option>
                     ))}
                   </select>
-                  {errors.address?.province && <p className="text-red-600 dark:text-red-400">{errors.address.province.message}</p>}
+                  {errors.address?.province && (
+                    <p className="text-red-600 dark:text-red-400">{errors.address.province.message}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-gray-700 mb-2 dark:text-gray-300">Postal Code*</label>
@@ -410,7 +533,42 @@ const EditRestaurant = () => {
                     {...register('address.postalCode')}
                     className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
                   />
-                  {errors.address?.postalCode && <p className="text-red-600 dark:text-red-400">{errors.address.postalCode.message}</p>}
+                  {errors.address?.postalCode && (
+                    <p className="text-red-600 dark:text-red-400">{errors.address.postalCode.message}</p>
+                  )}
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Select Location on Map</label>
+                  <div style={{ width: '100%', height: '400px' }}>
+                    <LoadScript
+                      googleMapsApiKey={apiKey}
+                      onLoad={() => {
+                        console.log('Google Maps API loaded successfully');
+                        setIsMapLoaded(true);
+                      }}
+                      onError={(error) => {
+                        console.error('Error loading Google Maps API:', error);
+                        toast.error('Failed to load Google Maps API');
+                        setIsMapLoaded(false);
+                      }}
+                    >
+                      {isMapLoaded ? (
+                        <GoogleMap
+                          key={`${markerPosition.lat}-${markerPosition.lng}`}
+                          mapContainerStyle={mapContainerStyle}
+                          center={markerPosition}
+                          zoom={15}
+                          onClick={handleMapClick}
+                        >
+                          <Marker position={markerPosition} draggable onDragEnd={handleMarkerDragEnd} />
+                        </GoogleMap>
+                      ) : (
+                        <div className="flex items-center justify-center h-full bg-gray-200 dark:bg-gray-700">
+                          Loading map...
+                        </div>
+                      )}
+                    </LoadScript>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-gray-700 mb-2 dark:text-gray-300">Latitude</label>
@@ -419,8 +577,13 @@ const EditRestaurant = () => {
                     step="any"
                     {...register('address.coordinates.lat', { valueAsNumber: true })}
                     className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
+                    readOnly
                   />
-                  {errors.address?.coordinates?.lat && <p className="text-red-600 dark:text-red-400">{errors.address.coordinates.lat.message}</p>}
+                  {errors.address?.coordinates?.lat && (
+                    <p className="text-red-600 dark:text-red-400">
+                      {errors.address.coordinates.lat.message}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-gray-700 mb-2 dark:text-gray-300">Longitude</label>
@@ -429,8 +592,13 @@ const EditRestaurant = () => {
                     step="any"
                     {...register('address.coordinates.lng', { valueAsNumber: true })}
                     className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
+                    readOnly
                   />
-                  {errors.address?.coordinates?.lng && <p className="text-red-600 dark:text-red-400">{errors.address.coordinates.lng.message}</p>}
+                  {errors.address?.coordinates?.lng && (
+                    <p className="text-red-600 dark:text-red-400">
+                      {errors.address.coordinates.lng.message}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -445,7 +613,9 @@ const EditRestaurant = () => {
                     {...register('contact.phone')}
                     className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
                   />
-                  {errors.contact?.phone && <p className="text-red-600 dark:text-red-400">{errors.contact.phone.message}</p>}
+                  {errors.contact?.phone && (
+                    <p className="text-red-600 dark:text-red-400">{errors.contact.phone.message}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-gray-700 mb-2 dark:text-gray-300">Email</label>
@@ -453,7 +623,9 @@ const EditRestaurant = () => {
                     {...register('contact.email')}
                     className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
                   />
-                  {errors.contact?.email && <p className="text-red-600 dark:text-red-400">{errors.contact.email.message}</p>}
+                  {errors.contact?.email && (
+                    <p className="text-red-600 dark:text-red-400">{errors.contact.email.message}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -468,7 +640,9 @@ const EditRestaurant = () => {
                     {...register('openingHours.open')}
                     className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
                   />
-                  {errors.openingHours?.open && <p className="text-red-600 dark:text-red-400">{errors.openingHours.open.message}</p>}
+                  {errors.openingHours?.open && (
+                    <p className="text-red-600 dark:text-red-400">{errors.openingHours.open.message}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-gray-700 mb-2 dark:text-gray-300">Close Time*</label>
@@ -476,7 +650,9 @@ const EditRestaurant = () => {
                     {...register('openingHours.close')}
                     className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
                   />
-                  {errors.openingHours?.close && <p className="text-red-600 dark:text-red-400">{errors.openingHours.close.message}</p>}
+                  {errors.openingHours?.close && (
+                    <p className="text-red-600 dark:text-red-400">{errors.openingHours.close.message}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-gray-700 mb-2 dark:text-gray-300">Closed</label>
@@ -488,29 +664,6 @@ const EditRestaurant = () => {
                 </div>
               </div>
             </div>
-
-            {/* Restaurant Admin */}
-            {/* <div className="bg-white p-6 rounded-lg shadow dark:bg-gray-800">
-              <h3 className="text-lg font-semibold mb-4 dark:text-white">Restaurant Admin</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Admin Username</label>
-                  <input
-                    {...register('restaurantAdmin.0.username')}
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                  />
-                  {errors.restaurantAdmin?.username && <p className="text-red-600 dark:text-red-400">{errors.restaurantAdmin.username.message}</p>}
-                </div>
-                <div>
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Admin Email</label>
-                  <input
-                    {...register('restaurantAdmin.0.password')}
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                  />
-                  {errors.restaurantAdmin?.email && <p className="text-red-600 dark:text-red-400">{errors.restaurantAdmin.email.message}</p>}
-                </div>
-              </div>
-            </div> */}
 
             {/* Submit Button */}
             <div className="flex justify-end">
