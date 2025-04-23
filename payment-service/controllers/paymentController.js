@@ -205,7 +205,7 @@ const createCodPayment = async (req, res) => {
 
     // Update order status
     await axios.patch(
-      `${process.env.ORDER_SERVICE_URL}/orders/${orderId}/status`,
+      `${process.env.ORDER_SERVICE_URL}/orders/${orderId}/payment/status`,
       {
         paymentStatus: "PAID",
         paymentMethod: "CASH_ON_DELIVERY",

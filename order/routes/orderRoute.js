@@ -18,7 +18,7 @@ import {
 const router = express.Router();
 
 // Payment update endpoint - UNPROTECTED
-router.patch("/:orderId/payment", updateOrderPayment);
+
 router.patch("/:orderId/payment/status", updateOrderPaymentStatus);
 
 // Protect all remaining routes
@@ -63,5 +63,7 @@ router
 router
   .route("/:id/delivery-location")
   .patch(authorize("delivery"), updateDeliveryLocation);
+
+router.patch("/:orderId/payment", updateOrderPayment);
 
 export default router;

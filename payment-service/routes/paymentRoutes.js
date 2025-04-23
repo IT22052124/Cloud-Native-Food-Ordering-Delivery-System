@@ -17,6 +17,12 @@ router.post(
   paymentController.initiatePayment
 );
 
+router.post(
+  "/initiateCOD",
+  authorize("delivery"),
+  paymentController.createCodPayment
+);
+
 // Stripe webhook endpoint - must use raw body parser
 router.post(
   "/webhook",
