@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -7,6 +7,8 @@ import {
   Alert,
   ActivityIndicator,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import {
   Text,
@@ -26,33 +28,87 @@ import { useTheme } from "../../context/ThemeContext";
 import dataService from "../../services/dataService";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
+import { debounce } from "lodash";
+
+import Constants from "expo-constants";
+const { GOOGLE_MAPS_API_KEY } = Constants.expoConfig.extra; // Google Maps API key from config
 
 const { width, height } = Dimensions.get("window");
 const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 0.0922;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
+// Check if the API key has been set properly
+if (!GOOGLE_MAPS_API_KEY) {
+  console.warn(
+    "Google Maps API key is not properly configured. Geocoding functionality may not work correctly."
+  );
+}
+
 const SavedAddressesScreen = ({ navigation }) => {
   const theme = useTheme();
 
+  // State for address list and loading
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Modal states
   const [modalVisible, setModalVisible] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [currentAddress, setCurrentAddress] = useState(null);
   const [mapModalVisible, setMapModalVisible] = useState(false);
+
+  // Location states
   const [userLocation, setUserLocation] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
+  const [reverseGeocodingInProgress, setReverseGeocodingInProgress] =
+    useState(false);
 
-  // Form state
-  const [label, setLabel] = useState("");
-  const [street, setStreet] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState] = useState("");
-  const [isDefault, setIsDefault] = useState(false);
-  const [latitude, setLatitude] = useState(null);
-  const [longitude, setLongitude] = useState(null);
+  // Form state for address inputs
+  const [formState, setFormState] = useState({
+    label: "",
+    street: "",
+    city: "",
+    state: "",
+    isDefault: false,
+    latitude: null,
+    longitude: null,
+  });
+
+  // Extract values from formState for convenience
+  const { label, street, city, state, isDefault, latitude, longitude } =
+    formState;
+
+  // Create a memoized updater function to reduce renders
+  const updateFormField = useCallback((field, value) => {
+    setFormState((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }, []);
+
+  // Memoized input handlers to prevent lag
+  const handleLabelChange = useCallback(
+    (text) => updateFormField("label", text),
+    [updateFormField]
+  );
+  const handleStreetChange = useCallback(
+    (text) => updateFormField("street", text),
+    [updateFormField]
+  );
+  const handleCityChange = useCallback(
+    (text) => updateFormField("city", text),
+    [updateFormField]
+  );
+  const handleStateChange = useCallback(
+    (text) => updateFormField("state", text),
+    [updateFormField]
+  );
+  const toggleIsDefault = useCallback(
+    () => updateFormField("isDefault", !isDefault),
+    [updateFormField, isDefault]
+  );
 
   // Fetch addresses when component mounts
   useEffect(() => {
@@ -72,13 +128,18 @@ const SavedAddressesScreen = ({ navigation }) => {
         return;
       }
 
-      const location = await Location.getCurrentPositionAsync({});
-      setUserLocation({
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      const initialRegion = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         latitudeDelta: LATITUDE_DELTA,
         longitudeDelta: LONGITUDE_DELTA,
-      });
+      };
+
+      setUserLocation(initialRegion);
 
       if (!selectedLocation) {
         setSelectedLocation({
@@ -111,17 +172,144 @@ const SavedAddressesScreen = ({ navigation }) => {
     }
   };
 
+  // Reverse geocode the selected location to get address details
+  const reverseGeocode = useCallback(
+    async (latitude, longitude) => {
+      if (!latitude || !longitude || reverseGeocodingInProgress) return;
+
+      try {
+        setReverseGeocodingInProgress(true);
+        // Ensure we have a valid API key
+        if (!GOOGLE_MAPS_API_KEY) {
+          console.error("Invalid Google Maps API key");
+          Alert.alert(
+            "Configuration Error",
+            "Google Maps API key is not properly configured. Please contact support."
+          );
+          return;
+        }
+
+        const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`;
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.status === "OK" && data.results.length > 0) {
+          const addressComponents = data.results[0].address_components;
+          const formattedAddress = data.results[0].formatted_address || "";
+          let streetNumber = "";
+          let route = "";
+          let locality = "";
+          let adminArea = "";
+
+          // Log the full address for debugging
+          console.log("Found address:", formattedAddress);
+
+          for (const component of addressComponents) {
+            const types = component.types;
+
+            if (types.includes("street_number")) {
+              streetNumber = component.long_name;
+            } else if (types.includes("route")) {
+              route = component.long_name;
+            } else if (types.includes("locality")) {
+              locality = component.long_name;
+            } else if (types.includes("administrative_area_level_1")) {
+              adminArea = component.short_name;
+            }
+          }
+
+          // Update form fields with retrieved address info
+          let updatedFields = {};
+
+          if (streetNumber && route) {
+            updatedFields.street = `${streetNumber} ${route}`;
+          } else if (route) {
+            updatedFields.street = route;
+          } else if (formattedAddress) {
+            // If no structured street data, use the first part of the formatted address
+            const parts = formattedAddress.split(",");
+            if (parts.length > 0) {
+              updatedFields.street = parts[0].trim();
+            }
+          }
+
+          if (locality) {
+            updatedFields.city = locality;
+            // Only set label if not already set
+            if (!formState.label) {
+              updatedFields.label = locality;
+            }
+          }
+
+          if (adminArea) {
+            updatedFields.state = adminArea;
+          }
+
+          // Update all fields at once to reduce renders
+          setFormState((prev) => ({
+            ...prev,
+            ...updatedFields,
+          }));
+        } else if (data.status === "ZERO_RESULTS") {
+          Alert.alert(
+            "No Address Found",
+            "We couldn't find an address for this location. Please try a different spot."
+          );
+          console.log("No geocoding results found");
+        } else if (data.status === "REQUEST_DENIED") {
+          console.error("Geocoding API request denied:", data.error_message);
+          Alert.alert(
+            "Service Error",
+            "Location service temporarily unavailable. Please try again later."
+          );
+        } else {
+          console.log("Geocoding error:", data.status, data.error_message);
+          Alert.alert(
+            "Location Error",
+            "Could not retrieve address information. Please try again."
+          );
+        }
+      } catch (error) {
+        console.error("Error during reverse geocoding:", error);
+        Alert.alert(
+          "Connection Error",
+          "Could not connect to location services. Please check your internet connection."
+        );
+      } finally {
+        setReverseGeocodingInProgress(false);
+      }
+    },
+    [reverseGeocodingInProgress, formState.label]
+  );
+
+  // Debounced function to handle map marker movements
+  const debouncedReverseGeocode = useMemo(
+    () =>
+      debounce((lat, lng) => {
+        reverseGeocode(lat, lng);
+      }, 500),
+    [reverseGeocode]
+  );
+
+  // Reset form values
+  const resetForm = useCallback(() => {
+    setFormState({
+      label: "",
+      street: "",
+      city: "",
+      state: "",
+      latitude: null,
+      longitude: null,
+      isDefault: addresses.length === 0, // Set default true if it's the first address
+    });
+  }, [addresses.length]);
+
   // Open modal to add a new address
-  const handleAddAddress = () => {
+  const handleAddAddress = useCallback(() => {
     setEditMode(false);
     setCurrentAddress(null);
-    setLabel("");
-    setStreet("");
-    setCity("");
-    setState("");
-    setLatitude(null);
-    setLongitude(null);
-    setIsDefault(addresses.length === 0); // Set default true if it's the first address
+    resetForm();
     setModalVisible(true);
 
     // Set the selected location to the user's current location
@@ -130,39 +318,52 @@ const SavedAddressesScreen = ({ navigation }) => {
         latitude: userLocation.latitude,
         longitude: userLocation.longitude,
       });
+
+      // Update form state with current location
+      setFormState((prev) => ({
+        ...prev,
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+      }));
+
+      // Auto-fill address based on current location
+      debouncedReverseGeocode(userLocation.latitude, userLocation.longitude);
     }
-  };
+  }, [userLocation, resetForm, debouncedReverseGeocode]);
 
   // Open modal to edit an existing address
-  const handleEditAddress = (address) => {
+  const handleEditAddress = useCallback((address) => {
     setEditMode(true);
     setCurrentAddress(address);
-    setLabel(address.label);
-    setStreet(address.street);
-    setCity(address.city);
-    setState(address.state);
-    setIsDefault(address.isDefault);
 
-    // Set latitude and longitude if available in the address
+    // Update form state with address data
+    setFormState({
+      label: address.label,
+      street: address.street,
+      city: address.city,
+      state: address.state,
+      isDefault: address.isDefault,
+      latitude: address.latitude || null,
+      longitude: address.longitude || null,
+    });
+
+    // Update selected location if coordinates exist
     if (address.latitude && address.longitude) {
-      setLatitude(address.latitude);
-      setLongitude(address.longitude);
       setSelectedLocation({
         latitude: address.latitude,
         longitude: address.longitude,
       });
     } else {
-      setLatitude(null);
-      setLongitude(null);
+      setSelectedLocation(null);
     }
 
     setModalVisible(true);
-  };
+  }, []);
 
   // Save new address or update existing one
   const handleSaveAddress = async () => {
     // Validate form
-    if (!label || !street || !city || !state) {
+    if (!label.trim() || !street.trim() || !city.trim() || !state.trim()) {
       Alert.alert("Error", "Please fill in all required fields");
       return;
     }
@@ -174,10 +375,10 @@ const SavedAddressesScreen = ({ navigation }) => {
 
     try {
       const addressData = {
-        label,
-        street,
-        city,
-        state,
+        label: label.trim(),
+        street: street.trim(),
+        city: city.trim(),
+        state: state.trim(),
         isDefault,
         coordinates: {
           lat: latitude,
@@ -278,20 +479,203 @@ const SavedAddressesScreen = ({ navigation }) => {
   };
 
   // Handle map marker drag
-  const handleMapPress = (event) => {
-    setSelectedLocation(event.nativeEvent.coordinate);
-  };
+  const handleMapPress = useCallback(
+    (event) => {
+      const newLocation = event.nativeEvent.coordinate;
+      setSelectedLocation(newLocation);
+
+      // Update form state with new coordinates
+      setFormState((prev) => ({
+        ...prev,
+        latitude: newLocation.latitude,
+        longitude: newLocation.longitude,
+      }));
+
+      // Get address details based on selected location
+      debouncedReverseGeocode(newLocation.latitude, newLocation.longitude);
+    },
+    [debouncedReverseGeocode]
+  );
 
   // Save selected location from map
-  const saveLocation = () => {
+  const saveLocation = useCallback(() => {
     if (selectedLocation) {
-      setLatitude(selectedLocation.latitude);
-      setLongitude(selectedLocation.longitude);
+      setFormState((prev) => ({
+        ...prev,
+        latitude: selectedLocation.latitude,
+        longitude: selectedLocation.longitude,
+      }));
       setMapModalVisible(false);
     } else {
       Alert.alert("Error", "Please select a location on the map");
     }
-  };
+  }, [selectedLocation]);
+
+  // Handle marker drag end
+  const handleMarkerDragEnd = useCallback(
+    (e) => {
+      const newLocation = e.nativeEvent.coordinate;
+      setSelectedLocation(newLocation);
+
+      // Update form state with new coordinates
+      setFormState((prev) => ({
+        ...prev,
+        latitude: newLocation.latitude,
+        longitude: newLocation.longitude,
+      }));
+
+      // Get address details based on new marker position
+      debouncedReverseGeocode(newLocation.latitude, newLocation.longitude);
+    },
+    [debouncedReverseGeocode]
+  );
+
+  // Optimized TextInput component with memoization to prevent rerenders
+  const MemoizedTextInput = useMemo(
+    () =>
+      React.forwardRef((props, ref) => (
+        <TextInput
+          ref={ref}
+          style={styles.input}
+          mode="outlined"
+          dense
+          blurOnSubmit={false}
+          autoCapitalize="words"
+          underlineColor="transparent"
+          {...props}
+        />
+      )),
+    []
+  );
+
+  // Address Auto-fill Information component
+  const AddressLocationInfo = useCallback(
+    () => (
+      <View style={styles.locationContainer}>
+        <View style={styles.locationHeader}>
+          <Text style={styles.locationLabel}>Location on Map:</Text>
+          {reverseGeocodingInProgress && (
+            <View style={styles.loadingIndicator}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={styles.loadingText}>Looking up address...</Text>
+            </View>
+          )}
+        </View>
+
+        {latitude && longitude ? (
+          <Text style={styles.locationCoordinates}>
+            Lat: {latitude.toFixed(6)}, Long: {longitude.toFixed(6)}
+          </Text>
+        ) : (
+          <Text style={styles.locationPlaceholder}>No location selected</Text>
+        )}
+        <Button
+          mode="contained"
+          icon="map-marker"
+          onPress={openMapModal}
+          style={styles.mapButton}
+          loading={reverseGeocodingInProgress}
+        >
+          {latitude && longitude ? "Change Location" : "Select Location"}
+        </Button>
+      </View>
+    ),
+    [
+      latitude,
+      longitude,
+      reverseGeocodingInProgress,
+      theme.colors.primary,
+      openMapModal,
+    ]
+  );
+
+  // Map preview component for the map modal
+  const MapPreview = useCallback(
+    () => (
+      <View style={styles.mapContainer}>
+        <View style={styles.mapHeaderContainer}>
+          <Text style={styles.mapTitle}>Select Location</Text>
+          {reverseGeocodingInProgress && (
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          )}
+        </View>
+
+        {userLocation && (
+          <MapView
+            style={styles.map}
+            provider={PROVIDER_GOOGLE}
+            initialRegion={userLocation}
+            onPress={handleMapPress}
+            showsUserLocation={true}
+            showsMyLocationButton={true}
+            showsCompass={true}
+            loadingEnabled={true}
+          >
+            {selectedLocation && (
+              <Marker
+                coordinate={selectedLocation}
+                draggable
+                onDragEnd={handleMarkerDragEnd}
+                pinColor={theme.colors.primary}
+              />
+            )}
+          </MapView>
+        )}
+
+        <View
+          style={[
+            styles.mapAddressPreview,
+            reverseGeocodingInProgress && styles.mapAddressPreviewLoading,
+          ]}
+        >
+          {reverseGeocodingInProgress ? (
+            <View style={styles.loadingIndicator}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={styles.loadingText}>Finding address...</Text>
+            </View>
+          ) : street && city ? (
+            <Text style={styles.mapAddressText}>
+              {street}, {city}, {state}
+            </Text>
+          ) : (
+            <Text style={styles.mapAddressPlaceholder}>
+              Drop pin to get address details
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.mapButtons}>
+          <Button
+            mode="outlined"
+            onPress={() => setMapModalVisible(false)}
+            style={styles.mapCancelButton}
+          >
+            Cancel
+          </Button>
+          <Button
+            mode="contained"
+            onPress={saveLocation}
+            style={styles.mapSaveButton}
+            disabled={!selectedLocation || reverseGeocodingInProgress}
+          >
+            Confirm Location
+          </Button>
+        </View>
+      </View>
+    ),
+    [
+      userLocation,
+      selectedLocation,
+      handleMapPress,
+      handleMarkerDragEnd,
+      theme.colors.primary,
+      street,
+      city,
+      state,
+      saveLocation,
+      reverseGeocodingInProgress,
+    ]
+  );
 
   if (loading && !refreshing) {
     return (
@@ -420,6 +804,7 @@ const SavedAddressesScreen = ({ navigation }) => {
       </ScrollView>
 
       <Portal>
+        {/* Address Edit/Add Modal */}
         <Modal
           visible={modalVisible}
           onDismiss={() => setModalVisible(false)}
@@ -428,161 +813,95 @@ const SavedAddressesScreen = ({ navigation }) => {
             { backgroundColor: theme.colors.surface },
           ]}
         >
-          <ScrollView contentContainerStyle={styles.modalScrollContent}>
-            <Title style={styles.modalTitle}>
-              {editMode ? "Edit Address" : "Add New Address"}
-            </Title>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.keyboardAvoid}
+          >
+            <ScrollView contentContainerStyle={styles.modalScrollContent}>
+              <Title style={styles.modalTitle}>
+                {editMode ? "Edit Address" : "Add New Address"}
+              </Title>
 
-            <TextInput
-              label="Label (e.g. Home, Work)"
-              value={label}
-              onChangeText={setLabel}
-              style={styles.input}
-              mode="outlined"
-              dense
-              blurOnSubmit={false}
-              returnKeyType="next"
-              autoCapitalize="words"
-            />
-
-            <TextInput
-              label="Street Address"
-              value={street}
-              onChangeText={setStreet}
-              style={styles.input}
-              mode="outlined"
-              dense
-              blurOnSubmit={false}
-              returnKeyType="next"
-              autoCapitalize="words"
-            />
-
-            <TextInput
-              label="City"
-              value={city}
-              onChangeText={setCity}
-              style={styles.input}
-              mode="outlined"
-              dense
-              blurOnSubmit={false}
-              returnKeyType="next"
-              autoCapitalize="words"
-            />
-
-            <TextInput
-              label="State"
-              value={state}
-              onChangeText={setState}
-              style={styles.input}
-              mode="outlined"
-              dense
-              blurOnSubmit={false}
-              returnKeyType="done"
-              autoCapitalize="words"
-            />
-
-            <View style={styles.locationContainer}>
-              <Text style={styles.locationLabel}>Location on Map:</Text>
-              {latitude && longitude ? (
-                <Text style={styles.locationCoordinates}>
-                  Lat: {latitude.toFixed(6)}, Long: {longitude.toFixed(6)}
-                </Text>
-              ) : (
-                <Text style={styles.locationPlaceholder}>
-                  No location selected
-                </Text>
-              )}
-              <Button
-                mode="contained"
-                icon="map-marker"
-                onPress={openMapModal}
-                style={styles.mapButton}
-              >
-                {latitude && longitude ? "Change Location" : "Select Location"}
-              </Button>
-            </View>
-
-            <TouchableOpacity
-              style={styles.defaultOption}
-              onPress={() => setIsDefault(!isDefault)}
-            >
-              <RadioButton
-                value="default"
-                status={isDefault ? "checked" : "unchecked"}
-                onPress={() => setIsDefault(!isDefault)}
-                color={theme.colors.primary}
+              <MemoizedTextInput
+                label="Label (e.g. Home, Work)"
+                value={label}
+                onChangeText={handleLabelChange}
+                returnKeyType="next"
+                maxLength={30}
               />
-              <Text style={styles.defaultOptionText}>
-                Set as default address
-              </Text>
-            </TouchableOpacity>
 
-            <View style={styles.modalButtons}>
-              <Button
-                mode="outlined"
-                onPress={() => setModalVisible(false)}
-                style={styles.cancelButton}
+              <MemoizedTextInput
+                label="Street Address"
+                value={street}
+                onChangeText={handleStreetChange}
+                returnKeyType="next"
+                maxLength={100}
+              />
+
+              <MemoizedTextInput
+                label="City"
+                value={city}
+                onChangeText={handleCityChange}
+                returnKeyType="next"
+                maxLength={50}
+              />
+
+              <MemoizedTextInput
+                label="State"
+                value={state}
+                onChangeText={handleStateChange}
+                returnKeyType="done"
+                maxLength={30}
+              />
+
+              <AddressLocationInfo />
+
+              <TouchableOpacity
+                style={styles.defaultOption}
+                onPress={toggleIsDefault}
               >
-                Cancel
-              </Button>
-              <Button
-                mode="contained"
-                onPress={handleSaveAddress}
-                style={[
-                  styles.saveButton,
-                  { backgroundColor: theme.colors.primary },
-                ]}
-              >
-                Save
-              </Button>
-            </View>
-          </ScrollView>
+                <RadioButton
+                  value="default"
+                  status={isDefault ? "checked" : "unchecked"}
+                  onPress={toggleIsDefault}
+                  color={theme.colors.primary}
+                />
+                <Text style={styles.defaultOptionText}>
+                  Set as default address
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.modalButtons}>
+                <Button
+                  mode="outlined"
+                  onPress={() => setModalVisible(false)}
+                  style={styles.cancelButton}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  mode="contained"
+                  onPress={handleSaveAddress}
+                  style={[
+                    styles.saveButton,
+                    { backgroundColor: theme.colors.primary },
+                  ]}
+                  disabled={reverseGeocodingInProgress}
+                >
+                  Save
+                </Button>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </Modal>
 
+        {/* Map Modal */}
         <Modal
           visible={mapModalVisible}
           onDismiss={() => setMapModalVisible(false)}
           contentContainerStyle={styles.mapModalContainer}
         >
-          <View style={styles.mapContainer}>
-            <Text style={styles.mapTitle}>Select Location</Text>
-
-            {userLocation && (
-              <MapView
-                style={styles.map}
-                provider={PROVIDER_GOOGLE}
-                initialRegion={userLocation}
-                onPress={handleMapPress}
-              >
-                {selectedLocation && (
-                  <Marker
-                    coordinate={selectedLocation}
-                    draggable
-                    onDragEnd={(e) =>
-                      setSelectedLocation(e.nativeEvent.coordinate)
-                    }
-                  />
-                )}
-              </MapView>
-            )}
-
-            <View style={styles.mapButtons}>
-              <Button
-                mode="outlined"
-                onPress={() => setMapModalVisible(false)}
-                style={styles.mapCancelButton}
-              >
-                Cancel
-              </Button>
-              <Button
-                mode="contained"
-                onPress={saveLocation}
-                style={styles.mapSaveButton}
-              >
-                Confirm Location
-              </Button>
-            </View>
-          </View>
+          <MapPreview />
         </Modal>
       </Portal>
     </SafeAreaView>
