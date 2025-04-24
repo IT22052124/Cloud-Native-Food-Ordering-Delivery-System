@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   ScrollView,
@@ -7,6 +7,9 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import {
   Text,
@@ -17,6 +20,9 @@ import {
   Title,
   IconButton,
   List,
+  Portal,
+  Modal,
+  TextInput,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,6 +30,23 @@ import { useTheme } from "../../context/ThemeContext";
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
 import dataService from "../../services/dataService";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import * as Location from "expo-location";
+import { debounce } from "lodash";
+import Constants from "expo-constants";
+const { GOOGLE_MAPS_API_KEY } = Constants.expoConfig.extra; // Google Maps API key from config
+
+const { width, height } = Dimensions.get("window");
+const ASPECT_RATIO = width / height;
+const LATITUDE_DELTA = 0.0922;
+const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
+
+// Check if the API key has been set properly
+if (!GOOGLE_MAPS_API_KEY) {
+  console.warn(
+    "Google Maps API key is not properly configured. Geocoding functionality may not work correctly."
+  );
+}
 
 const CheckoutScreen = ({ navigation, route }) => {
   const theme = useTheme();
@@ -35,6 +58,22 @@ const CheckoutScreen = ({ navigation, route }) => {
   const [orderType, setOrderType] = useState("DELIVERY");
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  // Map and location states
+  const [mapModalVisible, setMapModalVisible] = useState(false);
+  const [tempLocation, setTempLocation] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [reverseGeocodingInProgress, setReverseGeocodingInProgress] =
+    useState(false);
+  const [tempAddressDetails, setTempAddressDetails] = useState({
+    label: "Temporary Location",
+    street: "",
+    city: "",
+    state: "",
+    latitude: null,
+    longitude: null,
+  });
 
   useEffect(() => {
     const loadAddresses = async () => {
@@ -58,43 +97,8 @@ const CheckoutScreen = ({ navigation, route }) => {
         );
       } finally {
         setLoading(false);
-        setRefreshing(false);
       }
     };
-    // const loadAddresses = async () => {
-    //   try {
-    //     const userAddresses = [
-    //       {
-    //         id: "1",
-    //         name: "Home",
-    //         street: user?.address?.street || "123 Main St",
-    //         city: user?.address?.city || "Anytown",
-    //         state: user?.address?.state || "CA",
-    //         zipCode: user?.address?.zipCode || "12345",
-    //         country: user?.address?.country || "USA",
-    //         isDefault: true,
-    //       },
-    //       {
-    //         id: "2",
-    //         name: "Work",
-    //         street: "456 Office Blvd",
-    //         city: "Business City",
-    //         state: "NY",
-    //         zipCode: "67890",
-    //         country: "USA",
-    //         isDefault: false,
-    //       },
-    //     ];
-
-    //     setAddresses(userAddresses);
-    //     // Set default address
-    //     setSelectedAddress(
-    //       userAddresses.find((addr) => addr.isDefault) || userAddresses[0]
-    //     );
-    //   } catch (error) {
-    //     console.error("Error loading addresses:", error);
-    //   }
-    // };
 
     // Load delivery fee
     const loadDeliveryFee = () => {
@@ -105,7 +109,229 @@ const CheckoutScreen = ({ navigation, route }) => {
 
     loadAddresses();
     loadDeliveryFee();
+    getUserLocation();
   }, [user, restaurant]);
+
+  // Get user's current location
+  const getUserLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Denied",
+          "Permission to access location was denied"
+        );
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      const initialRegion = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: LATITUDE_DELTA,
+        longitudeDelta: LONGITUDE_DELTA,
+      };
+
+      setUserLocation(initialRegion);
+    } catch (error) {
+      console.error("Error getting location:", error);
+      Alert.alert("Location Error", "Could not get your current location");
+    }
+  };
+
+  // Reverse geocode the selected location to get address details
+  const reverseGeocode = useCallback(
+    async (latitude, longitude) => {
+      if (reverseGeocodingInProgress) return;
+
+      if (!latitude || !longitude) {
+        console.log("No coordinates provided for reverse geocoding");
+        return;
+      }
+
+      try {
+        setReverseGeocodingInProgress(true);
+
+        // Ensure we have a valid API key
+        if (!GOOGLE_MAPS_API_KEY) {
+          console.error("Invalid Google Maps API key");
+          Alert.alert(
+            "Configuration Error",
+            "Google Maps API key is not properly configured. Please contact support."
+          );
+          return;
+        }
+
+        const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`;
+        console.log("Geocoding request URL:", url);
+
+        const response = await fetch(url);
+        const data = await response.json();
+        console.log("Geocoding response status:", data.status);
+
+        if (data.status === "OK" && data.results.length > 0) {
+          const addressComponents = data.results[0].address_components;
+          const formattedAddress = data.results[0].formatted_address || "";
+          let streetNumber = "";
+          let route = "";
+          let locality = "";
+          let adminArea = "";
+
+          for (const component of addressComponents) {
+            const types = component.types;
+
+            if (types.includes("street_number")) {
+              streetNumber = component.long_name;
+            } else if (types.includes("route")) {
+              route = component.long_name;
+            } else if (types.includes("locality")) {
+              locality = component.long_name;
+            } else if (types.includes("administrative_area_level_1")) {
+              adminArea = component.short_name;
+            }
+          }
+
+          // Update temp address details with retrieved info
+          let updatedFields = {};
+
+          if (streetNumber && route) {
+            updatedFields.street = `${streetNumber} ${route}`;
+          } else if (route) {
+            updatedFields.street = route;
+          } else if (formattedAddress) {
+            const parts = formattedAddress.split(",");
+            if (parts.length > 0) {
+              updatedFields.street = parts[0].trim();
+            }
+          }
+
+          if (locality) {
+            updatedFields.city = locality;
+          }
+
+          if (adminArea) {
+            updatedFields.state = adminArea;
+          }
+
+          setTempAddressDetails((prev) => ({
+            ...prev,
+            ...updatedFields,
+            latitude: latitude,
+            longitude: longitude,
+          }));
+        } else if (data.status === "ZERO_RESULTS") {
+          Alert.alert(
+            "No Address Found",
+            "We couldn't find an address for this location. Please try a different spot."
+          );
+        } else {
+          Alert.alert(
+            "Location Error",
+            "Could not retrieve address information. Please try again."
+          );
+        }
+      } catch (error) {
+        console.error("Error during reverse geocoding:", error);
+        Alert.alert(
+          "Connection Error",
+          "Could not connect to location services. Please check your internet connection."
+        );
+      } finally {
+        setReverseGeocodingInProgress(false);
+      }
+    },
+    [reverseGeocodingInProgress]
+  );
+
+  // Debounced function to handle map marker movements
+  const debouncedReverseGeocode = useMemo(
+    () =>
+      debounce((lat, lng) => {
+        if (lat && lng) {
+          console.log("Debounced geocode call with coordinates:", lat, lng);
+          reverseGeocode(lat, lng);
+        } else {
+          console.log("Skipping reverse geocode due to invalid coordinates");
+        }
+      }, 500),
+    [reverseGeocode]
+  );
+
+  // Handle map marker drag
+  const handleMapPress = useCallback(
+    (event) => {
+      const newLocation = event.nativeEvent.coordinate;
+      console.log("Map pressed at coordinates:", newLocation);
+      setSelectedLocation(newLocation);
+
+      // Get address details based on selected location
+      if (newLocation && newLocation.latitude && newLocation.longitude) {
+        debouncedReverseGeocode(newLocation.latitude, newLocation.longitude);
+      }
+    },
+    [debouncedReverseGeocode]
+  );
+
+  // Handle marker drag end
+  const handleMarkerDragEnd = useCallback(
+    (e) => {
+      const newLocation = e.nativeEvent.coordinate;
+      console.log("Marker dragged to coordinates:", newLocation);
+      setSelectedLocation(newLocation);
+
+      // Get address details based on new marker position
+      if (newLocation && newLocation.latitude && newLocation.longitude) {
+        debouncedReverseGeocode(newLocation.latitude, newLocation.longitude);
+      }
+    },
+    [debouncedReverseGeocode]
+  );
+
+  // Save selected location
+  const saveTempLocation = useCallback(() => {
+    if (selectedLocation && tempAddressDetails.street) {
+      setTempLocation({
+        _id: "temp-location",
+        label: tempAddressDetails.label,
+        street: tempAddressDetails.street,
+        city: tempAddressDetails.city,
+        state: tempAddressDetails.state,
+        coordinates: {
+          lat: selectedLocation.latitude,
+          lng: selectedLocation.longitude,
+        },
+        isTemporary: true,
+      });
+      setSelectedAddress({
+        _id: "temp-location",
+        label: tempAddressDetails.label,
+        street: tempAddressDetails.street,
+        city: tempAddressDetails.city,
+        state: tempAddressDetails.state,
+        coordinates: {
+          lat: selectedLocation.latitude,
+          lng: selectedLocation.longitude,
+        },
+        isTemporary: true,
+      });
+      setMapModalVisible(false);
+    } else {
+      Alert.alert("Error", "Please select a location on the map");
+    }
+  }, [selectedLocation, tempAddressDetails]);
+
+  const openMapModal = () => {
+    if (!userLocation) {
+      getUserLocation().then(() => {
+        setMapModalVisible(true);
+      });
+    } else {
+      setMapModalVisible(true);
+    }
+  };
 
   const handleProceedToPayment = () => {
     if (!selectedAddress && orderType === "DELIVERY") {
@@ -136,8 +362,8 @@ const CheckoutScreen = ({ navigation, route }) => {
             <Card.Content style={styles.itemContent}>
               <Image
                 source={
-                  item.imageUrls && item.imageUrls.length > 0
-                    ? { uri: item.imageUrls[0] }
+                  item.image
+                    ? { uri: item.image }
                     : require("../../assets/no-image.png")
                 }
                 style={styles.itemImage}
@@ -163,6 +389,38 @@ const CheckoutScreen = ({ navigation, route }) => {
       <View style={styles.section}>
         <Title style={styles.sectionTitle}>Delivery Address</Title>
         <ScrollView style={styles.addressList}>
+          {tempLocation && (
+            <TouchableOpacity
+              key="temp-location"
+              style={[
+                styles.addressCard,
+                selectedAddress?._id === "temp-location" &&
+                  styles.selectedAddressCard,
+              ]}
+              onPress={() => setSelectedAddress(tempLocation)}
+            >
+              <RadioButton
+                value="temp-location"
+                status={
+                  selectedAddress?._id === "temp-location"
+                    ? "checked"
+                    : "unchecked"
+                }
+                onPress={() => setSelectedAddress(tempLocation)}
+                color={theme.colors.primary}
+              />
+              <View style={styles.addressDetails}>
+                <Text style={styles.addressName}>{tempLocation.label}</Text>
+                <Text style={styles.addressText}>
+                  {tempLocation.street}, {tempLocation.city},{" "}
+                  {tempLocation.state}
+                </Text>
+              </View>
+              <View style={styles.tempBadge}>
+                <Text style={styles.tempText}>Temporary</Text>
+              </View>
+            </TouchableOpacity>
+          )}
           {addresses.map((address) => (
             <TouchableOpacity
               key={address._id}
@@ -184,8 +442,7 @@ const CheckoutScreen = ({ navigation, route }) => {
               <View style={styles.addressDetails}>
                 <Text style={styles.addressName}>{address.label}</Text>
                 <Text style={styles.addressText}>
-                  {address.street}, {address.city}, {address.state}{" "}
-                  {/* {address.zipCode} */}
+                  {address.street}, {address.city}, {address.state}
                 </Text>
               </View>
               {address.isDefault && (
@@ -196,14 +453,25 @@ const CheckoutScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           ))}
         </ScrollView>
-        <Button
-          mode="outlined"
-          icon="plus"
-          style={styles.addAddressButton}
-          onPress={handleAddAddress}
-        >
-          Add New Address
-        </Button>
+
+        <View style={styles.addressActions}>
+          <Button
+            mode="outlined"
+            icon="crosshairs-gps"
+            style={styles.tempLocationButton}
+            onPress={openMapModal}
+          >
+            Use Current Location
+          </Button>
+          <Button
+            mode="outlined"
+            icon="plus"
+            style={styles.addAddressButton}
+            onPress={handleAddAddress}
+          >
+            Add New Address
+          </Button>
+        </View>
       </View>
     );
   };
@@ -300,6 +568,97 @@ const CheckoutScreen = ({ navigation, route }) => {
     );
   };
 
+  // Map preview component for the map modal
+  const MapPreview = useCallback(
+    () => (
+      <View style={styles.mapContainer}>
+        <View style={styles.mapHeaderContainer}>
+          <Text style={styles.mapTitle}>Select Location</Text>
+          {reverseGeocodingInProgress && (
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          )}
+        </View>
+
+        {userLocation && (
+          <MapView
+            style={styles.map}
+            provider={PROVIDER_GOOGLE}
+            initialRegion={userLocation}
+            onPress={handleMapPress}
+            showsUserLocation={true}
+            showsMyLocationButton={true}
+            showsCompass={true}
+            loadingEnabled={true}
+          >
+            {selectedLocation && (
+              <Marker
+                coordinate={selectedLocation}
+                draggable
+                onDragEnd={handleMarkerDragEnd}
+                pinColor={theme.colors.primary}
+              />
+            )}
+          </MapView>
+        )}
+
+        <View
+          style={[
+            styles.mapAddressPreview,
+            reverseGeocodingInProgress && styles.mapAddressPreviewLoading,
+          ]}
+        >
+          {reverseGeocodingInProgress ? (
+            <View style={styles.loadingIndicator}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={styles.loadingText}>Finding address...</Text>
+            </View>
+          ) : tempAddressDetails.street && tempAddressDetails.city ? (
+            <Text style={styles.mapAddressText}>
+              {tempAddressDetails.street}, {tempAddressDetails.city},{" "}
+              {tempAddressDetails.state}
+            </Text>
+          ) : (
+            <Text style={styles.mapAddressPlaceholder}>
+              Drop pin to get address details
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.mapButtons}>
+          <Button
+            mode="outlined"
+            onPress={() => setMapModalVisible(false)}
+            style={styles.mapCancelButton}
+          >
+            Cancel
+          </Button>
+          <Button
+            mode="contained"
+            onPress={saveTempLocation}
+            style={styles.mapSaveButton}
+            disabled={
+              !selectedLocation ||
+              reverseGeocodingInProgress ||
+              !tempAddressDetails.street
+            }
+          >
+            Use This Location
+          </Button>
+        </View>
+      </View>
+    ),
+    [
+      userLocation,
+      selectedLocation,
+      handleMapPress,
+      handleMarkerDragEnd,
+      theme.colors.primary,
+      tempAddressDetails,
+      saveTempLocation,
+      reverseGeocodingInProgress,
+    ]
+  );
+
   if (loading) {
     return (
       <View
@@ -347,6 +706,17 @@ const CheckoutScreen = ({ navigation, route }) => {
           </Button>
         </View>
       </ScrollView>
+
+      {/* Map Modal */}
+      <Portal>
+        <Modal
+          visible={mapModalVisible}
+          onDismiss={() => setMapModalVisible(false)}
+          contentContainerStyle={styles.mapModalContainer}
+        >
+          <MapPreview />
+        </Modal>
+      </Portal>
     </SafeAreaView>
   );
 };
@@ -453,8 +823,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#757575",
   },
-  addAddressButton: {
+  tempBadge: {
+    backgroundColor: "#E3F2FD",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  tempText: {
+    fontSize: 12,
+    color: "#2196F3",
+  },
+  addressActions: {
     marginTop: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  addAddressButton: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  tempLocationButton: {
+    flex: 1,
+    marginRight: 8,
   },
   orderTypeCard: {
     marginBottom: 16,
@@ -527,6 +918,73 @@ const styles = StyleSheet.create({
   buttonLabel: {
     fontSize: 16,
     fontWeight: "bold",
+  },
+  mapModalContainer: {
+    margin: 0,
+    padding: 0,
+    flex: 1,
+  },
+  mapContainer: {
+    flex: 1,
+    backgroundColor: "white",
+  },
+  mapHeaderContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  mapTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginRight: 8,
+  },
+  map: {
+    width: "100%",
+    height: "70%",
+  },
+  mapAddressPreview: {
+    padding: 12,
+    backgroundColor: "#f5f5f5",
+    margin: 8,
+    borderRadius: 8,
+    minHeight: 50,
+  },
+  mapAddressText: {
+    fontSize: 15,
+  },
+  mapAddressPlaceholder: {
+    fontSize: 15,
+    color: "#666",
+    fontStyle: "italic",
+  },
+  mapButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 16,
+  },
+  mapCancelButton: {
+    flex: 1,
+    marginRight: 8,
+  },
+  mapSaveButton: {
+    flex: 1,
+    marginLeft: 8,
+    backgroundColor: "#FF6B6B",
+  },
+  loadingIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: "#666",
+    fontStyle: "italic",
+  },
+  mapAddressPreviewLoading: {
+    backgroundColor: "#f0f0f0",
   },
 });
 

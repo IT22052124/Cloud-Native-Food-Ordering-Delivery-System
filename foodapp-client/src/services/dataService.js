@@ -3,11 +3,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 
 // API Base URLs
-const AUTH_API_URL = `http://192.168.8.196:5001/api`;
-const ORDER_API_URL = `http://192.168.8.196:5002/api/orders`;
-const CART_API_URL = `http://192.168.8.196:5002/api/cart`;
-const RESTAURANT_API_URL = `http://192.168.8.196:3000/api/restaurants`;
-const PAYMENT_API_URL = `http://192.168.8.196:5004/api/payment`;
+const AUTH_API_URL = `http://192.168.1.7:5001/api`;
+const ORDER_API_URL = `http://192.168.1.7:5002/api/orders`;
+const CART_API_URL = `http://192.168.1.7:5002/api/cart`;
+const RESTAURANT_API_URL = `http://192.168.1.7:3000/api`;
+const PAYMENT_API_URL = `http://192.168.1.7:5004/api/payment`;
 
 // Sample data for the app
 const sampleRestaurants = [
@@ -616,8 +616,7 @@ const dataService = {
   // Restaurant endpoints
   getRestaurants: async () => {
     try {
-      return sampleRestaurants;
-      return await apiClient.get(`${RESTAURANT_API_URL}`);
+      return await apiClient.get(`${RESTAURANT_API_URL}/restaurants`);
     } catch (error) {
       console.warn("Falling back to sample data for restaurants");
     }
@@ -625,8 +624,7 @@ const dataService = {
 
   getCategories: async () => {
     try {
-      return sampleCategories;
-      return await apiClient.get(`${RESTAURANT_API_URL}`);
+      return await apiClient.get(`${RESTAURANT_API_URL}/categories`);
     } catch (error) {
       console.warn("Falling back to sample data for restaurants");
     }
@@ -634,8 +632,7 @@ const dataService = {
 
   getRestaurantById: async (id) => {
     try {
-      return sampleRestaurants.find((restaurant) => restaurant.id === id);
-      return await apiClient.get(`${RESTAURANT_API_URL}/${id}`);
+      return await apiClient.get(`${RESTAURANT_API_URL}/restaurants/${id}`);
     } catch (error) {
       console.warn("Falling back to sample data for restaurant detail");
     }
@@ -643,10 +640,8 @@ const dataService = {
 
   getRestaurantDishes: async (restaurantId) => {
     try {
-      const restaurant = sampleRestaurants.find((r) => r.id === restaurantId);
-      return restaurant ? restaurant.dishes : [];
       return await apiClient.get(
-        `${RESTAURANT_API_URL}/${restaurantId}/dishes`
+        `${RESTAURANT_API_URL}/restaurants/${restaurantId}/dishes`
       );
     } catch (error) {
       console.warn("Falling back to sample data for dishes");

@@ -56,12 +56,12 @@ const OrdersScreen = ({ navigation }) => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case ORDER_STATUS.PENDING:
+      case ORDER_STATUS.PLACED:
         return theme.colors.warning;
       case ORDER_STATUS.PREPARING:
         return theme.colors.info;
       case ORDER_STATUS.READY_FOR_PICKUP:
-        return theme.colors.warning;
+        return theme.colors.gray;
       case ORDER_STATUS.OUT_FOR_DELIVERY:
         return theme.colors.secondary;
       case ORDER_STATUS.DELIVERED:
@@ -78,12 +78,10 @@ const OrdersScreen = ({ navigation }) => {
     // Handle specific long statuses
     if (status === ORDER_STATUS.READY_FOR_PICKUP) {
       return "Ready for Pickup";
-    } 
-    
+    }
+
     // General case: convert snake_case to Title Case
-    return status
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (l) => l.toUpperCase());
+    return status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   const formatDate = (dateString) => {
@@ -146,7 +144,9 @@ const OrdersScreen = ({ navigation }) => {
 
         <View style={styles.orderFooter}>
           <Text style={styles.totalItems}>{item.totalItems} items</Text>
-          <Text style={styles.totalPrice}>LKR {item.totalAmount.toLocaleString()}</Text>
+          <Text style={styles.totalPrice}>
+            LKR {item.totalAmount.toLocaleString()}
+          </Text>
         </View>
       </Card.Content>
     </Card>

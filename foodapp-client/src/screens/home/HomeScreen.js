@@ -16,185 +16,185 @@ import dataService from "../../services/dataService";
 import { Ionicons } from "@expo/vector-icons";
 
 const HomeScreen = ({ navigation }) => {
-  const theme = useTheme();
-  const { user } = useAuth();
+  // const theme = useTheme();
+  // const { user } = useAuth();
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [categories, setCategories] = useState([]);
-  const [restaurants, setRestaurants] = useState([]);
-  const [featuredRestaurants, setFeaturedRestaurants] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // const [searchQuery, setSearchQuery] = useState("");
+  // const [categories, setCategories] = useState([]);
+  // const [restaurants, setRestaurants] = useState([]);
+  // const [featuredRestaurants, setFeaturedRestaurants] = useState([]);
+  // const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  // useEffect(() => {
+  //   fetchData();
+  // }, []);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [categoriesData, restaurantsData] = await Promise.all([
-        dataService.getCategories(),
-        dataService.getRestaurants(),
-      ]);
+  // const fetchData = async () => {
+  //   try {
+  //     setLoading(true);
+  //     const [categoriesData, restaurantsData] = await Promise.all([
+  //       dataService.getCategories(),
+  //       dataService.getRestaurants(),
+  //     ]);
 
-      setCategories(categoriesData);
-      setRestaurants(restaurantsData);
+  //     setCategories(categoriesData);
+  //     setRestaurants(restaurantsData);
 
-      // Set featured restaurants (restaurants with highest ratings)
-      const featured = [...restaurantsData]
-        .sort((a, b) => b.rating - a.rating)
-        .slice(0, 3);
-      setFeaturedRestaurants(featured);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     // Set featured restaurants (restaurants with highest ratings)
+  //     const featured = [...restaurantsData]
+  //       .sort((a, b) => b.rating - a.rating)
+  //       .slice(0, 3);
+  //     setFeaturedRestaurants(featured);
+  //   } catch (error) {
+  //     console.error("Error fetching data:", error);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      fetchData();
-      return;
-    }
+  // const handleSearch = async () => {
+  //   if (!searchQuery.trim()) {
+  //     fetchData();
+  //     return;
+  //   }
 
-    try {
-      setLoading(true);
-      const results = await dataService.searchRestaurants(searchQuery);
-      setRestaurants(results);
-    } catch (error) {
-      console.error("Error searching restaurants:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  //   try {
+  //     setLoading(true);
+  //     const results = await dataService.searchRestaurants(searchQuery);
+  //     setRestaurants(results);
+  //   } catch (error) {
+  //     console.error("Error searching restaurants:", error);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
-  const renderCategory = ({ item }) => (
-    <TouchableOpacity
-      style={styles.categoryItem}
-      onPress={() =>
-        navigation.navigate("Restaurants", { categoryId: item.id })
-      }
-    >
-      <View style={[styles.categoryImageContainer, { ...theme.shadow.small }]}>
-        <Image source={{ uri: item.image }} style={styles.categoryImage} />
-      </View>
-      <Text style={styles.categoryName}>{item.name}</Text>
-    </TouchableOpacity>
-  );
+  // const renderCategory = ({ item }) => (
+  //   <TouchableOpacity
+  //     style={styles.categoryItem}
+  //     onPress={() =>
+  //       navigation.navigate("Restaurants", { categoryId: item.id })
+  //     }
+  //   >
+  //     <View style={[styles.categoryImageContainer, { ...theme.shadow.small }]}>
+  //       <Image source={{ uri: item.image }} style={styles.categoryImage} />
+  //     </View>
+  //     <Text style={styles.categoryName}>{item.name}</Text>
+  //   </TouchableOpacity>
+  // );
 
-  const renderRestaurantCard = (restaurant, index) => (
-    <Card
-      style={[styles.restaurantCard, { ...theme.shadow.small }]}
-      onPress={() =>
-        navigation.navigate("Restaurants", {
-          screen: "RestaurantDetail",
-          params: { restaurantId: restaurant.id },
-        })
-      }
-    >
-      <Card.Cover
-        source={{ uri: restaurant.image }}
-        style={styles.restaurantImage}
-      />
-      <Card.Content style={styles.restaurantCardContent}>
-        <Title style={styles.restaurantName}>{restaurant.name}</Title>
-        <View style={styles.restaurantInfo}>
-          <View style={styles.restaurantRating}>
-            <Ionicons name="star" size={16} color={theme.colors.tertiary} />
-            <Text style={styles.ratingText}>{restaurant.rating}</Text>
-          </View>
-          <Text style={styles.restaurantType}>{restaurant.cuisineType}</Text>
-          <Text style={styles.deliveryInfo}>{restaurant.deliveryTime}</Text>
-        </View>
-      </Card.Content>
-    </Card>
-  );
+  // const renderRestaurantCard = (restaurant, index) => (
+  //   <Card
+  //     style={[styles.restaurantCard, { ...theme.shadow.small }]}
+  //     onPress={() =>
+  //       navigation.navigate("Restaurants", {
+  //         screen: "RestaurantDetail",
+  //         params: { restaurantId: restaurant.id },
+  //       })
+  //     }
+  //   >
+  //     <Card.Cover
+  //       source={{ uri: restaurant.image }}
+  //       style={styles.restaurantImage}
+  //     />
+  //     <Card.Content style={styles.restaurantCardContent}>
+  //       <Title style={styles.restaurantName}>{restaurant.name}</Title>
+  //       <View style={styles.restaurantInfo}>
+  //         <View style={styles.restaurantRating}>
+  //           <Ionicons name="star" size={16} color={theme.colors.tertiary} />
+  //           <Text style={styles.ratingText}>{restaurant.rating}</Text>
+  //         </View>
+  //         <Text style={styles.restaurantType}>{restaurant.cuisineType}</Text>
+  //         <Text style={styles.deliveryInfo}>{restaurant.deliveryTime}</Text>
+  //       </View>
+  //     </Card.Content>
+  //   </Card>
+  // );
 
-  if (loading) {
-    return (
-      <View
-        style={[
-          styles.loadingContainer,
-          { backgroundColor: theme.colors.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <View
+  //       style={[
+  //         styles.loadingContainer,
+  //         { backgroundColor: theme.colors.background },
+  //       ]}
+  //     >
+  //       <ActivityIndicator size="large" color={theme.colors.primary} />
+  //     </View>
+  //   );
+  // }
 
-  return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-    >
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.welcomeText}>
-              Hello, {user?.name || "Guest"}!
-            </Text>
-            <Text style={[styles.subtitle, { color: theme.colors.gray }]}>
-              What would you like to eat?
-            </Text>
-          </View>
-          <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
-            <Image
-              source={
-                user?.profilePicture
-                  ? { uri: user.profilePicture }
-                  : {
-                      uri: "https://png.pngtree.com/png-vector/20220708/ourmid/pngtree-fast-food-logo-png-image_5763171.png",
-                    }
-              }
-              style={styles.profileImage}
-            />
-          </TouchableOpacity>
-        </View>
+  // return (
+  //   <SafeAreaView
+  //     style={[styles.container, { backgroundColor: theme.colors.background }]}
+  //   >
+  //     <ScrollView
+  //       showsVerticalScrollIndicator={false}
+  //       contentContainerStyle={styles.scrollContent}
+  //     >
+  //       <View style={styles.header}>
+  //         <View>
+  //           <Text style={styles.welcomeText}>
+  //             Hello, {user?.name || "Guest"}!
+  //           </Text>
+  //           <Text style={[styles.subtitle, { color: theme.colors.gray }]}>
+  //             What would you like to eat?
+  //           </Text>
+  //         </View>
+  //         <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
+  //           <Image
+  //             source={
+  //               user?.profilePicture
+  //                 ? { uri: user.profilePicture }
+  //                 : {
+  //                     uri: "https://png.pngtree.com/png-vector/20220708/ourmid/pngtree-fast-food-logo-png-image_5763171.png",
+  //                   }
+  //             }
+  //             style={styles.profileImage}
+  //           />
+  //         </TouchableOpacity>
+  //       </View>
 
-        <Searchbar
-          placeholder="Search for restaurants or dishes"
-          onChangeText={setSearchQuery}
-          value={searchQuery}
-          style={[styles.searchBar, { ...theme.shadow.small }]}
-          iconColor={theme.colors.primary}
-          onSubmitEditing={handleSearch}
-          onIconPress={handleSearch}
-        />
+  //       <Searchbar
+  //         placeholder="Search for restaurants or dishes"
+  //         onChangeText={setSearchQuery}
+  //         value={searchQuery}
+  //         style={[styles.searchBar, { ...theme.shadow.small }]}
+  //         iconColor={theme.colors.primary}
+  //         onSubmitEditing={handleSearch}
+  //         onIconPress={handleSearch}
+  //       />
 
-        <Text style={styles.sectionTitle}>Categories</Text>
-        <FlatList
-          data={categories}
-          renderItem={renderCategory}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesList}
-        />
+  //       <Text style={styles.sectionTitle}>Categories</Text>
+  //       <FlatList
+  //         data={categories}
+  //         renderItem={renderCategory}
+  //         keyExtractor={(item) => item.id}
+  //         horizontal
+  //         showsHorizontalScrollIndicator={false}
+  //         contentContainerStyle={styles.categoriesList}
+  //       />
 
-        <Text style={styles.sectionTitle}>Featured Restaurants</Text>
-        <View style={styles.featuredContainer}>
-          {featuredRestaurants.map((restaurant, index) => (
-            <View key={restaurant.id} style={styles.featuredItem}>
-              {renderRestaurantCard(restaurant, index)}
-            </View>
-          ))}
-        </View>
+  //       <Text style={styles.sectionTitle}>Featured Restaurants</Text>
+  //       <View style={styles.featuredContainer}>
+  //         {featuredRestaurants.map((restaurant, index) => (
+  //           <View key={restaurant.id} style={styles.featuredItem}>
+  //             {renderRestaurantCard(restaurant, index)}
+  //           </View>
+  //         ))}
+  //       </View>
 
-        <Text style={styles.sectionTitle}>All Restaurants</Text>
-        <View style={styles.allRestaurantsContainer}>
-          {restaurants?.map((restaurant) => (
-            <View key={restaurant.id} style={styles.restaurantItem}>
-              {renderRestaurantCard(restaurant)}
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
+  //       <Text style={styles.sectionTitle}>All Restaurants</Text>
+  //       <View style={styles.allRestaurantsContainer}>
+  //         {restaurants?.map((restaurant) => (
+  //           <View key={restaurant.id} style={styles.restaurantItem}>
+  //             {renderRestaurantCard(restaurant)}
+  //           </View>
+  //         ))}
+  //       </View>
+  //     </ScrollView>
+  //   </SafeAreaView>
+  // );
 };
 
 const styles = StyleSheet.create({

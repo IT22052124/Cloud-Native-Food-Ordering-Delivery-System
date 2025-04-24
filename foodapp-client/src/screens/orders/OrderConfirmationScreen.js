@@ -33,50 +33,9 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
         setLoading(true);
         const response = await dataService.getOrderById(orderId);
 
-        // For demo, simulate a response
-        // const mockOrder = {
-        //   id: orderId,
-        //   status: "CONFIRMED",
-        //   date: new Date(),
-        //   estimatedDeliveryTime: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now
-        //   paymentMethod: "CARD",
-        //   total: 25.99,
-        //   deliveryFee: 3.99,
-        //   subtotal: 22.0,
-        //   items: [
-        //     {
-        //       id: "1",
-        //       name: "Margherita Pizza",
-        //       price: 12.0,
-        //       quantity: 1,
-        //       image: "https://via.placeholder.com/100",
-        //     },
-        //     {
-        //       id: "2",
-        //       name: "Garlic Bread",
-        //       price: 5.0,
-        //       quantity: 2,
-        //       image: "https://via.placeholder.com/100",
-        //     },
-        //   ],
-        //   restaurant: {
-        //     id: "1",
-        //     name: "Pizza Palace",
-        //     image: "https://via.placeholder.com/100",
-        //     address: "123 Food Street, Foodville",
-        //     phone: "(123) 456-7890",
-        //   },
-        //   deliveryAddress: {
-        //     street: "456 Home Street",
-        //     city: "Homeville",
-        //     state: "CA",
-        //     zipCode: "12345",
-        //     country: "USA",
-        //   },
-        //   type: "DELIVERY",
-        // };
-        setOrder(response.order);
-        setRestaurant(response.restaurant);
+        setOrder(response.order.order);
+        console.log(response.order.order.restaurantOrder)
+        setRestaurant(response.order.restaurant);
       } catch (error) {
         console.error("Error fetching order details:", error);
       } finally {
@@ -102,7 +61,7 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
             <Title style={styles.statusTitle}>Order Confirmed!</Title>
             <Text style={styles.orderNumber}>Order #{order.orderId}</Text>
             <Text style={styles.statusMessage}>
-              Your order has been received and is being prepared.
+              Your order has been placed and ready to prepare.
             </Text>
           </View>
         </Card.Content>
@@ -191,7 +150,7 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
           <Card.Content style={styles.restaurantContent}>
             <Image
               source={
-                restaurant.imageUrls && restaurant.imageUrls.length > 0
+                restaurant.imageUrls && restaurant.imageUrls?.length > 0
                   ? { uri: restaurant.imageUrls[0] }
                   : require("../../assets/no-image-restaurant.png")
               }
@@ -224,7 +183,7 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
                 <View style={styles.orderItemLeft}>
                   <Image
                     source={
-                      item.imageUrls && item.imageUrls.length > 0
+                      item.imageUrls
                         ? { uri: item.imageUrls[0] }
                         : require("../../assets/no-image.png")
                     }
@@ -248,7 +207,9 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
             <View style={styles.priceSummary}>
               <View style={styles.priceRow}>
                 <Text style={styles.priceLabel}>Subtotal</Text>
-                <Text style={styles.priceValue}>LKR {(order.restaurantOrder?.subtotal)?.toFixed(2)}</Text>
+                <Text style={styles.priceValue}>
+                  LKR {order.restaurantOrder?.subtotal?.toFixed(2)}
+                </Text>
               </View>
 
               {order.type === "DELIVERY" && (

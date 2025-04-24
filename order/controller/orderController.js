@@ -261,7 +261,7 @@ const getOrderById = async (req, res) => {
       const dish = dishMap[item.itemId];
       return {
         ...item.toObject(),
-        image: dish.imageUrl ? dish.imageUrl[0] || null : null,
+        image: dish.imageUrls ? dish.imageUrls[0] || null : null,
       };
     });
 
@@ -1092,13 +1092,13 @@ const updateOrderPaymentStatus = async (req, res) => {
     let orderStatus;
     switch (status) {
       case "PAID":
-        orderStatus = "CONFIRMED";
+        orderStatus = "PLACED";
         break;
       case "FAILED":
         orderStatus = "CANCELLED";
         break;
       default:
-        orderStatus = "PLACED"; // For refund cases
+        orderStatus = "CANCELLED"; // For refund cases
     }
 
     // Find and update the order
