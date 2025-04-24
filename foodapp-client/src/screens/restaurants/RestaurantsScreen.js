@@ -32,18 +32,18 @@ const RestaurantsScreen = ({ navigation, route }) => {
     try {
       setLoading(true);
       const categoriesData = await dataService.getCategories();
-      setCategories(categoriesData);
+      setCategories(categoriesData.categories);
 
       let restaurantsData;
-      if (selectedCategory) {
-        restaurantsData = await dataService.getRestaurantsByCategory(
-          selectedCategory
-        );
-      } else {
-        restaurantsData = await dataService.getRestaurants();
-      }
+      // if (selectedCategory) {
+      //   restaurantsData = await dataService.getRestaurantsByCategory(
+      //     selectedCategory
+      //   );
+      // } else {
+      restaurantsData = await dataService.getRestaurants();
+      // }
 
-      setRestaurants(restaurantsData);
+      setRestaurants(restaurantsData.restaurants);
     } catch (error) {
       console.error("Error loading restaurants:", error);
     } finally {
@@ -53,20 +53,20 @@ const RestaurantsScreen = ({ navigation, route }) => {
   };
 
   const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      loadData();
-      return;
-    }
+    // if (!searchQuery.trim()) {
+    //   loadData();
+    //   return;
+    // }
 
-    try {
-      setLoading(true);
-      const results = await dataService.searchRestaurants(searchQuery);
-      setRestaurants(results);
-    } catch (error) {
-      console.error("Error searching restaurants:", error);
-    } finally {
-      setLoading(false);
-    }
+    // try {
+    //   setLoading(true);
+    //   const results = await dataService.searchRestaurants(searchQuery);
+    //   setRestaurants(results);
+    // } catch (error) {
+    //   console.error("Error searching restaurants:", error);
+    // } finally {
+    //   setLoading(false);
+    // }
   };
 
   const handleRefresh = () => {
@@ -78,21 +78,24 @@ const RestaurantsScreen = ({ navigation, route }) => {
     <Card
       style={[styles.restaurantCard, { ...theme.shadow.small }]}
       onPress={() =>
-        navigation.navigate("RestaurantDetail", { restaurantId: item.id })
+        navigation.navigate("RestaurantDetail", { restaurantId: item._id })
       }
     >
-      <Card.Cover source={{ uri: item.image }} style={styles.restaurantImage} />
+      <Card.Cover
+        source={{ uri: item.coverImageUrl }}
+        style={styles.restaurantImage}
+      />
       <Card.Content>
         <Title style={styles.restaurantName}>{item.name}</Title>
         <View style={styles.infoContainer}>
-          <View style={styles.ratingContainer}>
+          {/* <View style={styles.ratingContainer}>
             <Ionicons name="star" size={18} color={theme.colors.tertiary} />
             <Text style={styles.ratingText}>{item.rating}</Text>
-          </View>
-          <Text style={styles.cuisineText}>{item.cuisineType}</Text>
+          </View> */}
+          {/* <Text style={styles.cuisineText}>{item.cuisineType}</Text> */}
         </View>
         <View style={styles.deliveryInfoContainer}>
-          <Ionicons name="time-outline" size={16} color={theme.colors.gray} />
+          {/* <Ionicons name="time-outline" size={16} color={theme.colors.gray} />
           <Text style={styles.deliveryText}>{item.deliveryTime}</Text>
           <Ionicons
             name="bicycle-outline"
@@ -100,7 +103,7 @@ const RestaurantsScreen = ({ navigation, route }) => {
             color={theme.colors.gray}
             style={styles.icon}
           />
-          <Text style={styles.deliveryText}>${item.deliveryFee} delivery</Text>
+          <Text style={styles.deliveryText}>${item.deliveryFee} delivery</Text> */}
         </View>
       </Card.Content>
     </Card>
@@ -200,7 +203,7 @@ const RestaurantsScreen = ({ navigation, route }) => {
       <FlatList
         data={restaurants}
         renderItem={renderRestaurantItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmptyComponent}

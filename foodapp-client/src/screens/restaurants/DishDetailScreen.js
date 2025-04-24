@@ -37,7 +37,10 @@ const DishDetailScreen = ({ route, navigation }) => {
       setRestaurant(restaurantData);
 
       if (restaurantData && restaurantData.dishes) {
-        const dishData = restaurantData.dishes.find((d) => d.id === dishId);
+        const restaurantDish = await dataService.getRestaurantDishes(
+          restaurantId
+        );
+        const dishData = restaurantDish.dishes.find((d) => d._id === dishId);
         setDish(dishData);
       }
     } catch (error) {
@@ -59,23 +62,23 @@ const DishDetailScreen = ({ route, navigation }) => {
 
   const handleAddToCart = async () => {
     setCartAddingLoading(true);
-    // if (
-    //   cartRestaurant &&
-    //   cartRestaurant.id !== restaurant.id &&
-    //   items.length > 0
-    // ) {
-    // Show confirmation modal for clearing cart
-    // setCartModalVisible(true);
-    // } else {
-    const dishWithQuantity = { ...dish, quantity };
-    const result = await addItem(dishWithQuantity, restaurant);
+    if (
+      cartRestaurant &&
+      cartRestaurant.id !== restaurant._id &&
+      items.length > 0
+    ) {
+      // Show confirmation modal for clearing cart
+      setCartModalVisible(true);
+    } else {
+      const dishWithQuantity = { ...dish, quantity };
+      const result = await addItem(dishWithQuantity, restaurant);
 
-    if (result.success) {
-      // Show confirmation modal
-      setModalVisible(true);
+      if (result.success) {
+        // Show confirmation modal
+        setModalVisible(true);
+      }
+      setCartAddingLoading(false);
     }
-    setCartAddingLoading(false);
-    // }
   };
 
   const handleClearCartAndAdd = () => {
@@ -131,7 +134,7 @@ const DishDetailScreen = ({ route, navigation }) => {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Image
-            source={{ uri: dish.image }}
+            source={{ uri: dish.imageUrls[0] }}
             style={styles.dishImage}
             resizeMode="cover"
           />
@@ -156,7 +159,7 @@ const DishDetailScreen = ({ route, navigation }) => {
         <View style={styles.contentContainer}>
           <View style={styles.titleContainer}>
             <Text style={styles.dishName}>{dish.name}</Text>
-            <Text style={styles.dishPrice}>${dish.price.toFixed(2)}</Text>
+            <Text style={styles.dishPrice}>LKR {dish.price.toFixed(2)}</Text>
           </View>
 
           <Text style={styles.categoryText}>{dish.category}</Text>
@@ -169,19 +172,19 @@ const DishDetailScreen = ({ route, navigation }) => {
             style={styles.restaurantContainer}
             onPress={() =>
               navigation.navigate("RestaurantDetail", {
-                restaurantId: restaurant.id,
+                restaurantId: restaurant._id,
               })
             }
           >
             <Image
-              source={{ uri: restaurant.image }}
+              source={{ uri: restaurant.imageUrls[0] }}
               style={styles.restaurantImage}
             />
             <View style={styles.restaurantInfo}>
               <Text style={styles.restaurantName}>{restaurant.name}</Text>
-              <Text style={styles.restaurantCuisine}>
+              {/* <Text style={styles.restaurantCuisine}>
                 {restaurant.cuisineType}
-              </Text>
+              </Text> */}
             </View>
             <Ionicons
               name="chevron-forward"
@@ -228,7 +231,7 @@ const DishDetailScreen = ({ route, navigation }) => {
           loading={cartAddingLoading}
           disabled={cartAddingLoading}
         >
-          Add to Cart - ${totalPrice.toFixed(2)}
+          Add to Cart - LKR{totalPrice.toFixed(2)}
         </Button>
       </View>
 

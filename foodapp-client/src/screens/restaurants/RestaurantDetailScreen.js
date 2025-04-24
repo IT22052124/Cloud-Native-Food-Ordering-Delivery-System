@@ -23,6 +23,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useCart } from "../../context/CartContext";
 import dataService from "../../services/dataService";
 import { Ionicons } from "@expo/vector-icons";
+import MapView, { Marker } from "react-native-maps";
 
 const { width } = Dimensions.get("window");
 
@@ -36,9 +37,12 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [addToCartLoading, setAddToCartLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
   const [cartModalVisible, setCartModalVisible] = useState(false);
+  // Add new state for location modal
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
 
   useEffect(() => {
     loadRestaurantDetails();
@@ -51,11 +55,13 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
       setRestaurant(restaurantData);
 
       if (restaurantData && restaurantData.dishes) {
-        setDishes(restaurantData.dishes);
-
+        const restaurantDish = await dataService.getRestaurantDishes(
+          restaurantId
+        );
+        setDishes(restaurantDish.dishes);
         // Extract unique categories
         const uniqueCategories = [
-          ...new Set(restaurantData.dishes.map((dish) => dish.category)),
+          ...new Set(restaurantDish.dishes.map((dish) => dish.category)),
         ];
         setCategories(uniqueCategories);
       }
@@ -70,21 +76,26 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
     ? dishes.filter((dish) => dish.category === selectedCategory)
     : dishes;
 
-  const handleAddToCart = (item) => {
+  const handleAddToCart = async (item) => {
+    setAddToCartLoading(true);
+    setModalVisible(true);
+
     if (
       cartRestaurant &&
-      cartRestaurant.id !== restaurant.id &&
+      cartRestaurant.id !== restaurant._id &&
       items.length > 0
     ) {
       // Show confirmation modal for clearing cart
       setCurrentItem(item);
+      setModalVisible(false);
+      setAddToCartLoading(false);
       setCartModalVisible(true);
     } else {
-      const result = addItem(item, restaurant);
-
+      const result = await addItem({ ...item, quantity: 1 }, restaurant);
       if (result.success) {
         // Show confirmation modal
         setCurrentItem(item);
+        setAddToCartLoading(false);
         setModalVisible(true);
       }
     }
@@ -92,9 +103,14 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
 
   const handleClearCartAndAdd = () => {
     clearCart();
-    addItem(currentItem, restaurant);
+    addItem({ ...currentItem, quantity: 1 }, restaurant);
     setCartModalVisible(false);
     setModalVisible(true);
+  };
+
+  // Add function to handle opening the location modal
+  const handleShowLocation = () => {
+    setLocationModalVisible(true);
   };
 
   const renderDishItem = ({ item }) => (
@@ -102,15 +118,15 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
       style={[styles.dishCard, { ...theme.shadow.small }]}
       onPress={() =>
         navigation.navigate("DishDetail", {
-          restaurantId: restaurant.id,
-          dishId: item.id,
+          restaurantId: restaurant._id,
+          dishId: item._id,
         })
       }
     >
       <View style={styles.dishContent}>
         <View style={styles.dishInfo}>
           <Text style={styles.dishName}>{item.name}</Text>
-          <Text style={styles.dishPrice}>${item.price.toFixed(2)}</Text>
+          <Text style={styles.dishPrice}>LKR {item.price.toFixed(2)}</Text>
           <Text style={styles.dishDescription} numberOfLines={2}>
             {item.description}
           </Text>
@@ -127,7 +143,7 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
             Add
           </Button>
         </View>
-        <Image source={{ uri: item.image }} style={styles.dishImage} />
+        <Image source={{ uri: item.imageUrls[0] }} style={styles.dishImage} />
       </View>
 
       {item.popular && (
@@ -195,6 +211,13 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
     );
   }
 
+  // Default coordinates for the restaurant
+  // You should replace these with actual restaurant coordinates from your data
+  const restaurantLocation = {
+    latitude: restaurant.address?.coordinates?.lat,
+    longitude: restaurant.address?.coordinates?.lng,
+  };
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -202,7 +225,9 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Image
-            source={{ uri: restaurant.coverImage || restaurant.image }}
+            source={{
+              uri: restaurant.coverImageUrl || restaurant.imageUrls[0],
+            }}
             style={styles.coverImage}
             resizeMode="cover"
           />
@@ -220,10 +245,13 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
           <View style={styles.restaurantMetaInfo}>
             <View style={styles.ratingContainer}>
               <Ionicons name="star" size={18} color={theme.colors.tertiary} />
-              <Text style={styles.ratingText}>{restaurant.rating}</Text>
+              {/* <Text style={styles.ratingText}>{restaurant.rating}</Text> */}
             </View>
-            <Text style={styles.cuisineText}>{restaurant.cuisineType}</Text>
-            <Text style={styles.addressText}>{restaurant.address}</Text>
+            {/* <Text style={styles.cuisineText}>{restaurant.cuisineType}</Text> */}
+            <Text style={styles.addressText}>
+              {restaurant.address.street} {restaurant.address.city}{" "}
+              {restaurant.address.province}
+            </Text>
           </View>
 
           <View style={styles.deliveryInfoContainer}>
@@ -234,7 +262,7 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
                 color={theme.colors.gray}
               />
               <Text style={styles.deliveryInfoText}>
-                {restaurant.deliveryTime}
+                {/* {restaurant.deliveryTime} */}
               </Text>
             </View>
             <View style={styles.deliveryInfo}>
@@ -244,7 +272,7 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
                 color={theme.colors.gray}
               />
               <Text style={styles.deliveryInfoText}>
-                ${restaurant.deliveryFee} delivery
+                {/* ${restaurant.deliveryFee} delivery */}
               </Text>
             </View>
             <View style={styles.deliveryInfo}>
@@ -254,12 +282,23 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
                 color={theme.colors.gray}
               />
               <Text style={styles.deliveryInfoText}>
-                ${restaurant.minOrder} min
+                {/* ${restaurant.minOrder} min */}
               </Text>
             </View>
           </View>
 
           <Text style={styles.descriptionText}>{restaurant.description}</Text>
+
+          {/* Add a button to show location */}
+          <Button
+            mode="outlined"
+            icon="map-marker"
+            onPress={handleShowLocation}
+            style={styles.locationButton}
+            contentStyle={styles.locationButtonContent}
+          >
+            Show Restaurant Location
+          </Button>
         </View>
 
         <View style={styles.menuContainer}>
@@ -277,7 +316,7 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
 
           <View style={styles.dishesContainer}>
             {filteredDishes.map((dish) => (
-              <View key={dish.id} style={styles.dishItem}>
+              <View key={dish._id} style={styles.dishItem}>
                 {renderDishItem({ item: dish })}
               </View>
             ))}
@@ -296,38 +335,48 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
           ]}
         >
           <View style={styles.modalContent}>
-            <Ionicons
-              name="checkmark-circle"
-              size={60}
-              color={theme.colors.success}
-            />
-            <Text style={styles.modalTitle}>Added to Cart</Text>
-            <Text style={styles.modalText}>
-              {currentItem?.name} has been added to your cart.
-            </Text>
+            {addToCartLoading ? (
+              <ActivityIndicator
+                size="large"
+                color={theme.colors.primary}
+                style={{ marginVertical: 20 }}
+              />
+            ) : (
+              <>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={60}
+                  color={theme.colors.success}
+                />
+                <Text style={styles.modalTitle}>Added to Cart</Text>
+                <Text style={styles.modalText}>
+                  {currentItem?.name} has been added to your cart.
+                </Text>
 
-            <View style={styles.modalButtons}>
-              <Button
-                mode="outlined"
-                onPress={() => setModalVisible(false)}
-                style={styles.modalButton}
-              >
-                Continue Shopping
-              </Button>
-              <Button
-                mode="contained"
-                onPress={() => {
-                  setModalVisible(false);
-                  navigation.navigate("Cart");
-                }}
-                style={[
-                  styles.modalButton,
-                  { backgroundColor: theme.colors.primary },
-                ]}
-              >
-                View Cart
-              </Button>
-            </View>
+                <View style={styles.modalButtons}>
+                  <Button
+                    mode="outlined"
+                    onPress={() => setModalVisible(false)}
+                    style={styles.modalButton}
+                  >
+                    Continue Shopping
+                  </Button>
+                  <Button
+                    mode="contained"
+                    onPress={() => {
+                      setModalVisible(false);
+                      navigation.navigate("Cart");
+                    }}
+                    style={[
+                      styles.modalButton,
+                      { backgroundColor: theme.colors.primary },
+                    ]}
+                  >
+                    View Cart
+                  </Button>
+                </View>
+              </>
+            )}
           </View>
         </Modal>
       </Portal>
@@ -373,6 +422,70 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
                 Clear Cart
               </Button>
             </View>
+          </View>
+        </Modal>
+      </Portal>
+
+      {/* Location Modal */}
+      <Portal>
+        <Modal
+          visible={locationModalVisible}
+          onDismiss={() => setLocationModalVisible(false)}
+          contentContainerStyle={[
+            styles.locationModal,
+            { backgroundColor: theme.colors.background },
+          ]}
+        >
+          <View style={styles.locationModalContent}>
+            <Text style={styles.locationModalTitle}>Restaurant Location</Text>
+
+            <View style={styles.mapContainer}>
+              <MapView
+                style={styles.map}
+                initialRegion={{
+                  latitude: restaurantLocation.latitude,
+                  longitude: restaurantLocation.longitude,
+                  latitudeDelta: 0.005,
+                  longitudeDelta: 0.005,
+                }}
+              >
+                <Marker
+                  coordinate={restaurantLocation}
+                  title={restaurant.name}
+                  description={restaurant.address.street}
+                />
+              </MapView>
+            </View>
+
+            <View style={styles.coordinatesContainer}>
+              <Text style={styles.coordinatesText}>
+                <Text style={styles.coordinatesLabel}>Latitude: </Text>
+                {restaurantLocation.latitude.toFixed(6)}
+              </Text>
+              <Text style={styles.coordinatesText}>
+                <Text style={styles.coordinatesLabel}>Longitude: </Text>
+                {restaurantLocation.longitude.toFixed(6)}
+              </Text>
+            </View>
+
+            <View style={styles.addressContainer}>
+              <Text style={styles.addressLabel}>Address:</Text>
+              <Text style={styles.addressValue}>
+                {restaurant.address.street}, {restaurant.address.city},{" "}
+                {restaurant.address.province}
+              </Text>
+            </View>
+
+            <Button
+              mode="contained"
+              onPress={() => setLocationModalVisible(false)}
+              style={[
+                styles.closeButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+            >
+              Close
+            </Button>
           </View>
         </Modal>
       </Portal>
@@ -467,6 +580,14 @@ const styles = StyleSheet.create({
   descriptionText: {
     color: "#444",
     lineHeight: 22,
+    marginBottom: 16,
+  },
+  locationButton: {
+    marginTop: 8,
+    borderColor: "#666",
+  },
+  locationButtonContent: {
+    height: 44,
   },
   menuContainer: {
     padding: 16,
@@ -566,6 +687,62 @@ const styles = StyleSheet.create({
   modalButton: {
     flex: 1,
     marginHorizontal: 8,
+  },
+  // Location modal styles
+  locationModal: {
+    margin: 20,
+    borderRadius: 16,
+    padding: 16,
+    height: "80%", // Set a fixed height for the modal
+  },
+  locationModalContent: {
+    flex: 1,
+    width: "100%",
+  },
+  locationModalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  mapContainer: {
+    height: 250,
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+  map: {
+    width: "100%",
+    height: "100%",
+  },
+  coordinatesContainer: {
+    backgroundColor: "#f5f5f5",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  coordinatesText: {
+    fontSize: 15,
+    marginBottom: 4,
+  },
+  coordinatesLabel: {
+    fontWeight: "bold",
+  },
+  addressContainer: {
+    marginBottom: 16,
+  },
+  addressLabel: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  addressValue: {
+    fontSize: 15,
+    color: "#444",
+    lineHeight: 20,
+  },
+  closeButton: {
+    marginTop: 8,
   },
 });
 
