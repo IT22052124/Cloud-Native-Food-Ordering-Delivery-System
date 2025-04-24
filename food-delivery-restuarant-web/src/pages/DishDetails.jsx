@@ -70,7 +70,7 @@ const DishDetails = () => {
   return (
     <div className="flex min-h-screen">
       <DishSidebar />
-      <div className="flex-1 ml-64">
+      <div className="flex-1 ml-64 dark:bg-gray-900">
         <Navbar />
         <div className="p-6">
           {/* Header */}
@@ -88,7 +88,7 @@ const DishDetails = () => {
               </Link>
               <button
                 onClick={() => setShowDeleteModal(true)}
-                className="flex items-center px-3 py-1.5 bg-red-100 text-red-700 text-sm rounded hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900"
+                className="flex items-center px-3 py-1.5 bg-red-900 text-white-700 text-sm rounded hover:bg-red-200  dark:text-red-300 dark:hover:bg-red-900"
               >
                 <FaTrash className="mr-1" size={14} />
                 Delete
