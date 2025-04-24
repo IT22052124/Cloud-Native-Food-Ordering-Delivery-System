@@ -31,7 +31,6 @@ const statusHistorySchema = new Schema({
     required: true,
     enum: [
       "PLACED",
-      "CONFIRMED",
       "PREPARING",
       "READY_FOR_PICKUP",
       "OUT_FOR_DELIVERY",
@@ -199,7 +198,7 @@ const orderSchema = new Schema(
     paymentMethod: {
       type: String,
       required: true,
-      enum: ["CASH", "CARD", "WALLET"],
+      enum: ["CARD", "COD"],
       default: "CASH",
     },
     paymentStatus: {
