@@ -31,6 +31,7 @@ export const CartProvider = ({ children }) => {
     try {
       setLoading(true);
       const cartData = await dataService.getCart();
+      console.log(cartData.restaurantDetails);
       if (cartData && cartData.items && cartData.items.length > 0) {
         setItems(
           cartData.items.map((item) => ({
@@ -39,7 +40,7 @@ export const CartProvider = ({ children }) => {
             name: item.item?.name || "",
             price: item.itemPrice,
             quantity: item.quantity,
-            image: item.item?.image || "",
+            image: item.item?.imageUrls[0] || "",
             totalPrice: item.totalPrice,
           }))
         );
@@ -49,11 +50,16 @@ export const CartProvider = ({ children }) => {
             id: cartData.restaurantDetails._id,
             name: cartData.restaurantDetails.name,
             image:
-              cartData.restaurantDetails.coverImage ||
-              cartData.restaurantDetails.image,
+              cartData.restaurantDetails.imageUrls[0] ||
+              cartData.restaurantDetails.coverImageUrl,
             deliveryFee: cartData.restaurantDetails.deliveryFee || "2.99",
             deliveryTime:
               cartData.restaurantDetails.deliveryTime || "30-45 min",
+            address: {
+              city: "Kandy",
+              province: "Central",
+              street: "M. B. Dodanwala Mawatha",
+            },
           });
         }
       } else {
@@ -97,23 +103,17 @@ export const CartProvider = ({ children }) => {
   };
 
   const addItem = async (item, restaurantData) => {
-    // If cart is empty or has items from the same restaurant
-    // if (!restaurant || restaurant.id === restaurantData.id) {
     const existingItemIndex = items.findIndex(
-      (cartItem) => cartItem.itemId === item.id
+      (cartItem) => cartItem.itemId === item._id
     );
 
     if (isAuthenticated) {
       try {
-        // If the item exists, update quantity. Otherwise add new item
-        const quantity =
-          existingItemIndex !== -1 ? items[existingItemIndex].quantity + 1 : 1;
-
         await dataService.addToCart({
-          itemId: "67fd4bc83e8d227072f02ac2", //item.id,
-          restaurantId: "67fd4b623e8d227072f02ab4", //restaurantData.id,
-          quantity: quantity,
-          itemPrice: 100, //item.price,
+          itemId: item._id, //item.id,
+          restaurantId: restaurantData._id, //restaurantData.id,
+          quantity: item.quantity,
+          itemPrice: item.price, //item.price,
         });
 
         // Refresh cart from API to ensure consistency

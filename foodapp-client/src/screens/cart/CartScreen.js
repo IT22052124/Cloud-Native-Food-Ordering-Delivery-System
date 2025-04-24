@@ -116,8 +116,8 @@ const CartScreen = ({ navigation }) => {
       <View style={styles.cartItemContent}>
         <Image
           source={
-            item.imageUrls && item.imageUrls.length > 0
-              ? { uri: item.imageUrls[0] }
+            item.image
+              ? { uri: item.image }
               : require("../../assets/no-image.png")
           }
           style={styles.itemImage}
@@ -179,18 +179,18 @@ const CartScreen = ({ navigation }) => {
         >
           <Image
             source={
-              restaurant.imageUrls && restaurant.imageUrls.length > 0
-                ? { uri: restaurant.imageUrls[0] }
+              restaurant.image
+                ? { uri: restaurant.image }
                 : require("../../assets/no-image-restaurant.png")
             }
             style={styles.restaurantImage}
           />
           <View style={styles.restaurantInfo}>
             <Text style={styles.restaurantName}>{restaurant.name}</Text>
-            {/* <Text style={styles.restaurantDelivery}>
-              Delivery: ${"restaurant.deliveryFee"} •{" "}
-              {"restaurant.deliveryTime"}
-            </Text> */}
+            <Text style={styles.restaurantAddress}>
+              {restaurant.address.street}, {restaurant.address.province} ,{" "}
+              {restaurant.address.city}
+            </Text>
           </View>
           <Ionicons
             name="chevron-forward"
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 2,
   },
-  restaurantDelivery: {
+  restaurantAddress: {
     fontSize: 14,
     color: "#666",
   },

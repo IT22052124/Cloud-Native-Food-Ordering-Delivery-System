@@ -23,20 +23,21 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
 import { useCart } from "../../context/CartContext";
 import dataService from "../../services/dataService";
-import * as PaymentIcons from "../../assets/index";
+import { creditCard, COD } from "../../assets/index";
 import { useStripe } from "@stripe/stripe-react-native";
+import LottieView from "lottie-react-native";
 
 const PAYMENT_METHODS = [
   {
     id: "card",
     name: "Credit/Debit Card",
-    icon: PaymentIcons.creditCard,
+    icon: creditCard,
     description: "Pay with your card",
   },
   {
     id: "cod",
     name: "Cash on Delivery",
-    icon: PaymentIcons.cash,
+    icon: COD,
     description: "Pay when your order arrives",
   },
 ];
@@ -216,7 +217,13 @@ const PaymentScreen = ({ navigation, route }) => {
                 onPress={() => setSelectedPayment(method)}
                 color={theme.colors.primary}
               />
-              <Image source={method.icon} style={styles.paymentIcon} />
+              <LottieView
+                source={method.icon}
+                autoPlay
+                loop
+                style={styles.paymentIcon}
+              />
+              {/* <Image source={method.icon} style={styles.paymentIcon} /> */}
               <View style={styles.paymentDetails}>
                 <Text style={styles.paymentName}>{method.name}</Text>
                 <Text style={styles.paymentDescription}>
@@ -418,8 +425,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   paymentIcon: {
-    width: 40,
-    height: 40,
+    width: 60,
+    height: 60,
     marginLeft: 8,
   },
   paymentDetails: {
