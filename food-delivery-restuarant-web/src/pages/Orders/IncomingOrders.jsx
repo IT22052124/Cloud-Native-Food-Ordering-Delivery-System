@@ -19,8 +19,8 @@ const IncomingOrders = () => {
       try {
         setLoading(true);
         const data = await getOrders("PLACED");
-        console.log("Fetched Orders:", data);
         setOrders(data);
+
       } catch (error) {
         toast.error("Failed to fetch incoming orders");
         console.error("Error fetching orders:", error);
@@ -65,6 +65,8 @@ const IncomingOrders = () => {
   const filteredOrders = orders.filter(
     (order) => order.status && order.status.toUpperCase() === "PLACED"
   );
+  
+  console.log("Fetched Orders:", orders);
 
   console.log("Filtered Orders:", filteredOrders);
 
