@@ -89,7 +89,7 @@ export const addRestaurant = async (req, res) => {
  * @route   GET /api/restaurants/my-restaurants
  * @access  Private (Only authenticated owners)
  */
-export const getMyRestaurants = async (req, res) => {
+export const getRestaurants = async (req, res) => {
   try {
     const restaurants = await Restaurant.find();
 
@@ -330,4 +330,86 @@ export const getRestaurantByOwnerId = async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+};
+
+export const getFoodCategories = (req, res) => {
+  const categories = [
+    {
+      id: 1,
+      name: "Appetizers",
+      image:
+        "https://www.eatingwell.com/thmb/VZOpYLlkdhow-YKvWLTlotmVRjY=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/loaded-smashed-brussels-sprouts-4f5ab837d61d40c8a5bf27a398ca29eb.jpg",
+    },
+    {
+      id: 2,
+      name: "Main Course",
+      image:
+        "https://sp-ao.shortpixel.ai/client/to_webp,q_glossy,ret_img,w_600,h_400/https://thefoodcafe.com/wp-content/uploads/2018/04/Bacon-wrapped-jalapeno-Chicken-600x400.jpg",
+    },
+    {
+      id: 3,
+      name: "Desserts",
+      image:
+        "https://www.tasteofhome.com/wp-content/uploads/2019/05/Fried-Ice-Cream-Dessert-Bars-_EXPS_SDJJ19_232652_B02_06_1b_rms-2.jpg",
+    },
+    {
+      id: 4,
+      name: "Beverages",
+      image:
+        "https://media.istockphoto.com/id/1303977605/photo/five-cocktails-in-hands-joined-in-celebratory-toast.jpg?s=612x612&w=0&k=20&c=QtnWuVeQCwKOfXIISxfkuDhQTe15qnnKOFKgpcH1Vko=",
+    },
+    {
+      id: 5,
+      name: "Salads",
+      image:
+        "https://i2.wp.com/www.downshiftology.com/wp-content/uploads/2019/04/Cobb-Salad-main.jpg",
+    },
+    {
+      id: 6,
+      name: "Soups",
+      image:
+        "https://cdn.loveandlemons.com/wp-content/uploads/2023/01/tomato-soup-recipe.jpg",
+    },
+    {
+      id: 7,
+      name: "Breads",
+      image:
+        "https://www.allrecipes.com/thmb/CjzJwg2pACUzGODdxJL1BJDRx9Y=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/6788-amish-white-bread-DDMFS-4x3-6faa1e552bdb4f6eabdd7791e59b3c84.jpg",
+    },
+    {
+      id: 8,
+      name: "Rice Dishes",
+      image:
+        "https://www.allrecipes.com/thmb/NVjvH6r7xOrcoxmA-OjPs3uSmUA=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/RM-33385-best-spanish-rice-ddmfs-3x4-054478cf67f14ffebc114d2d18639634.jpg",
+    },
+    {
+      id: 9,
+      name: "Noodles",
+      image:
+        "https://takestwoeggs.com/wp-content/uploads/2023/11/Soy-Sauce-Pan-Fried-Noodles-Takestwoeggs-sq.jpg",
+    },
+    {
+      id: 10,
+      name: "Seafood",
+      image:
+        "https://assets.epicurious.com/photos/54b87c137cbba01c0db7ff8d/1:1/w_2560%2Cc_limit/51248830_cioppino_1x1.jpg",
+    },
+    {
+      id: 11,
+      name: "Grilled",
+      image:
+        "https://assets.epicurious.com/photos/5b843bce1abfc56568396369/1:1/w_2560%2Cc_limit/Grilled-Chicken-with-Mustard-Sauce-and-Tomato-Salad-recipe-2-22082018.jpg",
+    },
+    {
+      id: 12,
+      name: "Fast Food",
+      image:
+        "https://www.summahealth.org/-/media/project/summahealth/website/page-content/flourish/2_18a_fl_fastfood_400x400.webp?la=en&h=400&w=400&hash=145DC0CF6234A159261389F18A36742A",
+    },
+  ];
+
+  return res.status(200).json({
+    success: true,
+    categories,
+  });
 };
