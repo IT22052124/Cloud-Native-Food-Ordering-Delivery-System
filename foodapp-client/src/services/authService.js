@@ -1,14 +1,18 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
+import {
+  uploadImageToFirebase,
+  deleteImageFromFirebase,
+} from "../utils/firebase/imageUtils";
 
 // Use consistent API URL configuration
-const API_BASE_URL = "http://192.168.8.196:5001/api";
+const API_BASE_URL = "http://192.168.1.6:5001/api";
 const AUTH_API_URL = `${API_BASE_URL}/auth`;
 
 // Create axios instance
 const api = axios.create({
-  baseURL: AUTH_API_URL, // Fix: Use API_BASE_URL instead of AUTH_API_URL
+  baseURL: API_BASE_URL, // Fix: Use API_BASE_URL instead of AUTH_API_URL
 });
 
 // Store token in AsyncStorage for React Native
@@ -104,7 +108,7 @@ const authService = {
   register: async (userData) => {
     try {
       // Fix: Use correct path
-      const response = await api.post(`/register`, userData);
+      const response = await api.post(`/auth/register`, userData);
 
       if (response.data && response.data.token) {
         await setToken(response.data.token);
@@ -124,7 +128,7 @@ const authService = {
   login: async (email, password) => {
     try {
       // Fix: Use correct path
-      const response = await api.post(`/login`, {
+      const response = await api.post(`/auth/login`, {
         email,
         password,
       });
@@ -156,7 +160,7 @@ const authService = {
   getCurrentUser: async () => {
     try {
       // Fix: Use correct path
-      const response = await api.get(`/me`);
+      const response = await api.get(`/auth/me`);
       if (response.data && response.data.user) {
         return response.data.user;
       } else {
@@ -172,7 +176,7 @@ const authService = {
   logout: async () => {
     try {
       // Fix: Use correct path
-      await api.post(`/logout`);
+      await api.post(`/auth/logout`);
       await setToken(null);
       await setRefreshToken(null);
       return true;
@@ -193,7 +197,7 @@ const authService = {
       }
 
       // Fix: Use correct path
-      const response = await api.post(`/refresh-token`, {
+      const response = await api.post(`/auth/refresh-token`, {
         refreshToken,
       });
 
@@ -220,7 +224,7 @@ const authService = {
   forgotPassword: async (email) => {
     try {
       // Fix: Use correct path
-      const response = await api.post(`/forgot-password`, {
+      const response = await api.post(`/auth/forgot-password`, {
         email,
       });
       return response.data;
@@ -233,7 +237,7 @@ const authService = {
   resetPassword: async (token, password) => {
     try {
       // Fix: Use correct path
-      const response = await api.post(`/reset-password/${token}`, {
+      const response = await api.post(`/auth/reset-password/${token}`, {
         password,
       });
       return response.data;
@@ -246,7 +250,7 @@ const authService = {
   validateToken: async () => {
     try {
       // Fix: Use correct path
-      const response = await api.get(`/validate-token`);
+      const response = await api.get(`/auth/validate-token`);
       return response.data && response.data.success;
     } catch (error) {
       return false;
@@ -261,6 +265,99 @@ const authService = {
   // Get the stored refresh token
   getStoredRefreshToken: async () => {
     return await getRefreshToken();
+  },
+
+  updateProfile: async (updatedFields) => {
+    try {
+      // Create a mapped object with the correct field names for the API
+      const mappedFields = {};
+
+      // Map frontend field names to backend field names
+      if (updatedFields.name !== undefined)
+        mappedFields.name = updatedFields.name;
+      if (updatedFields.email !== undefined)
+        mappedFields.email = updatedFields.email;
+      if (updatedFields.phone !== undefined)
+        mappedFields.phone = updatedFields.phone;
+
+      // Handle profile image upload if included
+      if (
+        updatedFields.profileImage &&
+        updatedFields.profileImage.startsWith("file:")
+      ) {
+        // This is a local file URI that needs to be uploaded to Firebase
+        const userId = (await authService.getCurrentUser())?._id;
+        if (!userId) {
+          throw new Error("User ID not available for image upload");
+        }
+
+        try {
+          // Upload the image to Firebase
+          const uploadResult = await uploadImageToFirebase(
+            updatedFields.profileImage,
+            userId
+          );
+
+          // Replace the local URI with the Firebase download URL and use the correct field name
+          mappedFields.profilePicture = uploadResult.downloadURL;
+          // Store the Firebase path for potential future deletion if needed
+          mappedFields.profileImagePath = uploadResult.path;
+        } catch (uploadError) {
+          console.error("Failed to upload profile image:", uploadError);
+          throw new Error("Failed to upload profile image");
+        }
+      } else if (updatedFields.profileImage) {
+        // Just pass through the URL if it's not a file URI
+        mappedFields.profilePicture = updatedFields.profileImage;
+      }
+
+      // Call the API to update the user profile with the mapped fields
+      const response = await api.patch("/users/me", mappedFields);
+
+      // Map the returned data back to the frontend field names if needed
+      const returnData = { ...response.data };
+      if (returnData.user?.profilePicture) {
+        returnData.user.profileImage = returnData.user.profilePicture;
+      }
+
+      return returnData.user || returnData;
+    } catch (error) {
+      console.error("Update profile error:", error);
+      if (error.response) {
+        throw new Error(
+          error.response.data.message || "Failed to update profile"
+        );
+      } else {
+        throw new Error(
+          error.message || "Network error. Please check your connection."
+        );
+      }
+    }
+  },
+
+  // Method to delete user's profile image
+  deleteProfileImage: async () => {
+    try {
+      const currentUser = await authService.getCurrentUser();
+
+      if (currentUser && currentUser.profileImagePath) {
+        // Delete from Firebase
+        await deleteImageFromFirebase(currentUser.profileImagePath);
+
+        // Update user profile to remove image references
+        await api.patch("/users/me", {
+          profileImage: null,
+          profileImagePath: null,
+        });
+
+        return { success: true };
+      } else {
+        throw new Error("No profile image to delete");
+      }
+    } catch (error) {
+      console.error("Delete profile image error:", error);
+      throw error;
+    }
   },
 };
 

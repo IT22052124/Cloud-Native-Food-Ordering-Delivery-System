@@ -3,11 +3,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 
 // API Base URLs
-const AUTH_API_URL = `http://192.168.8.196:5001/api`;
-const ORDER_API_URL = `http://192.168.8.196:5002/api/orders`;
-const CART_API_URL = `http://192.168.8.196:5002/api/cart`;
-const RESTAURANT_API_URL = `http://192.168.8.196:3000/api`;
-const PAYMENT_API_URL = `http://192.168.8.196:5004/api/payment`;
+const AUTH_API_URL = `http://192.168.1.6:5001/api`;
+const ORDER_API_URL = `http://192.168.1.6:5002/api/orders`;
+const CART_API_URL = `http://192.168.1.6:5002/api/cart`;
+const RESTAURANT_API_URL = `http://192.168.1.6:3000/api`;
+const PAYMENT_API_URL = `http://192.168.1.6:5004/api/payment`;
 
 // Sample data for the app
 const sampleRestaurants = [
@@ -984,7 +984,7 @@ const dataService = {
   createPaymentIntent: async (paymentData) => {
     try {
       const response = await apiClient.post(`${PAYMENT_API_URL}/initiate`, {
-        orderId:paymentData.orderId,
+        orderId: paymentData.orderId,
         amount: paymentData.amount,
         currency: paymentData.currency || "lkr", // Default to LKR if not specified
       });
