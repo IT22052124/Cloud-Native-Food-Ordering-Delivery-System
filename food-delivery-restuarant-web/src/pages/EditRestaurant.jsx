@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -13,6 +12,7 @@ import { toast } from 'react-toastify';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '../../firebase-config';
 import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+import { FaStore, FaUtensils, FaClock, FaMoneyBill, FaUser, FaPhone, FaMapMarkerAlt, FaImage } from 'react-icons/fa';
 
 // Define Sri Lankan provinces for the dropdown
 const provinces = [
@@ -26,6 +26,23 @@ const provinces = [
   'Uva',
   'Western',
 ];
+
+// Define Sri Lankan banks for the dropdown
+const sriLankanBanks = [
+  'Bank of Ceylon',
+  'People\'s Bank',
+  'Commercial Bank of Ceylon',
+  'Hatton National Bank',
+  'Sampath Bank',
+  'Nations Trust Bank',
+  'Seylan Bank',
+  'DFCC Bank',
+  'NDB Bank',
+  'Union Bank of Colombo',
+];
+
+// Define cuisine types
+const cuisineTypes = ['Indian', 'Chinese', 'Italian', 'Mexican', 'Continental'];
 
 // Zod schema
 const schema = zod.object({
@@ -67,6 +84,19 @@ const schema = zod.object({
       email: zod.string().email('Invalid email').optional(),
     })
     .optional(),
+  bank: zod.object({
+    accountNumber: zod.string().optional(),
+    accountHolderName: zod.string().optional(),
+    bankName: zod.string().optional(),
+    branch: zod.string().optional(),
+  }).optional(),
+  serviceType: zod.object({
+    delivery: zod.boolean(),
+    pickup: zod.boolean(),
+    dineIn: zod.boolean(),
+  }).optional(),
+  cuisineType: zod.enum(cuisineTypes).optional(),
+  estimatedPrepTime: zod.number().min(1, 'Preparation time must be positive').optional(),
 });
 
 // Google Maps container style
@@ -91,7 +121,7 @@ const EditRestaurant = () => {
   const [uploading, setUploading] = useState({ cover: false, images: false });
   const [uploadProgress, setUploadProgress] = useState({ cover: 0, images: 0 });
   const [uploadError, setUploadError] = useState({ cover: '', images: '' });
-  const [isMapLoaded, setIsMapLoaded] = useState(false); // Track map API loading
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [markerPosition, setMarkerPosition] = useState(defaultCenter);
 
   const {
@@ -146,6 +176,19 @@ const EditRestaurant = () => {
             close: data.openingHours?.close || '',
             isClosed: data.openingHours?.isClosed || false,
           },
+          bank: {
+            accountNumber: data.bank?.accountNumber || '',
+            accountHolderName: data.bank?.accountHolderName || '',
+            bankName: data.bank?.bankName || '',
+            branch: data.bank?.branch || '',
+          },
+          serviceType: {
+            delivery: data.serviceType?.delivery ?? true,
+            pickup: data.serviceType?.pickup ?? true,
+            dineIn: data.serviceType?.dineIn ?? true,
+          },
+          cuisineType: data.cuisineType || 'Indian',
+          estimatedPrepTime: data.estimatedPrepTime || 20,
         });
         setCoverImageUrl(data.coverImageUrl || '');
         setImageUrls(data.imageUrls || []);
@@ -359,180 +402,261 @@ const EditRestaurant = () => {
   if (loading) return <LoadingSpinner />;
   if (!apiKey) {
     toast.error('Google Maps API key is missing. Please contact support.');
-    return <div className="text-red-500 p-6">Error: Google Maps API key is missing.</div>;
+    return <div className="text-red-600 p-6 dark:text-red-400">Error: Google Maps API key is missing.</div>;
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900">
       <Sidebar />
       <div className="flex-1 ml-64">
         <Navbar />
-        <div className="p-6">
-          <h2 className="text-2xl font-bold mb-6 dark:text-white">Edit Restaurant</h2>
+        <div className="p-8">
+          <h2 className="text-3xl font-bold mb-8 dark:text-white flex items-center">
+            <FaStore className="mr-3 text-orange-500" />
+            Edit Restaurant
+          </h2>
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="space-y-6"
+            className="space-y-8"
             onSubmitCapture={() => console.log('Form submitted')}
           >
-            {/* Basic Information Section */}
-            <div className="bg-white p-6 rounded-lg shadow dark:bg-gray-800">
-              <h3 className="text-lg font-semibold mb-4 dark:text-white">Basic Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Name*</label>
-                  <input
-                    {...register('name')}
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                  />
+            {/* Restaurant Details Section */}
+            <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-orange-200 dark:border-gray-700">
+              <h3 className="text-xl font-semibold mb-6 dark:text-white flex items-center">
+                <FaUtensils className="mr-2 text-orange-500" />
+                Restaurant Details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Name*
+                  </label>
+                  <div className="relative">
+                    <FaStore className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                    <input
+                      {...register('name')}
+                      className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                    />
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                  </div>
                   {errors.name && <p className="text-red-600 dark:text-red-400">{errors.name.message}</p>}
                 </div>
-                <div>
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Description</label>
-                  <textarea
-                    {...register('description')}
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                    rows={3}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Cover Image Section */}
-            <div className="bg-white p-6 rounded-lg shadow dark:bg-gray-800 border border-orange-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold mb-4 dark:text-white border-b border-orange-200 dark:border-gray-700 pb-2 flex items-center">
-                <span className="w-1 h-5 bg-orange-500 rounded-full mr-2"></span>
-                Cover Image
-              </h3>
-              <div className="space-y-4">
-                {coverImageUrl && (
-                  <div className="relative w-40 h-40 mb-4">
-                    <img
-                      src={coverImageUrl}
-                      alt="Cover"
-                      className="w-full h-full object-cover rounded"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleDeleteCoverImage}
-                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Cuisine Type
+                  </label>
+                  <div className="relative">
+                    <FaUtensils className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                    <select
+                      {...register('cuisineType')}
+                      className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
                     >
-                      ✕
-                    </button>
+                      <option value="">Select a cuisine</option>
+                      {cuisineTypes.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
                   </div>
-                )}
-                <input
-                  type="file"
-                  onChange={handleCoverImageChange}
-                  accept="image/*"
-                  disabled={uploading.cover}
-                  className="w-full p-3 border rounded dark:bg-gray-700 dark:text-white"
-                />
-                {uploading.cover && (
-                  <div className="w-full bg-gray-200 rounded h-2">
-                    <div
-                      className="bg-orange-500 h-2 rounded"
-                      style={{ width: `${uploadProgress.cover}%` }}
-                    ></div>
+                  {errors.cuisineType && <p className="text-red-600 dark:text-red-400">{errors.cuisineType.message}</p>}
+                </div>
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Description
+                  </label>
+                  <div className="relative">
+                    <textarea
+                      {...register('description')}
+                      className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                      rows={4}
+                    />
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
                   </div>
-                )}
-                {uploadError.cover && <p className="text-red-600 text-sm mt-1">{uploadError.cover}</p>}
+                </div>
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Estimated Preparation Time (minutes)
+                  </label>
+                  <div className="relative">
+                    <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                    <input
+                      type="number"
+                      {...register('estimatedPrepTime', { valueAsNumber: true })}
+                      className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                      min="1"
+                    />
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                  </div>
+                  {errors.estimatedPrepTime && (
+                    <p className="text-red-600 dark:text-red-400">{errors.estimatedPrepTime.message}</p>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Images Section */}
-            <div className="bg-white p-6 rounded-lg shadow dark:bg-gray-800 border border-orange-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold mb-4 dark:text-white border-b border-orange-200 dark:border-gray-700 pb-2 flex items-center">
-                <span className="w-1 h-5 bg-orange-500 rounded-full mr-2"></span>
-                Other Images
+            <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-orange-200 dark:border-gray-700">
+              <h3 className="text-xl font-semibold mb-6 dark:text-white flex items-center">
+                <FaImage className="mr-2 text-orange-500" />
+                Images
               </h3>
-              <div className="space-y-4">
-                {imageUrls.length > 0 && (
-                  <div className="flex flex-wrap gap-4 mb-4">
-                    {imageUrls.map((url, index) => (
-                      <div key={index} className="relative w-40 h-40">
+              <div className="space-y-6">
+                {/* Cover Image */}
+                <div>
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Cover Image</label>
+                  <div className="space-y-4">
+                    {coverImageUrl && (
+                      <div className="relative w-48 h-48">
                         <img
-                          src={url}
-                          alt={`Restaurant ${index + 1}`}
-                          className="w-full h-full object-cover rounded"
+                          src={coverImageUrl}
+                          alt="Cover"
+                          className="w-full h-full object-cover rounded-xl shadow-md"
                         />
                         <button
                           type="button"
-                          onClick={() => handleDeleteImage(url)}
-                          className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
+                          onClick={handleDeleteCoverImage}
+                          className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 transition-all duration-200"
                         >
                           ✕
                         </button>
                       </div>
-                    ))}
+                    )}
+                    <input
+                      type="file"
+                      onChange={handleCoverImageChange}
+                      accept="image/*"
+                      disabled={uploading.cover}
+                      className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700"
+                    />
+                    {uploading.cover && (
+                      <div className="w-full bg-gray-200 dark:bg-gray-600 rounded h-2">
+                        <div
+                          className="bg-orange-500 h-2 rounded"
+                          style={{ width: `${uploadProgress.cover}%` }}
+                        ></div>
+                      </div>
+                    )}
+                    {uploadError.cover && <p className="text-red-600 dark:text-red-400">{uploadError.cover}</p>}
                   </div>
-                )}
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleImageChange}
-                  accept="image/*"
-                  disabled={uploading.images}
-                  className="w-full p-3 border rounded dark:bg-gray-700 dark:text-white"
-                />
-                {uploading.images && (
-                  <div className="w-full bg-gray-200 rounded h-2">
-                    <div
-                      className="bg-orange-500 h-2 rounded"
-                      style={{ width: `${uploadProgress.images}%` }}
-                    ></div>
+                </div>
+                {/* Other Images */}
+                <div>
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Other Images</label>
+                  <div className="space-y-4">
+                    {imageUrls.length > 0 && (
+                      <div className="flex flex-wrap gap-4">
+                        {imageUrls.map((url, index) => (
+                          <div key={index} className="relative w-48 h-48">
+                            <img
+                              src={url}
+                              alt={`Restaurant ${index + 1}`}
+                              className="w-full h-full object-cover rounded-xl shadow-md"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteImage(url)}
+                              className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 transition-all duration-200"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      multiple
+                      onChange={handleImageChange}
+                      accept="image/*"
+                      disabled={uploading.images}
+                      className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700"
+                    />
+                    {uploading.images && (
+                      <div className="w-full bg-gray-200 dark:bg-gray-600 rounded h-2">
+                        <div
+                          className="bg-orange-500 h-2 rounded"
+                          style={{ width: `${uploadProgress.images}%` }}
+                        ></div>
+                      </div>
+                    )}
+                    {uploadError.images && <p className="text-red-600 dark:text-red-400">{uploadError.images}</p>}
                   </div>
-                )}
-                {uploadError.images && <p className="text-red-600 text-sm mt-1">{uploadError.images}</p>}
+                </div>
               </div>
             </div>
 
             {/* Address Section */}
-            <div className="bg-white p-6 rounded-lg shadow dark:bg-gray-800">
-              <h3 className="text-lg font-semibold mb-4 dark:text-white">Address</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Street*</label>
-                  <input
-                    {...register('address.street')}
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                  />
+            <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-orange-200 dark:border-gray-700">
+              <h3 className="text-xl font-semibold mb-6 dark:text-white flex items-center">
+                <FaMapMarkerAlt className="mr-2 text-orange-500" />
+                Address
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Street*
+                  </label>
+                  <div className="relative">
+                    <input
+                      {...register('address.street')}
+                      className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                    />
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                  </div>
                   {errors.address?.street && (
                     <p className="text-red-600 dark:text-red-400">{errors.address.street.message}</p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300">City*</label>
-                  <input
-                    {...register('address.city')}
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                  />
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    City*
+                  </label>
+                  <div className="relative">
+                    <input
+                      {...register('address.city')}
+                      className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                    />
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                  </div>
                   {errors.address?.city && (
                     <p className="text-red-600 dark:text-red-400">{errors.address.city.message}</p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Province*</label>
-                  <select
-                    {...register('address.province')}
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                  >
-                    <option value="">Select a province</option>
-                    {provinces.map((province) => (
-                      <option key={province} value={province}>
-                        {province}
-                      </option>
-                    ))}
-                  </select>
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Province*
+                  </label>
+                  <div className="relative">
+                    <select
+                      {...register('address.province')}
+                      className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                    >
+                      <option value="">Select a province</option>
+                      {provinces.map((province) => (
+                        <option key={province} value={province}>
+                          {province}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                  </div>
                   {errors.address?.province && (
                     <p className="text-red-600 dark:text-red-400">{errors.address.province.message}</p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Postal Code*</label>
-                  <input
-                    {...register('address.postalCode')}
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                  />
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Postal Code*
+                  </label>
+                  <div className="relative">
+                    <input
+                      {...register('address.postalCode')}
+                      className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                    />
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                  </div>
                   {errors.address?.postalCode && (
                     <p className="text-red-600 dark:text-red-400">{errors.address.postalCode.message}</p>
                   )}
@@ -563,66 +687,86 @@ const EditRestaurant = () => {
                           <Marker position={markerPosition} draggable onDragEnd={handleMarkerDragEnd} />
                         </GoogleMap>
                       ) : (
-                        <div className="flex items-center justify-center h-full bg-gray-200 dark:bg-gray-700">
+                        <div className="flex items-center justify-center h-full bg-gray-200 dark:bg-gray-700 rounded-xl">
                           Loading map...
                         </div>
                       )}
                     </LoadScript>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Latitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    {...register('address.coordinates.lat', { valueAsNumber: true })}
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                    readOnly
-                  />
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Latitude
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="any"
+                      {...register('address.coordinates.lat', { valueAsNumber: true })}
+                      className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 bg-gray-100 dark:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                      readOnly
+                    />
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                  </div>
                   {errors.address?.coordinates?.lat && (
-                    <p className="text-red-600 dark:text-red-400">
-                      {errors.address.coordinates.lat.message}
-                    </p>
+                    <p className="text-red-600 dark:text-red-400">{errors.address.coordinates.lat.message}</p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Longitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    {...register('address.coordinates.lng', { valueAsNumber: true })}
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                    readOnly
-                  />
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Longitude
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="any"
+                      {...register('address.coordinates.lng', { valueAsNumber: true })}
+                      className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 bg-gray-100 dark:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                      readOnly
+                    />
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                  </div>
                   {errors.address?.coordinates?.lng && (
-                    <p className="text-red-600 dark:text-red-400">
-                      {errors.address.coordinates.lng.message}
-                    </p>
+                    <p className="text-red-600 dark:text-red-400">{errors.address.coordinates.lng.message}</p>
                   )}
                 </div>
               </div>
             </div>
 
             {/* Contact Information */}
-            <div className="bg-white p-6 rounded-lg shadow dark:bg-gray-800">
-              <h3 className="text-lg font-semibold mb-4 dark:text-white">Contact Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Phone*</label>
-                  <input
-                    {...register('contact.phone')}
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                  />
+            <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-orange-200 dark:border-gray-700">
+              <h3 className="text-xl font-semibold mb-6 dark:text-white flex items-center">
+                <FaPhone className="mr-2 text-orange-500" />
+                Contact Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Phone*
+                  </label>
+                  <div className="relative">
+                    <FaPhone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                    <input
+                      {...register('contact.phone')}
+                      className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                    />
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                  </div>
                   {errors.contact?.phone && (
                     <p className="text-red-600 dark:text-red-400">{errors.contact.phone.message}</p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Email</label>
-                  <input
-                    {...register('contact.email')}
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                  />
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Email
+                  </label>
+                  <div className="relative">
+                    <input
+                      {...register('contact.email')}
+                      className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                    />
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                  </div>
                   {errors.contact?.email && (
                     <p className="text-red-600 dark:text-red-400">{errors.contact.email.message}</p>
                   )}
@@ -631,46 +775,194 @@ const EditRestaurant = () => {
             </div>
 
             {/* Opening Hours */}
-            <div className="bg-white p-6 rounded-lg shadow dark:bg-gray-800">
-              <h3 className="text-lg font-semibold mb-4 dark:text-white">Opening Hours</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Open Time*</label>
-                  <input
-                    {...register('openingHours.open')}
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                  />
+            <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-orange-200 dark:border-gray-700">
+              <h3 className="text-xl font-semibold mb-6 dark:text-white flex items-center">
+                <FaClock className="mr-2 text-orange-500" />
+                Opening Hours
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Open Time*
+                  </label>
+                  <div className="relative">
+                    <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                    <input
+                      type="time"
+                      {...register('openingHours.open')}
+                      className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                    />
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                  </div>
                   {errors.openingHours?.open && (
                     <p className="text-red-600 dark:text-red-400">{errors.openingHours.open.message}</p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Close Time*</label>
-                  <input
-                    {...register('openingHours.close')}
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
-                  />
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Close Time*
+                  </label>
+                  <div className="relative">
+                    <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                    <input
+                      type="time"
+                      {...register('openingHours.close')}
+                      className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                    />
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                  </div>
                   {errors.openingHours?.close && (
                     <p className="text-red-600 dark:text-red-400">{errors.openingHours.close.message}</p>
                   )}
                 </div>
-                <div>
+                <div className="group">
                   <label className="block text-gray-700 mb-2 dark:text-gray-300">Closed</label>
                   <input
                     type="checkbox"
                     {...register('openingHours.isClosed')}
-                    className="w-5 h-5"
+                    className="h-5 w-5 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
                   />
                 </div>
               </div>
             </div>
 
+            {/* Bank Details */}
+            <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-orange-200 dark:border-gray-700">
+              <h3 className="text-xl font-semibold mb-6 dark:text-white flex items-center">
+                <FaMoneyBill className="mr-2 text-orange-500" />
+                Bank Details (Optional)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Account Number
+                  </label>
+                  <div className="relative">
+                    <FaMoneyBill className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                    <input
+                      {...register('bank.accountNumber')}
+                      className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                    />
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                  </div>
+                  {errors.bank?.accountNumber && (
+                    <p className="text-red-600 dark:text-red-400">{errors.bank.accountNumber.message}</p>
+                  )}
+                </div>
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Account Holder Name
+                  </label>
+                  <div className="relative">
+                    <FaUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                    <input
+                      {...register('bank.accountHolderName')}
+                      className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                    />
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                  </div>
+                  {errors.bank?.accountHolderName && (
+                    <p className="text-red-600 dark:text-red-400">{errors.bank.accountHolderName.message}</p>
+                  )}
+                </div>
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Bank Name
+                  </label>
+                  <div className="relative">
+                    <FaMoneyBill className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                    <select
+                      {...register('bank.bankName')}
+                      className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                    >
+                      <option value="">Select a bank</option>
+                      {sriLankanBanks.map((bank) => (
+                        <option key={bank} value={bank}>
+                          {bank}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                  </div>
+                  {errors.bank?.bankName && (
+                    <p className="text-red-600 dark:text-red-400">{errors.bank.bankName.message}</p>
+                  )}
+                </div>
+                <div className="group">
+                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                    Branch
+                  </label>
+                  <div className="relative">
+                    <FaMoneyBill className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                    <input
+                      {...register('bank.branch')}
+                      className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                    />
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                  </div>
+                  {errors.bank?.branch && (
+                    <p className="text-red-600 dark:text-red-400">{errors.bank.branch.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Service Types */}
+            <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-orange-200 dark:border-gray-700">
+              <h3 className="text-xl font-semibold mb-6 dark:text-white flex items-center">
+                <FaUtensils className="mr-2 text-orange-500" />
+                Service Types
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    {...register('serviceType.delivery')}
+                    className="h-5 w-5 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Delivery
+                  </label>
+                </div>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    {...register('serviceType.pickup')}
+                    className="h-5 w-5 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Pickup
+                  </label>
+                </div>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    {...register('serviceType.dineIn')}
+                    className="h-5 w-5 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Dine-In
+                  </label>
+                </div>
+              </div>
+              {errors.serviceType && (
+                <p className="text-red-600 dark:text-red-400">{errors.serviceType.message}</p>
+              )}
+            </div>
+
             {/* Submit Button */}
-            <div className="flex justify-end">
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard')}
+                className="px-6 py-3 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white rounded-xl hover:bg-gray-400 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-all duration-200 shadow-sm"
+              >
+                Cancel
+              </button>
               <button
                 type="submit"
                 disabled={uploading.cover || uploading.images}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all duration-200 disabled:bg-gray-400"
+                className="px-6 py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl hover:from-orange-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all duration-200 shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 Update Restaurant
               </button>

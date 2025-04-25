@@ -47,6 +47,18 @@ const RestaurantSchema = new mongoose.Schema(
     coverImageUrl: {
       type: String,
     },
+    bank:{
+      accountNumber: { type: String, required: false },
+      accountHolderName: { type: String, required: false },
+      bankName: { type: String, required: false },
+      branch:{ type: String, required: false },
+    },
+    serviceType:{
+      delivery: { type: Boolean, default: true },
+      pickup: { type: Boolean, default: true },
+      dineIn: { type: Boolean, default: true },
+    },
+
 
     location: {
       type: { type: String, enum: ["Point"], default: "Point" },
@@ -56,9 +68,13 @@ const RestaurantSchema = new mongoose.Schema(
     cuisineType: {
       type: String,
       enum: ["Indian", "Chinese", "Italian", "Mexican", "Continental"],
+      default: "Indian",
     },
 
-    isVerified: { type: Boolean, default: false },
+    isVerified: { type: String,
+      enum: ["active", "suspended", "pending", ],
+      default: "pending",
+    required: false },
 
     reviews: [
       {
@@ -66,7 +82,12 @@ const RestaurantSchema = new mongoose.Schema(
         rating: { type: Number, required: true },
         comment: { type: String, required: true },
       },
-    ],
+    ], 
+    estimatedPrepTime: {
+      type: Number, // In minutes
+      default: 20,
+    },
+
   },
 
   {

@@ -66,6 +66,21 @@ const Sidebar = () => {
             </li>
             <li>
               <NavLink
+                to="/restaurants/pending"
+                className={({ isActive }) =>
+                  `flex items-center p-3 rounded-xl transition-all duration-300 ease-in-out ${
+                    isActive
+                      ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-md'
+                      : 'text-gray-300 hover:bg-gray-700 hover:text-white hover:scale-105 hover:shadow-lg'
+                  }`
+                }
+              >
+                <FaPlusCircle className="mr-3 text-lg" />
+                <span className="font-medium">Pending </span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
                 to="/user"
                 className={({ isActive }) =>
                   `flex items-center p-3 rounded-xl transition-all duration-300 ease-in-out ${
