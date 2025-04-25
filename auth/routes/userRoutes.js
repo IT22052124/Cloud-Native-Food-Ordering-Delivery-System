@@ -23,7 +23,7 @@ router.use(protect);
 
 // Routes accessible by all authenticated users
 router.get("/me", getCurrentUser);
-router.put("/me", updateProfile);
+router.patch("/me", updateProfile);
 router.put("/me/password", changePassword);
 
 // Address management routes
