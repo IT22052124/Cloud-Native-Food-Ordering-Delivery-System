@@ -35,6 +35,7 @@ const ProfileScreen = ({ navigation }) => {
   const [editField, setEditField] = useState("");
   const [editValue, setEditValue] = useState("");
   const [editLabel, setEditLabel] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [locationEnabled, setLocationEnabled] = useState(true);
@@ -97,12 +98,30 @@ const ProfileScreen = ({ navigation }) => {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        // Call API to upload image and update profile
-        await updateUserProfile({ profileImage: result.assets[0].uri });
+        const imageUri = result.assets[0].uri;
+        setUploadingImage(true);
+
+        try {
+          // Let the updateUserProfile method handle the image upload and field mapping
+          await updateUserProfile({
+            profileImage: imageUri,
+          });
+
+          Alert.alert("Success", "Profile picture updated successfully");
+        } catch (error) {
+          console.error("Profile picture update error:", error);
+          Alert.alert(
+            "Error",
+            error.message || "Failed to update profile picture"
+          );
+        } finally {
+          setUploadingImage(false);
+        }
       }
     } catch (error) {
       Alert.alert("Error", "Failed to update profile picture");
       console.error("Error picking image:", error);
+      setUploadingImage(false);
     }
   };
 
@@ -132,15 +151,19 @@ const ProfileScreen = ({ navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.profileImageContainer}>
-            {user.profileImage ? (
+            {uploadingImage ? (
+              <View style={styles.uploadingContainer}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+              </View>
+            ) : user.profilePicture ? (
               <Image
-                source={{ uri: user.profileImage }}
+                source={{ uri: user.profilePicture }}
                 style={styles.profileImage}
               />
             ) : (
               <Avatar.Text
                 size={100}
-                label={`${user.name}`}
+                label={`${user.name?.charAt(0) || ""}`}
                 backgroundColor={theme.colors.primary}
               />
             )}
@@ -150,6 +173,7 @@ const ProfileScreen = ({ navigation }) => {
                 { backgroundColor: theme.colors.primary },
               ]}
               onPress={pickImage}
+              disabled={uploadingImage}
             >
               <Ionicons name="camera" size={20} color="white" />
             </TouchableOpacity>
@@ -445,6 +469,14 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
+  },
+  uploadingContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(0,0,0,0.1)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   editImageButton: {
     position: "absolute",

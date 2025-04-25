@@ -21,7 +21,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const { width, height } = Dimensions.get("window");
 
 // WebSocket URL - match it with your backend WebSocket server address
-const WS_URL = "ws://192.168.1.2:5002";
+const WS_URL = "ws://192.168.1.7:5002";
 
 const OrderTrackingScreen = ({ route, navigation }) => {
   const { orderId } = route.params;

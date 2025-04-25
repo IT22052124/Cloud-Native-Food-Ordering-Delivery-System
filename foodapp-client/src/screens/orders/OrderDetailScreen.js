@@ -15,11 +15,12 @@ import {
   Divider,
   Button,
   IconButton,
+  Surface,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
 import dataService, { ORDER_STATUS } from "../../services/dataService";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons, FontAwesome } from "@expo/vector-icons";
 import MapView, { Marker } from "react-native-maps";
 
 const OrderDetailScreen = ({ route, navigation }) => {
@@ -129,6 +130,31 @@ const OrderDetailScreen = ({ route, navigation }) => {
     );
   };
 
+  const getPaymentStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case "paid":
+      case "completed":
+        return theme.colors.success;
+      case "pending":
+        return theme.colors.warning;
+      case "failed":
+        return theme.colors.error;
+      default:
+        return theme.colors.gray;
+    }
+  };
+
+  const getPaymentMethodIcon = (method) => {
+    if (!method) return "cash";
+
+    method = method.toLowerCase();
+    if (method.includes("card")) {
+      return "credit-card";
+    } else {
+      return "money";
+    }
+  };
+
   if (loading) {
     return (
       <View
@@ -169,6 +195,13 @@ const OrderDetailScreen = ({ route, navigation }) => {
       </View>
     );
   }
+
+  // Determine payment status and method
+  const paymentMethod =
+    order.paymentMethod == "COD" ? "Cash on Delivery" : "Credit/Debit Card";
+  const paymentStatus =
+    order.paymentStatus ||
+    (paymentMethod.toLowerCase().includes("cash") ? "Pending" : "Paid");
 
   return (
     <SafeAreaView
@@ -222,8 +255,11 @@ const OrderDetailScreen = ({ route, navigation }) => {
           <Card.Content>
             <View style={styles.restaurantHeader}>
               <Image
-                // source={{ uri: item.restaurantImage }}
-                source={require("../../assets/no-image-restaurant.png")}
+                source={
+                  restaurant.imageUrls && restaurant.imageUrls?.length > 0
+                    ? { uri: restaurant.imageUrls[0] }
+                    : require("../../assets/no-image-restaurant.png")
+                }
                 style={styles.restaurantImage}
               />
               <View style={styles.restaurantInfo}>
@@ -231,7 +267,7 @@ const OrderDetailScreen = ({ route, navigation }) => {
                 <TouchableOpacity
                   onPress={() =>
                     navigation.navigate("RestaurantDetail", {
-                      restaurantId: order.restaurantId,
+                      restaurantId: restaurant._id,
                     })
                   }
                   style={styles.viewRestaurantButton}
@@ -257,11 +293,21 @@ const OrderDetailScreen = ({ route, navigation }) => {
             {order.restaurantOrder.items.map((item, index) => (
               <View key={index}>
                 <View style={styles.orderItem}>
-                  <View style={styles.orderItemInfo}>
-                    <Text style={styles.orderItemName}>{item.name}</Text>
-                    <Text style={styles.orderItemQuantity}>
-                      Qty: {item.quantity}
-                    </Text>
+                  <View style={styles.orderItemLeft}>
+                    <Image
+                      source={
+                        item.image
+                          ? { uri: item.image }
+                          : require("../../assets/no-image.png")
+                      }
+                      style={styles.itemImage}
+                    />
+                    <View style={styles.orderItemInfo}>
+                      <Text style={styles.orderItemName}>{item.name}</Text>
+                      <Text style={styles.orderItemQuantity}>
+                        Qty: {item.quantity}
+                      </Text>
+                    </View>
                   </View>
                   <Text style={styles.orderItemPrice}>
                     LKR {item.price * item.quantity}
@@ -300,30 +346,70 @@ const OrderDetailScreen = ({ route, navigation }) => {
               </Text>
             </View>
 
-            {/* {order.tip > 0 && (
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Tip</Text>
-                <Text style={styles.summaryValue}>${order.tip}</Text>
-              </View>
-            )} */}
-
             <Divider style={styles.summaryDivider} />
 
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
               <Text style={styles.totalValue}>LKR {order.totalAmount}</Text>
             </View>
+          </Card.Content>
+        </Card>
 
-            <View style={styles.paymentMethod}>
-              <Ionicons
-                name="card-outline"
-                size={20}
-                color={theme.colors.gray}
-              />
-              <Text style={styles.paymentMethodText}>
-                Paid with {order.paymentMethod}
-              </Text>
-            </View>
+        {/* New Payment Card */}
+        <Card style={[styles.paymentCard, { ...theme.shadow.small }]}>
+          <Card.Content>
+            <Text style={styles.sectionTitle}>Payment Information</Text>
+
+            <Surface
+              style={[
+                styles.paymentMethodCard,
+                { backgroundColor: theme.colors.surfaceVariant },
+              ]}
+            >
+              <View style={styles.paymentCardContent}>
+                <View style={styles.paymentLeftContent}>
+                  <View style={styles.paymentIconContainer}>
+                    <FontAwesome
+                      name={getPaymentMethodIcon(paymentMethod)}
+                      size={24}
+                      color={theme.colors.primary}
+                    />
+                  </View>
+                  <View style={styles.paymentDetails}>
+                    <Text style={styles.paymentMethodTitle}>
+                      {paymentMethod}
+                    </Text>
+                    <Text style={styles.paymentMethodDate}>
+                      {formatDate(order.createdAt)}
+                    </Text>
+                  </View>
+                </View>
+                <Chip
+                  style={[
+                    styles.paymentStatusChip,
+                    { backgroundColor: getPaymentStatusColor(paymentStatus) },
+                  ]}
+                  textStyle={{
+                    color: "white",
+                    fontWeight: "500",
+                    fontSize: 12,
+                  }}
+                >
+                  {paymentStatus}
+                </Chip>
+              </View>
+
+              {paymentMethod.toLowerCase().includes("card") && (
+                <View style={styles.cardDetails}>
+                  <View style={styles.cardNumberSection}>
+                    <Text style={styles.cardNumberLabel}>Card Number</Text>
+                    <Text style={styles.cardNumberValue}>
+                      •••• •••• •••• {order.cardLastFour || "1234"}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </Surface>
           </Card.Content>
         </Card>
 
@@ -535,22 +621,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 12,
     paddingVertical: 8,
+  },
+  orderItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
   },
   orderItemInfo: {
     flex: 1,
   },
   orderItemName: {
-    fontSize: 16,
-    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: "500",
   },
   orderItemQuantity: {
     fontSize: 14,
     color: "#666",
   },
   orderItemPrice: {
-    fontSize: 16,
-    fontWeight: "500",
+    fontSize: 14,
+    fontWeight: "bold",
   },
   itemDivider: {
     marginVertical: 8,
@@ -587,15 +679,68 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
   },
-  paymentMethod: {
+  paymentCard: {
+    marginBottom: 16,
+    borderRadius: 10,
+  },
+  paymentMethodCard: {
+    borderRadius: 5,
+    padding: 14,
+    overflow: "hidden",
+  },
+  paymentCardContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  paymentLeftContent: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 12,
   },
-  paymentMethodText: {
-    marginLeft: 8,
-    fontSize: 14,
+  paymentIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0,0,0,0.05)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  paymentDetails: {
+    flex: 1,
+    maxWidth:135
+  },
+  paymentMethodTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  paymentMethodDate: {
+    fontSize: 12,
     color: "#666",
+  },
+  paymentStatusChip: {
+    height: 28,
+    maxWidth: 80
+  },
+  cardDetails: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.1)",
+  },
+  cardNumberSection: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  cardNumberLabel: {
+    fontSize: 12,
+    color: "#666",
+  },
+  cardNumberValue: {
+    fontSize: 14,
+    fontWeight: "500",
   },
   deliveryAddressCard: {
     marginBottom: 16,
@@ -666,6 +811,12 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     paddingVertical: 8,
+  },
+  itemImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 4,
+    marginRight: 12,
   },
 });
 
