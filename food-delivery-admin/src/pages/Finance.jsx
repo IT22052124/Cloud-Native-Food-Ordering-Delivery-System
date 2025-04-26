@@ -21,13 +21,15 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+import { RestaurantPayments, DriverPayments } from "./Payment";
+
 // Using the finance data structure you provided
 import { finance } from "../data/finance";
 
 const Finance = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("month");
   const [selectedTab, setSelectedTab] = useState("overview");
-  
+
   // We don't have this in the provided data, but we can keep it for UI purposes
   const [dateRange, setDateRange] = useState({
     start: "2025-04-01",
@@ -38,6 +40,8 @@ const Finance = () => {
     { id: "overview", label: "Overview" },
     { id: "income", label: "Income" },
     { id: "expenses", label: "Expenses" },
+    { id: "restaurantPayments", label: "Restaurant Payments" },
+    { id: "driverPayments", label: "Driver Payments" },
     { id: "payouts", label: "Payouts" },
     { id: "reports", label: "Reports" },
   ];
@@ -72,7 +76,7 @@ const Finance = () => {
       description: "Payment to Burger King",
       type: "expense",
       amount: 5876.5,
-      status: "completed"
+      status: "completed",
     },
     {
       id: "tr002",
@@ -80,7 +84,7 @@ const Finance = () => {
       description: "Payment to Pizza Hut",
       type: "expense",
       amount: 4987.25,
-      status: "completed"
+      status: "completed",
     },
     {
       id: "tr003",
@@ -88,24 +92,24 @@ const Finance = () => {
       description: "Payment to The Fancy Plate",
       type: "expense",
       amount: 6540.75,
-      status: "pending"
+      status: "pending",
     },
     {
       id: "tr004",
       date: "2025-04-15",
       description: "Revenue from online orders",
       type: "income",
-      amount: 12540.50,
-      status: "completed"
+      amount: 12540.5,
+      status: "completed",
     },
     {
       id: "tr005",
       date: "2025-04-20",
       description: "Platform fee",
       type: "expense",
-      amount: 3287.50,
-      status: "completed"
-    }
+      amount: 3287.5,
+      status: "completed",
+    },
   ];
 
   // Convert monthly summary to revenue sources for the bar chart
@@ -113,13 +117,13 @@ const Finance = () => {
     { name: "Platform Fees", value: finance.summary.platformFees },
     { name: "Processing Fees", value: finance.summary.paymentProcessingFees },
     { name: "Net Profit", value: finance.summary.netProfit },
-    { name: "Pending Payouts", value: finance.summary.pendingPayouts }
+    { name: "Pending Payouts", value: finance.summary.pendingPayouts },
   ];
 
   return (
     <div className="p-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold mb-4 md:mb-0">
+        <h1 className="text-2xl font-semibold text-gray-800 dark:text-white">
           Financial Management
         </h1>
         <div className="flex items-center space-x-4">
@@ -607,6 +611,13 @@ const Finance = () => {
             </table>
           </div>
         </div>
+      )}
+      {selectedTab === "restaurantPayments" && (
+        <RestaurantPayments finance={finance} formatCurrency={formatCurrency} />
+      )}
+
+      {selectedTab === "driverPayments" && (
+        <DriverPayments finance={finance} formatCurrency={formatCurrency} />
       )}
 
       {/* Other tabs would be implemented similarly */}

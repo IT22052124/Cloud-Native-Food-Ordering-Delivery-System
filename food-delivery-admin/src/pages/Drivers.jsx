@@ -109,7 +109,9 @@ const Drivers = () => {
   return (
     <div className="p-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold mb-4 md:mb-0">Driver Management</h1>
+        <h1 className="text-2xl font-semibold text-gray-800 dark:text-white">
+          Driver Management
+        </h1>
         <div className="flex items-center">
           <div className="relative mr-4">
             <input
