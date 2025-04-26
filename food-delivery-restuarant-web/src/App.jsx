@@ -20,6 +20,7 @@ import OrderHistory from "./pages/Orders/OrderHistory";
 import ReadyForPickupOrders from "./pages/Orders/PickUp";
 import Resturant from "./pages/Restaurant";
 import UserProfile from "./pages/userprofile";
+import PendingRestaurantTable from "./pages/pendingRestaurant";
 const App = () => {
   return (
     <Router>
@@ -46,6 +47,8 @@ const App = () => {
         <Route path="/orders/processing" element={<ProcessingOrders />} />
         <Route path="/orders/ready" element={<ReadyForPickupOrders />} />
         <Route path="/orders/history" element={<OrderHistory />} />
+        <Route path="/restaurants/pending" element={<PendingRestaurantTable />} />
+
         <Route path="/user" element={<UserProfile />} />
         <Route path="/" element={<Login />} />
       </Routes>

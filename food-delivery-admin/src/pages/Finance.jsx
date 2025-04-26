@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { finance } from "../data/finance";
 import {
   FaMoneyBillWave,
   FaDownload,
@@ -22,19 +21,24 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+// Using the finance data structure you provided
+import { finance } from "../data/finance";
+
 const Finance = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("month");
   const [selectedTab, setSelectedTab] = useState("overview");
+  
+  // We don't have this in the provided data, but we can keep it for UI purposes
   const [dateRange, setDateRange] = useState({
-    start: finance.currentPeriod.start,
-    end: finance.currentPeriod.end,
+    start: "2025-04-01",
+    end: "2025-04-30",
   });
 
   const tabs = [
     { id: "overview", label: "Overview" },
     { id: "income", label: "Income" },
     { id: "expenses", label: "Expenses" },
-    { id: "payments", label: "Payments" },
+    { id: "payouts", label: "Payouts" },
     { id: "reports", label: "Reports" },
   ];
 
@@ -59,6 +63,58 @@ const Finance = () => {
       minimumFractionDigits: 2,
     }).format(value);
   };
+
+  // Sample transactions based on the data structure
+  const recentTransactions = [
+    {
+      id: "tr001",
+      date: "2025-04-17",
+      description: "Payment to Burger King",
+      type: "expense",
+      amount: 5876.5,
+      status: "completed"
+    },
+    {
+      id: "tr002",
+      date: "2025-04-17",
+      description: "Payment to Pizza Hut",
+      type: "expense",
+      amount: 4987.25,
+      status: "completed"
+    },
+    {
+      id: "tr003",
+      date: "2025-04-24",
+      description: "Payment to The Fancy Plate",
+      type: "expense",
+      amount: 6540.75,
+      status: "pending"
+    },
+    {
+      id: "tr004",
+      date: "2025-04-15",
+      description: "Revenue from online orders",
+      type: "income",
+      amount: 12540.50,
+      status: "completed"
+    },
+    {
+      id: "tr005",
+      date: "2025-04-20",
+      description: "Platform fee",
+      type: "expense",
+      amount: 3287.50,
+      status: "completed"
+    }
+  ];
+
+  // Convert monthly summary to revenue sources for the bar chart
+  const revenueSources = [
+    { name: "Platform Fees", value: finance.summary.platformFees },
+    { name: "Processing Fees", value: finance.summary.paymentProcessingFees },
+    { name: "Net Profit", value: finance.summary.netProfit },
+    { name: "Pending Payouts", value: finance.summary.pendingPayouts }
+  ];
 
   return (
     <div className="p-6">
@@ -121,7 +177,7 @@ const Finance = () => {
               </div>
               <div className="flex items-end">
                 <p className="text-2xl font-bold dark:text-white">
-                  {formatCurrency(finance.overview.totalRevenue)}
+                  {formatCurrency(finance.summary.totalRevenue)}
                 </p>
                 <p className="ml-2 text-sm text-green-600 flex items-center">
                   <span className="flex items-center">
@@ -137,7 +193,7 @@ const Finance = () => {
                         clipRule="evenodd"
                       ></path>
                     </svg>
-                    {finance.overview.revenueGrowth}%
+                    8.4%
                   </span>
                 </p>
               </div>
@@ -157,7 +213,7 @@ const Finance = () => {
               </div>
               <div className="flex items-end">
                 <p className="text-2xl font-bold dark:text-white">
-                  {formatCurrency(finance.overview.netProfit)}
+                  {formatCurrency(finance.summary.netProfit)}
                 </p>
                 <p className="ml-2 text-sm text-green-600 flex items-center">
                   <span className="flex items-center">
@@ -173,7 +229,7 @@ const Finance = () => {
                         clipRule="evenodd"
                       ></path>
                     </svg>
-                    {finance.overview.profitGrowth}%
+                    7.2%
                   </span>
                 </p>
               </div>
@@ -185,7 +241,7 @@ const Finance = () => {
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">
-                  Total Orders
+                  Platform Fees
                 </h3>
                 <div className="p-2 bg-purple-100 rounded-full">
                   <svg
@@ -206,7 +262,7 @@ const Finance = () => {
               </div>
               <div className="flex items-end">
                 <p className="text-2xl font-bold dark:text-white">
-                  {finance.overview.totalOrders.toLocaleString()}
+                  {formatCurrency(finance.summary.platformFees)}
                 </p>
                 <p className="ml-2 text-sm text-green-600 flex items-center">
                   <span className="flex items-center">
@@ -222,7 +278,7 @@ const Finance = () => {
                         clipRule="evenodd"
                       ></path>
                     </svg>
-                    {finance.overview.orderGrowth}%
+                    10%
                   </span>
                 </p>
               </div>
@@ -234,7 +290,7 @@ const Finance = () => {
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">
-                  Avg. Order Value
+                  Pending Payouts
                 </h3>
                 <div className="p-2 bg-yellow-100 rounded-full">
                   <svg
@@ -255,9 +311,9 @@ const Finance = () => {
               </div>
               <div className="flex items-end">
                 <p className="text-2xl font-bold dark:text-white">
-                  {formatCurrency(finance.overview.avgOrderValue)}
+                  {formatCurrency(finance.summary.pendingPayouts)}
                 </p>
-                <p className="ml-2 text-sm text-green-600 flex items-center">
+                <p className="ml-2 text-sm text-yellow-600 flex items-center">
                   <span className="flex items-center">
                     <svg
                       className="w-3 h-3 mr-1"
@@ -267,11 +323,11 @@ const Finance = () => {
                     >
                       <path
                         fillRule="evenodd"
-                        d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z"
+                        d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z"
                         clipRule="evenodd"
                       ></path>
                     </svg>
-                    {finance.overview.avgOrderGrowth}%
+                    3.2%
                   </span>
                 </p>
               </div>
@@ -299,7 +355,7 @@ const Finance = () => {
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
-                    data={finance.revenueData}
+                    data={finance.monthlySummary}
                     margin={{
                       top: 5,
                       right: 30,
@@ -308,7 +364,7 @@ const Finance = () => {
                     }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                    <XAxis dataKey="name" stroke="#9CA3AF" />
+                    <XAxis dataKey="month" stroke="#9CA3AF" />
                     <YAxis stroke="#9CA3AF" />
                     <Tooltip />
                     <Legend />
@@ -332,12 +388,12 @@ const Finance = () => {
 
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-semibold mb-6 dark:text-white">
-                Revenue Sources
+                Revenue Distribution
               </h3>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={finance.revenueSources}
+                    data={revenueSources}
                     margin={{
                       top: 5,
                       right: 30,
@@ -406,7 +462,7 @@ const Finance = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
-                  {finance.recentTransactions.map((transaction) => (
+                  {recentTransactions.map((transaction) => (
                     <tr
                       key={transaction.id}
                       className="hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -462,6 +518,95 @@ const Finance = () => {
             </div>
           </div>
         </>
+      )}
+
+      {selectedTab === "payouts" && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold dark:text-white">
+              Recent Payouts
+            </h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    ID
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Recipient
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Amount
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Status
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Date
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Reference
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                {finance.payouts.map((payout) => (
+                  <tr
+                    key={payout.id}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                      {payout.id}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {payout.recipient}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                      {formatCurrency(payout.amount)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          payout.status === "Paid"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                            : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+                        }`}
+                      >
+                        {payout.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {payout.date}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {payout.reference}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {/* Other tabs would be implemented similarly */}

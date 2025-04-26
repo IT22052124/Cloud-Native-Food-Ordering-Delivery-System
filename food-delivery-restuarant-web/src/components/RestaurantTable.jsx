@@ -2,14 +2,17 @@
 
 import { useState } from "react"
 import { Link } from "react-router-dom"
-import { FaSearch, FaEdit, FaFilter, FaStore, FaEye, FaMapMarkerAlt } from "react-icons/fa"
+import { FaSearch, FaEdit, FaFilter, FaStore, FaEye, FaMapMarkerAlt, FaThList, FaTh } from "react-icons/fa"
 
 const RestaurantTable = ({ restaurants = [] }) => {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("All")
+  const [viewMode, setViewMode] = useState("table") // Added state for view mode
 
-  // Ensure restaurants is an array
-  let filteredRestaurants = Array.isArray(restaurants) ? restaurants : []
+  // Ensure restaurants is an array and filter for isVerified: "active"
+  let filteredRestaurants = Array.isArray(restaurants) 
+    ? restaurants.filter(restaurant => restaurant.isVerified === "active")
+    : []
 
   // Apply search filter
   if (searchTerm) {
@@ -37,7 +40,7 @@ const RestaurantTable = ({ restaurants = [] }) => {
           </span>
         </h2>
 
-        {/* Search and Filter Controls */}
+        {/* Search, Filter, and View Controls */}
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
           <div className="relative w-full sm:w-64">
             <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
@@ -70,6 +73,22 @@ const RestaurantTable = ({ restaurants = [] }) => {
               <option value="Non-Active">Inactive Only</option>
             </select>
           </div>
+
+          {/* View Toggle */}
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setViewMode("table")}
+              className={`p-3 rounded-xl ${viewMode === "table" ? "bg-orange-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"} hover:bg-orange-600 hover:text-white transition-all duration-200`}
+            >
+              <FaThList />
+            </button>
+            <button
+              onClick={() => setViewMode("card")}
+              className={`p-3 rounded-xl ${viewMode === "card" ? "bg-orange-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"} hover:bg-orange-600 hover:text-white transition-all duration-200`}
+            >
+              <FaTh />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -95,20 +114,20 @@ const RestaurantTable = ({ restaurants = [] }) => {
         )}
       </div>
 
-      {/* Table */}
+      {/* Table or Card View */}
       {filteredRestaurants.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
           <div className="bg-gradient-to-br from-orange-100 to-pink-100 dark:from-orange-900/20 dark:to-pink-900/20 rounded-full p-8 mb-6 shadow-inner">
             <FaStore className="text-5xl text-orange-400 dark:text-orange-500" />
           </div>
-          <p className="text-xl font-bold text-gray-700 dark:text-gray-200 mb-2">No restaurants found</p>
+          <p className="text-xl font-bold text-gray-700 dark:text-gray-200 mb-2">No verified restaurants found</p>
           <p className="text-gray-500 dark:text-gray-400 max-w-md px-4">
             {searchTerm || statusFilter !== "All"
               ? "Try adjusting your search or filter criteria to find what you're looking for."
-              : "Add your first restaurant to begin managing your culinary business."}
+              : "No restaurants with active verification status found."}
           </p>
         </div>
-      ) : (
+      ) : viewMode === "table" ? (
         <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 shadow-md">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead>
@@ -201,6 +220,70 @@ const RestaurantTable = ({ restaurants = [] }) => {
               ))}
             </tbody>
           </table>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredRestaurants.map((restaurant) => (
+            <div
+              key={restaurant._id}
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-200 hover:shadow-xl hover:scale-105"
+            >
+              <div className="relative h-48">
+                {restaurant.imageUrls && restaurant.imageUrls.length > 0 ? (
+                  <img
+                    src={restaurant.imageUrls[0]}
+                    alt={restaurant.name}
+                    className="w Teensy-weensy-full h-full object-cover"
+                  />
+                ) : (
+                  <img
+                    src="https://via.placeholder.com/300x200?text=No+Image"
+                    alt="No Image"
+                    className="w-full h-full object-cover"
+                  />
+                )}
+                <span
+                  className={`absolute top-4 right-4 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                    restaurant.isActive
+                      ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200"
+                      : "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200"
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full mr-1.5 ${
+                      restaurant.isActive
+                        ? "bg-green-500 dark:bg-green-400 animate-pulse"
+                        : "bg-red-500 dark:bg-red-400"
+                    }`}
+                  ></span>
+                  {restaurant.isActive ? "Active" : "Inactive"}
+                </span>
+              </div>
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{restaurant.name}</h3>
+                <div className="flex items-center text-sm text-gray-700 dark:text-gray-300 mb-4">
+                  <FaMapMarkerAlt className="text-orange-500 mr-2 flex-shrink-0" />
+                  <span>{`${restaurant?.address?.street}, ${restaurant?.address?.city}`}</span>
+                </div>
+                <div className="flex justify-between">
+                  <Link
+                    to={`/restaurants/${restaurant._id}`}
+                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-sm hover:shadow"
+                  >
+                    <FaEye className="mr-2" />
+                    View
+                  </Link>
+                  <Link
+                    to={`/restaurants/edit/${restaurant._id}`}
+                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-sm hover:shadow"
+                  >
+                    <FaEdit className="mr-2" />
+                    Edit
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
