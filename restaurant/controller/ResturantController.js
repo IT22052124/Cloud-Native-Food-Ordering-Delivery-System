@@ -23,6 +23,15 @@ export const addRestaurant = async (req, res) => {
       password,
       imageUrls,
       coverImageUrl,
+      open,
+      close,
+      accountNumber,
+      accountHolderName,
+      bankName,
+      branch,
+      serviceType,
+      cuisineType,
+      estimatedPrepTime,
     } = req.body;
 
     // First check if username already exists in any restaurant
@@ -72,6 +81,21 @@ export const addRestaurant = async (req, res) => {
       },
       imageUrls: Array.isArray(imageUrls) ? imageUrls : [],
       coverImageUrl: coverImageUrl || " ",
+      isVerified: "pending",
+      cuisineType: cuisineType,
+      bank: {
+        accountNumber: accountNumber,
+        accountHolderName: accountHolderName,
+        bankName: bankName,
+        branch: branch,
+      },
+      serviceType: serviceType,
+      openingHours: {
+        open: open,
+        close: close,
+        isClosed: false,
+      },
+      estimatedPrepTime: estimatedPrepTime,
     };
 
     const resturants = await Restaurant.create(restaurant);
@@ -138,11 +162,15 @@ export const updateRestaurant = async (req, res) => {
       description,
       address,
       contact,
-      openingHours,
-      menu,
       restaurantAdmin,
       imageUrls: newImageUrls,
       coverImageUrl,
+      openingHours,
+      bank,
+      serviceType,
+      cuisineType,
+      estimatedPrepTime,
+      
     } = req.body;
 
     const restaurant = await Restaurant.findById(req.params.id);
@@ -199,8 +227,11 @@ export const updateRestaurant = async (req, res) => {
     restaurant.description = description || restaurant.description;
     restaurant.address = address || restaurant.address;
     restaurant.contact = contact || restaurant.contact;
-    restaurant.openingHours = openingHours || restaurant.openingHours;
-    restaurant.menu = menu || restaurant.menu;
+    restaurant.openingHours = openingHours ||  restaurant.openingHours;
+    restaurant.bank = bank || restaurant.bank ;
+    restaurant.serviceType = serviceType || restaurant.serviceType;
+    restaurant.cuisineType = cuisineType || restaurant.cuisineType;
+    restaurant.estimatedPrepTime = estimatedPrepTime || restaurant.estimatedPrepTime;
     restaurant.restaurantAdmin.username =
       restaurantAdmin?.username || restaurant.restaurantAdmin.username;
 
@@ -412,4 +443,46 @@ export const getFoodCategories = (req, res) => {
     success: true,
     categories,
   });
+};
+
+
+/**
+ * @desc    Update restaurant verification status (Admin-only)
+ * @route   PATCH /api/restaurants/:id/verify
+ * @access  Private (Admin)
+ */
+//mufeez this
+export const updateRestaurantVerification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isVerified } = req.body;
+
+    // 1. Validate input
+    if (!isVerified || !["active", "suspended", "pending"].includes(isVerified)) {
+      return res.status(400).json({
+        message: "Invalid status. Must be: 'active', 'suspended', or 'pending'.",
+      });
+    }
+
+    // 2. Check if restaurant exists
+    const restaurant = await Restaurant.findById(id);
+    if (!restaurant) {
+      return res.status(404).json({ message: "Restaurant not found." });
+    }
+
+    // 3. Verify requester is an admin (add your admin check logic here)
+    // Example: if (!req.user.isAdmin) return res.status(403).json(...);
+
+    // 4. Update only the `isVerified` field
+    restaurant.isVerified = isVerified;
+    await restaurant.save();
+
+    res.json({
+      message: `Restaurant verification status updated to '${isVerified}'.`,
+      restaurant,
+    });
+  } catch (error) {
+    console.error("Error updating verification status:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
 };

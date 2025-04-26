@@ -2,7 +2,7 @@ import { useContext } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ThemeContext } from "./context/ThemeContext";
 import { AuthContext } from "./context/AuthContext";
-import DashboardLayout from "./layouts/DashboardLayout";
+import DashboardLayout from "./Layouts/DashboardLayout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Notifications from "./pages/Notifications";

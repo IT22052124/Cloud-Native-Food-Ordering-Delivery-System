@@ -9,6 +9,7 @@ import {
   getRestaurantByOwnerId,
   updateRestaurantStatus,
   getFoodCategories,
+  updateRestaurantVerification
 } from "../Controller/ResturantController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 
@@ -22,6 +23,8 @@ router.get("/restaurants/:id", getRestaurantById);
 router.put("/restaurants/:id", authMiddleware, updateRestaurant);
 router.delete("/restaurants/:id", authMiddleware, deleteRestaurant);
 router.patch("/restaurants/:id/status", authMiddleware, updateRestaurantStatus);
+router.patch("/restaurants/:id/verfication", authMiddleware, updateRestaurantVerification); //mufeez call this
+
 
 // Retrieve categories
 router.get("/categories", getFoodCategories);

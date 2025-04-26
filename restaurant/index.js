@@ -8,6 +8,7 @@ import Owner from "./Routes/ResturantOwnerRoute.js";
 import Admin from "./routes/branchAdminRoute.js";
 
 const app = express();
+dotenv.config();
 
 app.use(
   cors({
