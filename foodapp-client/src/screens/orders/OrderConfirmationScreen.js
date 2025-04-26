@@ -34,7 +34,7 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
         const response = await dataService.getOrderById(orderId);
 
         setOrder(response.order.order);
-        console.log(response.order.order.restaurantOrder)
+        console.log(response.order.order.restaurantOrder);
         setRestaurant(response.order.restaurant);
       } catch (error) {
         console.error("Error fetching order details:", error);
@@ -183,8 +183,8 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
                 <View style={styles.orderItemLeft}>
                   <Image
                     source={
-                      item.imageUrls
-                        ? { uri: item.imageUrls[0] }
+                      item.image
+                        ? { uri: item.image }
                         : require("../../assets/no-image.png")
                     }
                     style={styles.itemImage}

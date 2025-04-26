@@ -11,6 +11,7 @@ import ForgotPasswordScreen from "../screens/auth/ForgotPasswordScreen";
 
 // Main App Screens
 import HomeScreen from "../screens/home/HomeScreen";
+import LocationMapScreen from "../screens/home/LocationMapScreen";
 import RestaurantsScreen from "../screens/restaurants/RestaurantsScreen";
 import RestaurantDetailScreen from "../screens/restaurants/RestaurantDetailScreen";
 import DishDetailScreen from "../screens/restaurants/DishDetailScreen";
@@ -52,6 +53,7 @@ const HomeStack = () => {
         component={RestaurantDetailScreen}
       />
       <Stack.Screen name="DishDetail" component={DishDetailScreen} />
+      <Stack.Screen name="LocationMap" component={LocationMapScreen} />
     </Stack.Navigator>
   );
 };

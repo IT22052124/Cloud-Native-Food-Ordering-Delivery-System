@@ -196,6 +196,38 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     }
   };
+  const updateUserProfile = async (updatedFields) => {
+    try {
+      // Call the API to update user profile
+      if (!authService.updateProfile) {
+        throw new Error("Update profile service not implemented");
+      }
+
+      const updatedUser = await authService.updateProfile(updatedFields);
+
+      if (updatedUser) {
+        // Handle the case where profilePicture is returned instead of profileImage
+        const normalizedUser = { ...updatedUser };
+        if (normalizedUser.profilePicture && !normalizedUser.profileImage) {
+          normalizedUser.profileImage = normalizedUser.profilePicture;
+        }
+
+        // Update local user state with new data
+        setUser((prevUser) => ({
+          ...prevUser,
+          ...normalizedUser,
+        }));
+        return normalizedUser;
+      } else {
+        throw new Error("Failed to update profile");
+      }
+    } catch (err) {
+      console.error("Profile update error:", err);
+      setError(err.message || "Failed to update profile");
+      throw err;
+    } finally {
+    }
+  };
 
   return (
     <AuthContext.Provider
@@ -208,6 +240,7 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
+        updateUserProfile,
         isAuthenticated: !!user && !!token,
       }}
     >

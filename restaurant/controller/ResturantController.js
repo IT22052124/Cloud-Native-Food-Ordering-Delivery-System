@@ -83,6 +83,10 @@ export const addRestaurant = async (req, res) => {
       coverImageUrl: coverImageUrl || " ",
       isVerified: "pending",
       cuisineType: cuisineType,
+      location: {
+        type: "Point",
+        coordinates: [lng, lat],
+      },
       bank: {
         accountNumber: accountNumber,
         accountHolderName: accountHolderName,
@@ -170,7 +174,6 @@ export const updateRestaurant = async (req, res) => {
       serviceType,
       cuisineType,
       estimatedPrepTime,
-      
     } = req.body;
 
     const restaurant = await Restaurant.findById(req.params.id);
@@ -227,13 +230,19 @@ export const updateRestaurant = async (req, res) => {
     restaurant.description = description || restaurant.description;
     restaurant.address = address || restaurant.address;
     restaurant.contact = contact || restaurant.contact;
-    restaurant.openingHours = openingHours ||  restaurant.openingHours;
-    restaurant.bank = bank || restaurant.bank ;
+    restaurant.openingHours = openingHours || restaurant.openingHours;
+    restaurant.bank = bank || restaurant.bank;
     restaurant.serviceType = serviceType || restaurant.serviceType;
     restaurant.cuisineType = cuisineType || restaurant.cuisineType;
-    restaurant.estimatedPrepTime = estimatedPrepTime || restaurant.estimatedPrepTime;
+    restaurant.estimatedPrepTime =
+      estimatedPrepTime || restaurant.estimatedPrepTime;
     restaurant.restaurantAdmin.username =
       restaurantAdmin?.username || restaurant.restaurantAdmin.username;
+
+    restaurant.location = {
+      type: "Point",
+      coordinates: [address.coordinates.lng, address.coordinates.lat],
+    };
 
     await restaurant.save();
     res.json({ message: "Restaurant updated successfully!", restaurant });
@@ -326,7 +335,10 @@ export const restaurants = async (req, res) => {
     if (!restaurants || restaurants.length === 0) {
       return res.status(404).json({ message: "No restaurants found!" });
     }
-    return res.json({ count: restaurants.length, restaurants });
+    return res.json({
+      count: restaurants.length,
+      restaurants,
+    });
   } catch (error) {
     console.log("Error in getting all restaurants", error);
     res.status(500).json({ message: "Server error", error });
@@ -445,22 +457,25 @@ export const getFoodCategories = (req, res) => {
   });
 };
 
-
 /**
  * @desc    Update restaurant verification status (Admin-only)
  * @route   PATCH /api/restaurants/:id/verify
  * @access  Private (Admin)
  */
-//mufeez this
+// mufeez this
 export const updateRestaurantVerification = async (req, res) => {
   try {
     const { id } = req.params;
     const { isVerified } = req.body;
 
     // 1. Validate input
-    if (!isVerified || !["active", "suspended", "pending"].includes(isVerified)) {
+    if (
+      !isVerified ||
+      !["active", "suspended", "pending"].includes(isVerified)
+    ) {
       return res.status(400).json({
-        message: "Invalid status. Must be: 'active', 'suspended', or 'pending'.",
+        message:
+          "Invalid status. Must be: 'active', 'suspended', or 'pending'.",
       });
     }
 
@@ -484,5 +499,158 @@ export const updateRestaurantVerification = async (req, res) => {
   } catch (error) {
     console.error("Error updating verification status:", error);
     res.status(500).json({ message: "Server error", error });
+  }
+};
+
+/**
+ * @desc    Get restaurants within a specific location range
+ * @route   GET /api/restaurants/nearby
+ * @access  Public
+ */
+export const getRestaurantsByLocation = async (req, res) => {
+  try {
+    const { lat, lng, range } = req.query;
+
+    // Validate required parameters
+    if (!lat || !lng || !range) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Missing required parameters: lat, lng, and range are required",
+      });
+    }
+
+    // Convert string parameters to numbers
+    const latitude = parseFloat(lat);
+    const longitude = parseFloat(lng);
+    const radiusInKm = parseFloat(range);
+
+    // Validate parameter values
+    if (isNaN(latitude) || isNaN(longitude) || isNaN(radiusInKm)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid parameters: lat, lng, and range must be valid numbers",
+      });
+    }
+
+    if (radiusInKm <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Range must be greater than 0",
+      });
+    }
+
+    // Use MongoDB's $geoNear aggregation for efficient geospatial querying
+    const restaurants = await Restaurant.aggregate([
+      {
+        $geoNear: {
+          near: {
+            type: "Point",
+            coordinates: [longitude, latitude], // MongoDB uses [lng, lat] order
+          },
+          distanceField: "distance",
+          maxDistance: radiusInKm * 1000, // Convert km to meters
+          spherical: true,
+          distanceMultiplier: 0.001, // Convert meters back to kilometers
+          query: { isActive: true }, // Add any additional filters here
+        },
+      },
+      {
+        $project: {
+          // Include all fields plus the calculated distance
+          name: 1,
+          ownerId: 1,
+          description: 1,
+          address: 1,
+          contact: 1,
+          openingHours: 1,
+          isActive: 1,
+          imageUrls: 1,
+          dishes: 1,
+          coverImageUrl: 1,
+          serviceType: 1,
+          cuisineType: 1,
+          isVerified: 1,
+          reviews: 1,
+          estimatedPrepTime: 1,
+          location: 1,
+          distance: { $round: ["$distance", 2] }, // Round distance to 2 decimal places
+        },
+      },
+      {
+        $sort: { distance: 1 }, // Sort by distance (nearest first)
+      },
+    ]);
+
+    if (restaurants.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No restaurants found within the specified range",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      count: restaurants.length,
+      restaurants,
+    });
+  } catch (error) {
+    console.log("Error in getting nearby restaurants", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Search restaurants by name or cuisine type
+ * @route   GET /api/restaurants/search
+ * @access  Public
+ */
+export const searchRestaurants = async (req, res) => {
+  try {
+    const { query } = req.query;
+
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        message: "Search query is required",
+      });
+    }
+
+    // Create a case-insensitive regex for the search term
+    const searchRegex = new RegExp(query, "i");
+
+    // Search in name and cuisineType fields
+    const restaurants = await Restaurant.find({
+      $or: [
+        { name: { $regex: searchRegex } },
+        { cuisineType: { $regex: searchRegex } },
+      ],
+    });
+
+    if (restaurants.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "No restaurants found matching your search",
+        restaurants: [],
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      count: restaurants.length,
+      restaurants,
+    });
+  } catch (error) {
+    console.log("Error in searching restaurants", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };

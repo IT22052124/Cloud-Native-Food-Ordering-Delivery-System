@@ -39,30 +39,28 @@ const RestaurantSchema = new mongoose.Schema(
       {
         type: String,
         trim: true,
-       
-      }
+      },
     ],
 
     dishes: [Types.ObjectId],
     coverImageUrl: {
       type: String,
     },
-    bank:{
+    bank: {
       accountNumber: { type: String, required: false },
       accountHolderName: { type: String, required: false },
       bankName: { type: String, required: false },
-      branch:{ type: String, required: false },
+      branch: { type: String, required: false },
     },
-    serviceType:{
+    serviceType: {
       delivery: { type: Boolean, default: true },
       pickup: { type: Boolean, default: true },
       dineIn: { type: Boolean, default: true },
     },
 
-
     location: {
       type: { type: String, enum: ["Point"], default: "Point" },
-      coordinates: { type: [Number], index: "2dsphere" },
+      coordinates: { type: [Number] }, // Remove the index property from here
     },
 
     cuisineType: {
@@ -71,10 +69,12 @@ const RestaurantSchema = new mongoose.Schema(
       default: "Indian",
     },
 
-    isVerified: { type: String,
-      enum: ["active", "suspended", "pending", ],
+    isVerified: {
+      type: String,
+      enum: ["active", "suspended", "pending"],
       default: "pending",
-    required: false },
+      required: false,
+    },
 
     reviews: [
       {
@@ -82,17 +82,18 @@ const RestaurantSchema = new mongoose.Schema(
         rating: { type: Number, required: true },
         comment: { type: String, required: true },
       },
-    ], 
+    ],
     estimatedPrepTime: {
       type: Number, // In minutes
       default: 20,
-    },
-
+    },
   },
 
   {
     timestamps: true,
   }
 );
+
+RestaurantSchema.index({ location: "2dsphere" });
 
 export const Restaurant = mongoose.model("Restaurant", RestaurantSchema);
