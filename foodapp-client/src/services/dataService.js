@@ -3,11 +3,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 
 // API Base URLs
-const AUTH_API_URL = `http://192.168.1.6:5001/api`;
-const ORDER_API_URL = `http://192.168.1.6:5002/api/orders`;
-const CART_API_URL = `http://192.168.1.6:5002/api/cart`;
-const RESTAURANT_API_URL = `http://192.168.1.6:3000/api`;
-const PAYMENT_API_URL = `http://192.168.1.6:5004/api/payment`;
+const AUTH_API_URL = `http://192.168.1.2:5001/api`;
+const ORDER_API_URL = `http://192.168.1.2:5002/api/orders`;
+const CART_API_URL = `http://192.168.1.2:5002/api/cart`;
+const RESTAURANT_API_URL = `http://192.168.1.2:5006/api`;
+const PAYMENT_API_URL = `http://192.168.1.2:5004/api/payment`;
 
 // Sample data for the app
 const sampleRestaurants = [
@@ -1000,6 +1000,29 @@ const dataService = {
         message: error.response?.data?.message || error.message,
         error: error,
       };
+    }
+  },
+
+  // Get restaurants filtered by distance from user location
+  getRestaurantsByLocation: async (latitude, longitude, radiuss = 300) => {
+    try {
+      // Call the API endpoint with the coordinates and radius
+      const response = await apiClient.get(
+        `${RESTAURANT_API_URL}/restaurants/nearby?lat=${latitude}&lng=${longitude}&range=${100}`
+      );
+
+      if (response.success && response.restaurants) {
+        return {
+          success: true,
+          restaurants: response.restaurants,
+          count: response.count,
+        };
+      }
+
+      return response;
+    } catch (error) {
+      console.error("Error getting restaurants by location:", error);
+      return { success: false, error: error.message };
     }
   },
 };

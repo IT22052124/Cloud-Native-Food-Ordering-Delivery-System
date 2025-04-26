@@ -7,6 +7,7 @@ import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
 import { ThemeProvider } from "./src/context/ThemeContext";
 import { AuthProvider } from "./src/context/AuthContext";
 import { CartProvider } from "./src/context/CartContext";
+import { LocationProvider } from "./src/context/LocationContext";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { StripeProvider } from "@stripe/stripe-react-native";
 
@@ -38,9 +39,11 @@ export default function App() {
             >
               <AuthProvider>
                 <CartProvider>
-                  <NavigationContainer>
-                    <AppNavigator />
-                  </NavigationContainer>
+                  <LocationProvider>
+                    <NavigationContainer>
+                      <AppNavigator />
+                    </NavigationContainer>
+                  </LocationProvider>
                 </CartProvider>
               </AuthProvider>
             </StripeProvider>
