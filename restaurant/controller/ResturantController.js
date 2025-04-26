@@ -241,7 +241,10 @@ export const updateRestaurant = async (req, res) => {
 
     restaurant.location = {
       type: "Point",
-      coordinates: [address.coordinates.lng, address.coordinates.lat],
+      coordinates: [
+        address.coordinates.lng || restaurant.address.coordinates.lng,
+        address.coordinates.lat || restaurant.address.coordinates.lat,
+      ],
     };
 
     await restaurant.save();
