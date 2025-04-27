@@ -30,7 +30,6 @@ router.delete("/restaurants/:id", authMiddleware, deleteRestaurant);
 router.patch("/restaurants/:id/status", authMiddleware, updateRestaurantStatus);
 router.patch(
   "/restaurants/:id/verfication",
-  authMiddleware,
   updateRestaurantVerification
 ); //mufeez call this
 
