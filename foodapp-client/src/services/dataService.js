@@ -3,11 +3,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 
 // API Base URLs
-const AUTH_API_URL = `http://192.168.1.2:5001/api`;
-const ORDER_API_URL = `http://192.168.1.2:5002/api/orders`;
-const CART_API_URL = `http://192.168.1.2:5002/api/cart`;
-const RESTAURANT_API_URL = `http://192.168.1.2:5006/api`;
-const PAYMENT_API_URL = `http://192.168.1.2:5004/api/payment`;
+const AUTH_API_URL = `http://192.168.1.7:5001/api`;
+const ORDER_API_URL = `http://192.168.1.7:5002/api/orders`;
+const CART_API_URL = `http://192.168.1.7:5002/api/cart`;
+const RESTAURANT_API_URL = `http://192.168.1.7:5006/api`;
+const PAYMENT_API_URL = `http://192.168.1.7:5004/api/payment`;
 
 // Sample data for the app
 const sampleRestaurants = [
@@ -739,12 +739,16 @@ const dataService = {
   getOrderById: async (orderId) => {
     try {
       const response = await apiClient.get(`${ORDER_API_URL}/${orderId}`);
+      console.log("tax", response.order.restaurantOrder.tax);
+      console.log("deliveryFee", response.order.restaurantOrder.deliveryFee);
 
       // Process the response to match the expected format in the client
       return {
         success: true,
         order: {
           ...response,
+          tax: response.order.restaurantOrder.tax,
+          deliveryFee: response.order.restaurantOrder.deliveryFee,
           id: response.order.orderId,
           status: response.order.restaurantOrder.status,
           deliveryAddress: response.order.deliveryAddress,
@@ -805,14 +809,210 @@ const dataService = {
 
   // Sample service integration
   searchRestaurants: async (query) => {
-    if (!query) return sampleRestaurants;
+    if (!query) return [];
 
-    const lowerQuery = query.toLowerCase();
-    return sampleRestaurants.filter(
-      (restaurant) =>
-        restaurant.name.toLowerCase().includes(lowerQuery) ||
-        restaurant.cuisineType.toLowerCase().includes(lowerQuery)
-    );
+    try {
+      // Make API call to search restaurants
+      const response = await apiClient.get(
+        `${RESTAURANT_API_URL}/restaurants/search?query=${encodeURIComponent(
+          query
+        )}`
+      );
+      return response.restaurants || [];
+    } catch (error) {
+      console.error("Error searching restaurants from API:", error);
+
+      // Fallback to sample data for development/demo
+      const lowerQuery = query.toLowerCase();
+      return sampleRestaurants.filter(
+        (restaurant) =>
+          restaurant.name.toLowerCase().includes(lowerQuery) ||
+          restaurant.cuisineType.toLowerCase().includes(lowerQuery)
+      );
+    }
+  },
+
+  // Search dishes from a specific restaurant
+  searchDishes: async (restaurantId, query) => {
+    if (!restaurantId || !query) return [];
+
+    try {
+      // Make API call to search dishes from a specific restaurant
+      const response = await apiClient.get(
+        `${RESTAURANT_API_URL}/restaurants/${restaurantId}/dishes/search?query=${encodeURIComponent(
+          query
+        )}`
+      );
+      return response.dishes || [];
+    } catch (error) {
+      console.error("Error searching dishes from API:", error);
+
+      // Fallback to sample data for development/demo
+      const restaurant = sampleRestaurants.find((r) => r.id === restaurantId);
+      if (!restaurant || !restaurant.dishes) return [];
+
+      const lowerQuery = query.toLowerCase();
+      return restaurant.dishes.filter(
+        (dish) =>
+          dish.name.toLowerCase().includes(lowerQuery) ||
+          (dish.category && dish.category.toLowerCase().includes(lowerQuery)) ||
+          (dish.description &&
+            dish.description.toLowerCase().includes(lowerQuery))
+      );
+    }
+  },
+
+  // Search all dishes across all restaurants
+  searchAllDishes: async (query) => {
+    if (!query) return [];
+
+    try {
+      // Make API call to search all dishes
+      const response = await apiClient.get(
+        `${RESTAURANT_API_URL}/dishes/search?query=${encodeURIComponent(query)}`
+      );
+      return response.dishes || [];
+    } catch (error) {
+      console.error("Error searching all dishes from API:", error);
+
+      // Fallback to sample data for development/demo
+      const lowerQuery = query.toLowerCase();
+
+      // Collect dishes from all restaurants with restaurant info
+      const allDishes = [];
+      sampleRestaurants.forEach((restaurant) => {
+        if (restaurant.dishes) {
+          const matchingDishes = restaurant.dishes.filter(
+            (dish) =>
+              dish.name.toLowerCase().includes(lowerQuery) ||
+              (dish.category &&
+                dish.category.toLowerCase().includes(lowerQuery)) ||
+              (dish.description &&
+                dish.description.toLowerCase().includes(lowerQuery))
+          );
+
+          // Add restaurant info to each dish
+          matchingDishes.forEach((dish) => {
+            allDishes.push({
+              ...dish,
+              restaurantId: restaurant.id,
+              restaurantName: restaurant.name,
+            });
+          });
+        }
+      });
+
+      return allDishes;
+    }
+  },
+
+  // Search food categories
+  searchCategories: async (query) => {
+    if (!query) return [];
+
+    try {
+      // Make API call to search categories
+      const response = await apiClient.get(
+        `${RESTAURANT_API_URL}/categories/search?query=${encodeURIComponent(
+          query
+        )}`
+      );
+      return response.categories || [];
+    } catch (error) {
+      console.error("Error searching categories from API:", error);
+
+      // Fallback to sample categories for development/demo
+      const sampleCategories = [
+        {
+          id: "1",
+          name: "Pizza",
+          image:
+            "https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
+        },
+        {
+          id: "2",
+          name: "Burger",
+          image:
+            "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
+        },
+        {
+          id: "3",
+          name: "Sushi",
+          image:
+            "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
+        },
+        {
+          id: "4",
+          name: "Mexican",
+          image:
+            "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
+        },
+        {
+          id: "5",
+          name: "Italian",
+          image:
+            "https://images.unsplash.com/photo-1498579150354-977475b7ea0b?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
+        },
+        {
+          id: "6",
+          name: "Chinese",
+          image:
+            "https://images.unsplash.com/photo-1563245372-f21724e3856d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
+        },
+        {
+          id: "7",
+          name: "Indian",
+          image:
+            "https://images.unsplash.com/photo-1505253758473-96b7015fcd40?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
+        },
+        {
+          id: "8",
+          name: "Dessert",
+          image:
+            "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
+        },
+      ];
+
+      const lowerQuery = query.toLowerCase();
+      return sampleCategories.filter((category) =>
+        category.name.toLowerCase().includes(lowerQuery)
+      );
+    }
+  },
+
+  // Get restaurant details with dishes
+  getRestaurantDetails: async (restaurantId) => {
+    try {
+      // First try to get restaurant details from API
+      const response = await apiClient.get(
+        `${RESTAURANT_API_URL}/restaurants/${restaurantId}`
+      );
+
+      // Get restaurant dishes separately
+      try {
+        const dishesResponse = await apiClient.get(
+          `${RESTAURANT_API_URL}/restaurants/${restaurantId}/dishes`
+        );
+
+        // Combine restaurant details with dishes
+        return {
+          ...response,
+          dishes: dishesResponse.dishes || [],
+        };
+      } catch (dishError) {
+        console.error("Error fetching restaurant dishes:", dishError);
+        return response; // Return restaurant details even if dishes fetch fails
+      }
+    } catch (error) {
+      console.error("Error fetching restaurant details:", error);
+
+      // Fallback to sample data for demo/development
+      const restaurant = sampleRestaurants.find((r) => r.id === restaurantId);
+      if (!restaurant) {
+        throw new Error("Restaurant not found");
+      }
+      return restaurant;
+    }
   },
 
   // Get order tracking information
@@ -1017,9 +1217,13 @@ const dataService = {
           restaurants: response.restaurants,
           count: response.count,
         };
+      } else {
+        return {
+          success: false,
+          restaurants: null,
+          count: 0,
+        };
       }
-
-      return response;
     } catch (error) {
       console.error("Error getting restaurants by location:", error);
       return { success: false, error: error.message };

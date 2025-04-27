@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Dimensions,
   ImageBackground,
+  RefreshControl,
 } from "react-native";
 import {
   Text,
@@ -29,7 +30,6 @@ import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import dataService from "../../services/dataService";
 import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
-import * as Location from "expo-location";
 import { useLocation } from "../../context/LocationContext";
 
 const { width } = Dimensions.get("window");
@@ -48,12 +48,13 @@ const HomeScreen = ({ navigation }) => {
     addCustomLocation,
   } = useLocation();
 
-  const [searchQuery, setSearchQuery] = useState("");
   const [categories, setCategories] = useState([]);
   const [restaurants, setRestaurants] = useState([]);
   const [featuredRestaurants, setFeaturedRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [locationError, setLocationError] = useState(false);
 
   // Get time-based greeting
   const getGreeting = () => {
@@ -68,11 +69,31 @@ const HomeScreen = ({ navigation }) => {
     getCurrentLocation();
   }, []);
 
+  // Set current location as default when available
+  useEffect(() => {
+    if (currentLocation && !selectedAddress) {
+      setSelectedAddress({
+        label: "Current Location",
+        isCurrentLocation: true,
+        ...currentLocation,
+      });
+    }
+  }, [currentLocation]);
+
   useEffect(() => {
     if (selectedAddress) {
       fetchRestaurantsByLocation();
     } else {
       fetchData();
+    }
+  }, [selectedAddress]);
+
+  const onRefresh = React.useCallback(() => {
+    // setRefreshing(true);
+    if (selectedAddress) {
+      fetchRestaurantsByLocation().finally(() => setRefreshing(false));
+    } else {
+      fetchData().finally(() => setRefreshing(false));
     }
   }, [selectedAddress]);
 
@@ -116,6 +137,8 @@ const HomeScreen = ({ navigation }) => {
 
     try {
       setLoading(true);
+      setLocationError(false); // Reset error state
+
       const [categoriesData, restaurantsData] = await Promise.all([
         dataService.getCategories(),
         dataService.getRestaurantsByLocation(
@@ -127,8 +150,13 @@ const HomeScreen = ({ navigation }) => {
 
       setCategories(categoriesData.categories);
 
-      if (restaurantsData.success) {
+      if (
+        restaurantsData.success &&
+        restaurantsData.restaurants &&
+        restaurantsData.restaurants.length > 0
+      ) {
         setRestaurants(restaurantsData.restaurants);
+        setLocationError(false);
 
         // Set featured restaurants with distance info
         const featured = [...restaurantsData.restaurants]
@@ -145,16 +173,17 @@ const HomeScreen = ({ navigation }) => {
           .slice(0, 3);
         setFeaturedRestaurants(featured);
       } else {
-        // If no nearby restaurants are found, fall back to all restaurants
-        console.log(
-          "No nearby restaurants found, falling back to all restaurants"
-        );
-        fetchData();
+        // If no nearby restaurants are found, set error state
+        console.log("No nearby restaurants found");
+        setLocationError(true);
+        setRestaurants([]);
+        setFeaturedRestaurants([]);
       }
     } catch (error) {
       console.error("Error fetching data by location:", error);
-      // Fall back to fetching all restaurants on error
-      fetchData();
+      setLocationError(true);
+      setRestaurants([]);
+      setFeaturedRestaurants([]);
     } finally {
       setLoading(false);
     }
@@ -165,14 +194,6 @@ const HomeScreen = ({ navigation }) => {
       const response = await dataService.getUserAddresses();
       if (response.success) {
         setSavedAddresses(response.addresses);
-
-        // Set default address if available
-        const defaultAddress = response.addresses.find(
-          (addr) => addr.isDefault
-        );
-        if (defaultAddress) {
-          setSelectedAddress(defaultAddress);
-        }
       }
     } catch (error) {
       console.error("Error loading saved addresses:", error);
@@ -211,31 +232,27 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      fetchData();
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const results = await dataService.searchRestaurants(searchQuery);
-      setRestaurants(results);
-    } catch (error) {
-      console.error("Error searching restaurants:", error);
-    } finally {
-      setLoading(false);
-    }
+    navigation.navigate("Search");
   };
 
   const handleAddressSelect = (address) => {
-    setSelectedAddress(address);
+    console.log(address);
+    if (address.isCurrentLocation) {
+      setSelectedAddress(address);
+    } else {
+      setSelectedAddress(() => {
+        return {
+          ...address,
+          latitude: address.coordinates.lat,
+          longitude: address.coordinates.lng,
+        };
+      });
+    }
     setLocationModalVisible(false);
-    // Restaurants will be fetched in the useEffect based on selected address
   };
 
   const handleSetOnMap = () => {
     setLocationModalVisible(false);
-    // Navigate to map screen to select location
     navigation.navigate("LocationMap", {
       onLocationSelect: (location) => {
         addCustomLocation(location);
@@ -246,9 +263,7 @@ const HomeScreen = ({ navigation }) => {
   const renderCategory = ({ item }) => (
     <TouchableOpacity
       style={styles.categoryItem}
-      onPress={() =>
-        navigation.navigate("Restaurants", { categoryId: item.id })
-      }
+      onPress={() => navigation.navigate("Search", { searchQuery: item.name })}
     >
       <View style={[styles.categoryImageContainer, { ...theme.shadow.small }]}>
         <Image source={{ uri: item.image }} style={styles.categoryImage} />
@@ -542,6 +557,28 @@ const HomeScreen = ({ navigation }) => {
     </View>
   );
 
+  const renderLocationErrorState = () => (
+    <View style={styles.errorContainer}>
+      <Image
+        source={{
+          uri: "https://cdn-icons-png.flaticon.com/512/8186/8186510.png",
+        }}
+        style={styles.errorImage}
+      />
+      <Text style={styles.errorTitle}>No Restaurants Found Nearby</Text>
+      <Text style={styles.errorSubtitle}>
+        We couldn't find any restaurants near your selected location.
+      </Text>
+      <Button
+        mode="contained"
+        style={styles.changeLocationButton}
+        onPress={() => setLocationModalVisible(true)}
+      >
+        Change Location
+      </Button>
+    </View>
+  );
+
   if (loading) {
     return (
       <View
@@ -566,6 +603,14 @@ const HomeScreen = ({ navigation }) => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
       >
         {/* Updated header with time-based greeting */}
         <View style={styles.header}>
@@ -613,63 +658,79 @@ const HomeScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        <Searchbar
-          placeholder="Search for restaurants or dishes"
-          onChangeText={setSearchQuery}
-          value={searchQuery}
-          style={[styles.searchBar, { ...theme.shadow.small }]}
-          iconColor={theme.colors.primary}
-          onSubmitEditing={handleSearch}
-          onIconPress={handleSearch}
-        />
+        <TouchableOpacity onPress={handleSearch} activeOpacity={0.7}>
+          <Searchbar
+            placeholder="Search for restaurants or dishes"
+            value=""
+            style={[
+              styles.searchBar,
+              { backgroundColor: theme.colors.surface },
+            ]}
+            onFocus={handleSearch}
+            showSoftInputOnFocus={false}
+            icon="magnify"
+            iconColor={theme.colors.primary}
+          />
+        </TouchableOpacity>
 
-        {renderPromoSection()}
+        {/* Only show promotion, categories, and restaurants sections if there's no location error */}
+        {locationError ? (
+          renderLocationErrorState()
+        ) : (
+          <>
+            {renderPromoSection()}
 
-        <Text style={styles.sectionTitle}>Categories</Text>
-        <FlatList
-          data={categories}
-          renderItem={renderCategory}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesList}
-        />
+            <Text style={styles.sectionTitle}>Categories</Text>
+            <FlatList
+              data={categories}
+              renderItem={renderCategory}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesList}
+            />
 
-        <Text style={styles.sectionTitle}>Featured Restaurants</Text>
-        <View style={styles.featuredContainer}>
-          {featuredRestaurants.length > 0 ? (
-            featuredRestaurants.map((restaurant, index) => (
-              <View key={restaurant._id} style={styles.featuredItem}>
-                {renderRestaurantCard(restaurant, true)}
-              </View>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>
-              No featured restaurants available
-            </Text>
-          )}
-        </View>
+            <Text style={styles.sectionTitle}>Featured Restaurants</Text>
+            <View style={styles.featuredContainer}>
+              {featuredRestaurants.length > 0 ? (
+                featuredRestaurants.map((restaurant, index) => (
+                  <View key={restaurant._id} style={styles.featuredItem}>
+                    {renderRestaurantCard(restaurant, true)}
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.emptyText}>
+                  No featured restaurants available
+                </Text>
+              )}
+            </View>
 
-        <View style={styles.allRestaurantsHeader}>
-          <Text style={styles.sectionTitle}>All Restaurants</Text>
-          <TouchableOpacity onPress={() => navigation.navigate("Restaurants")}>
-            <Text style={[styles.viewAllText, { color: theme.colors.primary }]}>
-              View All
-            </Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.allRestaurantsHeader}>
+              <Text style={styles.sectionTitle}>All Restaurants</Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate("Restaurants")}
+              >
+                <Text
+                  style={[styles.viewAllText, { color: theme.colors.primary }]}
+                >
+                  View All
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-        <View style={styles.allRestaurantsContainer}>
-          {restaurants?.length > 0 ? (
-            restaurants.slice(0, 6).map((restaurant) => (
-              <View key={restaurant._id} style={styles.restaurantItem}>
-                {renderRestaurantCard(restaurant)}
-              </View>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>No restaurants available</Text>
-          )}
-        </View>
+            <View style={styles.allRestaurantsContainer}>
+              {restaurants?.length > 0 ? (
+                restaurants.slice(0, 6).map((restaurant) => (
+                  <View key={restaurant._id} style={styles.restaurantItem}>
+                    {renderRestaurantCard(restaurant)}
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.emptyText}>No restaurants available</Text>
+              )}
+            </View>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -680,6 +741,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 16,
     paddingBottom: 20,
   },
@@ -1004,6 +1066,38 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontSize: 12,
     color: "#666",
+  },
+  errorContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 30,
+    backgroundColor: "rgba(249, 249, 249, 0.8)",
+    borderRadius: 16,
+    marginBottom: 15,
+  },
+  errorImage: {
+    width: 100,
+    height: 100,
+    marginBottom: 16,
+    opacity: 0.8,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 8,
+    color: "#555",
+    textAlign: "center",
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    color: "#777",
+    textAlign: "center",
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  changeLocationButton: {
+    borderRadius: 8,
+    paddingHorizontal: 16,
   },
 });
 

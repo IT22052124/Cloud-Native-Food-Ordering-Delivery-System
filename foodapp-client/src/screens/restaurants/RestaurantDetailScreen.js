@@ -1,31 +1,31 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
-  ScrollView,
   Image,
   TouchableOpacity,
   ActivityIndicator,
   FlatList,
   Dimensions,
+  TextInput,
+  Text as RNText,
+  Animated,
 } from "react-native";
-import {
-  Text,
-  Chip,
-  Card,
-  Badge,
-  Button,
-  Modal,
-  Portal,
-} from "react-native-paper";
+import { Card, Badge, Button, Modal, Portal } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
 import { useCart } from "../../context/CartContext";
 import dataService from "../../services/dataService";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import MapView, { Marker } from "react-native-maps";
 
 const { width } = Dimensions.get("window");
+const HEADER_HEIGHT = 280; // Default header height
+const STICKY_NAV_HEIGHT = 60; // Height of sticky nav bar
+const STICKY_CATEGORY_HEIGHT = 70; // Height of sticky category bar
+const STICKY_SEARCH_HEIGHT = 66; // Height of sticky search bar
+const STICKY_HEADER_HEIGHT =
+  STICKY_NAV_HEIGHT + STICKY_CATEGORY_HEIGHT + STICKY_SEARCH_HEIGHT;
 
 const RestaurantDetailScreen = ({ route, navigation }) => {
   const { restaurantId } = route.params;
@@ -34,19 +34,63 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
 
   const [restaurant, setRestaurant] = useState(null);
   const [dishes, setDishes] = useState([]);
+  const [filteredDishes, setFilteredDishes] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
   const [loading, setLoading] = useState(true);
   const [addToCartLoading, setAddToCartLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
   const [cartModalVisible, setCartModalVisible] = useState(false);
-  // Add new state for location modal
   const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState(null);
+  const [headerHeight, setHeaderHeight] = useState(HEADER_HEIGHT);
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  const scrollViewRef = useRef(null);
+  const sectionRefs = useRef({});
+  const searchInputRef = useRef(null);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadRestaurantDetails();
   }, [restaurantId]);
+
+  // Function to measure the header height
+  const onHeaderLayout = (event) => {
+    const { height } = event.nativeEvent.layout;
+    setHeaderHeight(height);
+  };
+
+  // Initialize section refs when categories change
+  useEffect(() => {
+    if (categories.length > 0) {
+      sectionRefs.current = {};
+      categories.forEach((category) => {
+        sectionRefs.current[category] = React.createRef();
+      });
+
+      if (!activeCategory) {
+        setActiveCategory(categories[0]);
+      }
+    }
+  }, [categories]);
+
+  // Filter dishes based on selected category and search query
+  useEffect(() => {
+    if (dishes.length === 0) return;
+
+    let filtered = [...dishes];
+
+    // Apply search filter if query exists
+    if (searchQuery.trim() !== "") {
+      filtered = filtered.filter((dish) =>
+        dish.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    setFilteredDishes(filtered);
+  }, [searchQuery, dishes]);
 
   const loadRestaurantDetails = async () => {
     try {
@@ -59,11 +103,18 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
           restaurantId
         );
         setDishes(restaurantDish.dishes);
+        setFilteredDishes(restaurantDish.dishes);
+
         // Extract unique categories
         const uniqueCategories = [
           ...new Set(restaurantDish.dishes.map((dish) => dish.category)),
         ];
         setCategories(uniqueCategories);
+
+        // Set initial active category
+        if (uniqueCategories.length > 0) {
+          setActiveCategory(uniqueCategories[0]);
+        }
       }
     } catch (error) {
       console.error("Error loading restaurant details:", error);
@@ -72,9 +123,45 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
     }
   };
 
-  const filteredDishes = selectedCategory
-    ? dishes.filter((dish) => dish.category === selectedCategory)
-    : dishes;
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    {
+      useNativeDriver: false,
+      listener: (event) => {
+        const yOffset = event.nativeEvent.contentOffset.y;
+
+        // Find which section is most visible
+        categories.forEach((category) => {
+          const ref = sectionRefs.current[category];
+          if (ref && ref.current) {
+            ref.current.measure((x, y, width, height, pageX, pageY) => {
+              // If section is visible in the viewport (with some margin)
+              if (pageY <= 200 && pageY >= -100) {
+                if (activeCategory !== category) {
+                  setActiveCategory(category);
+                }
+              }
+            });
+          }
+        });
+      },
+    }
+  );
+
+  const handleCategoryPress = (category) => {
+    setActiveCategory(category);
+
+    // Scroll to the section
+    const sectionRef = sectionRefs.current[category];
+    if (scrollViewRef.current && sectionRef && sectionRef.current) {
+      sectionRef.current.measure((x, y, width, height, pageX, pageY) => {
+        scrollViewRef.current.scrollTo({
+          y: pageY - STICKY_HEADER_HEIGHT - 30, // Offset to account for sticky header
+          animated: true,
+        });
+      });
+    }
+  };
 
   const handleAddToCart = async (item) => {
     setAddToCartLoading(true);
@@ -108,9 +195,23 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
     setModalVisible(true);
   };
 
-  // Add function to handle opening the location modal
   const handleShowLocation = () => {
     setLocationModalVisible(true);
+  };
+
+  const handleSearchFocus = () => {
+    setSearchFocused(true);
+    // Scroll to make the search input visible if needed
+    if (scrollY._value < headerHeight - 150) {
+      scrollViewRef.current?.scrollTo({
+        y: headerHeight - 100,
+        animated: true,
+      });
+    }
+  };
+
+  const handleSearchBlur = () => {
+    setSearchFocused(false);
   };
 
   const renderDishItem = ({ item }) => (
@@ -125,11 +226,11 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
     >
       <View style={styles.dishContent}>
         <View style={styles.dishInfo}>
-          <Text style={styles.dishName}>{item.name}</Text>
-          <Text style={styles.dishPrice}>LKR {item.price.toFixed(2)}</Text>
-          <Text style={styles.dishDescription} numberOfLines={2}>
+          <RNText style={styles.dishName}>{item.name}</RNText>
+          <RNText style={styles.dishPrice}>LKR {item.price.toFixed(2)}</RNText>
+          <RNText style={styles.dishDescription} numberOfLines={2}>
             {item.description}
-          </Text>
+          </RNText>
 
           <Button
             mode="contained"
@@ -159,21 +260,132 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
     </Card>
   );
 
-  const renderCategoryItem = ({ item }) => (
-    <Chip
-      selected={selectedCategory === item}
-      onPress={() =>
-        setSelectedCategory(selectedCategory === item ? null : item)
-      }
+  const renderCategoryTab = ({ item }) => (
+    <TouchableOpacity
       style={[
-        styles.categoryChip,
-        selectedCategory === item && { backgroundColor: theme.colors.primary },
+        styles.categoryTab,
+        activeCategory === item && {
+          ...styles.activeCategoryTab,
+          backgroundColor: theme.colors.primary,
+        },
       ]}
-      textStyle={[selectedCategory === item && { color: theme.colors.white }]}
+      onPress={() => handleCategoryPress(item)}
     >
-      {item}
-    </Chip>
+      <RNText
+        style={[
+          styles.categoryTabText,
+          activeCategory === item && styles.activeCategoryText,
+        ]}
+      >
+        {item}
+      </RNText>
+    </TouchableOpacity>
   );
+
+  // Calculate styles for sticky header components with smoother animations
+  const navBarOpacity = scrollY.interpolate({
+    inputRange: [0, headerHeight - 200, headerHeight - 180],
+    outputRange: [0, 0, 1],
+    extrapolate: "clamp",
+  });
+
+  const navBarTranslateY = scrollY.interpolate({
+    inputRange: [0, headerHeight - 200, headerHeight - 180],
+    outputRange: [-STICKY_NAV_HEIGHT, -STICKY_NAV_HEIGHT, 0],
+    extrapolate: "clamp",
+  });
+
+  const categoryOpacity = scrollY.interpolate({
+    inputRange: [headerHeight - 180, headerHeight - 160, headerHeight - 140],
+    outputRange: [0, 0.5, 1],
+    extrapolate: "clamp",
+  });
+
+  const categoryTranslateY = scrollY.interpolate({
+    inputRange: [headerHeight - 180, headerHeight - 140],
+    outputRange: [15, 0],
+    extrapolate: "clamp",
+  });
+
+  const searchOpacity = scrollY.interpolate({
+    inputRange: [headerHeight - 140, headerHeight - 120, headerHeight - 100],
+    outputRange: [0, 0.5, 1],
+    extrapolate: "clamp",
+  });
+
+  const searchTranslateY = scrollY.interpolate({
+    inputRange: [headerHeight - 140, headerHeight - 100],
+    outputRange: [15, 0],
+    extrapolate: "clamp",
+  });
+
+  const navBarStyle = {
+    opacity: navBarOpacity,
+    transform: [{ translateY: navBarTranslateY }],
+  };
+
+  const stickyCategoryStyle = {
+    opacity: categoryOpacity,
+    transform: [{ translateY: categoryTranslateY }],
+  };
+
+  const searchBarStyle = {
+    opacity: searchOpacity,
+    transform: [{ translateY: searchTranslateY }],
+  };
+
+  // Update the stickySearchContainer component to prevent accidental interactions
+  const Animated_TouchableOpacity =
+    Animated.createAnimatedComponent(TouchableOpacity);
+
+  // Create a function to render dish sections
+  const renderDishSections = () => {
+    // If search query exists, show simplified results without category sections
+    if (searchQuery.trim() !== "") {
+      if (filteredDishes.length === 0) {
+        // Show "No dishes found" message when no results
+        return (
+          <View style={styles.noResultsContainer}>
+            <Ionicons name="search-outline" size={50} color="#aaa" />
+            <RNText style={styles.noResultsText}>No dishes found</RNText>
+            <RNText style={styles.noResultsSubText}>
+              Try a different search term
+            </RNText>
+          </View>
+        );
+      }
+
+      // Show all filtered dishes in a single list without category headers
+      return (
+        <View style={styles.searchResultsContainer}>
+          <RNText style={styles.searchResultsTitle}>
+            Search Results ({filteredDishes.length})
+          </RNText>
+          {filteredDishes.map((dish) => (
+            <View key={dish._id} style={styles.dishItem}>
+              {renderDishItem({ item: dish })}
+            </View>
+          ))}
+        </View>
+      );
+    }
+
+    // Normal category-based view when not searching
+    return categories.map((category) => (
+      <View key={category} style={styles.categorySection}>
+        <View ref={sectionRefs.current[category]} collapsable={false}>
+          <RNText style={styles.categorySectionTitle}>{category}</RNText>
+        </View>
+        {filteredDishes
+          .filter((dish) => dish.category === category)
+          .map((dish) => (
+            <View key={dish._id} style={styles.dishItem}>
+              {renderDishItem({ item: dish })}
+            </View>
+          ))}
+      </View>
+    ));
+  };
 
   if (loading) {
     return (
@@ -196,7 +408,7 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
           { backgroundColor: theme.colors.background },
         ]}
       >
-        <Text style={styles.errorText}>Restaurant not found</Text>
+        <RNText style={styles.errorText}>Restaurant not found</RNText>
         <Button
           mode="contained"
           onPress={() => navigation.goBack()}
@@ -211,120 +423,254 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
     );
   }
 
-  // Default coordinates for the restaurant
-  // You should replace these with actual restaurant coordinates from your data
   const restaurantLocation = {
     latitude: restaurant.address?.coordinates?.lat,
     longitude: restaurant.address?.coordinates?.lng,
   };
 
+  const isOpen = restaurant.openingHours && !restaurant.openingHours.isClosed;
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Image
-            source={{
-              uri: restaurant.coverImageUrl || restaurant.imageUrls[0],
-            }}
-            style={styles.coverImage}
-            resizeMode="cover"
-          />
+      {/* Sticky Header */}
+      <Animated.View
+        style={[styles.stickyHeaderContainer]}
+        pointerEvents="box-none"
+      >
+        {/* Navigation Bar with Back Button and Restaurant Name */}
+        <Animated.View style={[styles.stickyNavBar, navBarStyle]}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={styles.stickyBackButton}
             onPress={() => navigation.goBack()}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            activeOpacity={0.6}
           >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
+            <Ionicons name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
-        </View>
+          <RNText style={styles.stickyRestaurantName} numberOfLines={1}>
+            {restaurant?.name} ({restaurant.address.city})
+          </RNText>
+        </Animated.View>
 
-        <View style={styles.restaurantInfoContainer}>
-          <Text style={styles.restaurantName}>{restaurant.name}</Text>
-
-          <View style={styles.restaurantMetaInfo}>
-            <View style={styles.ratingContainer}>
-              <Ionicons name="star" size={18} color={theme.colors.tertiary} />
-              {/* <Text style={styles.ratingText}>{restaurant.rating}</Text> */}
-            </View>
-            {/* <Text style={styles.cuisineText}>{restaurant.cuisineType}</Text> */}
-            <Text style={styles.addressText}>
-              {restaurant.address.street} {restaurant.address.city}{" "}
-              {restaurant.address.province}
-            </Text>
-          </View>
-
-          <View style={styles.deliveryInfoContainer}>
-            <View style={styles.deliveryInfo}>
-              <Ionicons
-                name="time-outline"
-                size={20}
-                color={theme.colors.gray}
-              />
-              <Text style={styles.deliveryInfoText}>
-                {/* {restaurant.deliveryTime} */}
-              </Text>
-            </View>
-            <View style={styles.deliveryInfo}>
-              <Ionicons
-                name="bicycle-outline"
-                size={20}
-                color={theme.colors.gray}
-              />
-              <Text style={styles.deliveryInfoText}>
-                {/* ${restaurant.deliveryFee} delivery */}
-              </Text>
-            </View>
-            <View style={styles.deliveryInfo}>
-              <Ionicons
-                name="cash-outline"
-                size={20}
-                color={theme.colors.gray}
-              />
-              <Text style={styles.deliveryInfoText}>
-                {/* ${restaurant.minOrder} min */}
-              </Text>
-            </View>
-          </View>
-
-          <Text style={styles.descriptionText}>{restaurant.description}</Text>
-
-          {/* Add a button to show location */}
-          <Button
-            mode="outlined"
-            icon="map-marker"
-            onPress={handleShowLocation}
-            style={styles.locationButton}
-            contentStyle={styles.locationButtonContent}
-          >
-            Show Restaurant Location
-          </Button>
-        </View>
-
-        <View style={styles.menuContainer}>
-          <Text style={styles.menuTitle}>Menu</Text>
-
+        {/* Sticky Category Tabs with box-none to allow back button to work */}
+        <Animated.View
+          style={[styles.stickyCategoryTabsContainer, stickyCategoryStyle]}
+          pointerEvents={categoryOpacity.__getValue() < 0.9 ? "none" : "auto"}
+        >
           <FlatList
-            data={categories}
-            renderItem={renderCategoryItem}
-            keyExtractor={(item) => item}
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={styles.categoriesList}
-            contentContainerStyle={styles.categoriesContainer}
+            data={categories}
+            renderItem={renderCategoryTab}
+            keyExtractor={(item) => item}
+            contentContainerStyle={styles.categoryTabsList}
           />
+        </Animated.View>
 
-          <View style={styles.dishesContainer}>
-            {filteredDishes.map((dish) => (
-              <View key={dish._id} style={styles.dishItem}>
-                {renderDishItem({ item: dish })}
+        {/* Sticky Search Bar with box-none to allow back button to work */}
+        <Animated.View
+          style={[styles.stickySearchContainerOutside, searchBarStyle]}
+          pointerEvents={searchOpacity.__getValue() < 0.9 ? "none" : "auto"}
+        >
+          <View style={styles.stickySearchContainer}>
+            <Ionicons
+              name="search"
+              size={20}
+              color="#888"
+              style={styles.searchIcon}
+            />
+            <TextInput
+              ref={searchInputRef}
+              style={styles.searchInput}
+              placeholder="Search for items"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#888"
+              onFocus={handleSearchFocus}
+              onBlur={handleSearchBlur}
+            />
+          </View>
+        </Animated.View>
+      </Animated.View>
+
+      {/* Scrollable Content */}
+      <Animated.ScrollView
+        ref={scrollViewRef}
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false, listener: handleScroll }
+        )}
+        scrollEventThrottle={16}
+        style={{ zIndex: 1 }} // Lower z-index for scroll view
+      >
+        {/* Header Section - This will scroll */}
+        <View onLayout={onHeaderLayout} style={{ zIndex: 5 }}>
+          {/* Restaurant Header */}
+          <View style={styles.header}>
+            <Image
+              source={{
+                uri: restaurant.coverImageUrl || restaurant.imageUrls[0],
+              }}
+              style={styles.coverImage}
+              resizeMode="cover"
+            />
+
+            {/* Move this outside of any animated containers */}
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+              activeOpacity={0.6}
+            >
+              <Ionicons
+                name="arrow-back"
+                size={24}
+                color={theme.colors.white}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.favoriteButton}>
+              <Ionicons
+                name="heart-outline"
+                size={24}
+                color={theme.colors.white}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.shareButton}>
+              <Ionicons
+                name="share-social-outline"
+                size={24}
+                color={theme.colors.white}
+              />
+            </TouchableOpacity>
+
+            {/* More Info Button */}
+            <TouchableOpacity
+              style={[
+                styles.moreInfoButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+              onPress={(e) => {
+                // Prevent event bubbling
+                e.stopPropagation();
+                navigation.navigate("RestaurantInfo", {
+                  restaurantId: restaurant._id,
+                });
+              }}
+            >
+              <Ionicons
+                name="restaurant-outline"
+                size={20}
+                color={theme.colors.white}
+              />
+              <RNText
+                style={[styles.moreInfoText, { color: theme.colors.white }]}
+              >
+                More Info
+              </RNText>
+            </TouchableOpacity>
+          </View>
+
+          {/* Restaurant Info */}
+          <View style={styles.restaurantInfoContainer}>
+            <RNText style={styles.openStatus}>
+              {isOpen ? "Open" : "Closed"}
+            </RNText>
+            <RNText style={styles.restaurantName}>
+              {restaurant.name} ({restaurant.address.city})
+            </RNText>
+
+            <RNText style={styles.cuisineType}>
+              {restaurant.cuisineType || "Mixed Cuisine"}
+            </RNText>
+
+            <View style={styles.serviceTypesContainer}>
+              {restaurant.serviceType?.delivery && (
+                <View style={styles.serviceTypeItem}>
+                  <Ionicons name="bicycle-outline" size={20} color="#444" />
+                  <RNText style={styles.serviceTypeText}>Delivery</RNText>
+                </View>
+              )}
+              {restaurant.serviceType?.pickup && (
+                <View style={styles.serviceTypeItem}>
+                  <MaterialIcons name="store" size={20} color="#444" />
+                  <RNText style={styles.serviceTypeText}>Self Pickup</RNText>
+                </View>
+              )}
+              {restaurant.serviceType?.dineIn && (
+                <View style={styles.serviceTypeItem}>
+                  <FontAwesome5 name="utensils" size={18} color="#444" />
+                  <RNText style={styles.serviceTypeText}>Dine In</RNText>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.deliveryInfoContainer}>
+              <View style={styles.deliveryInfo}>
+                <Ionicons
+                  name="time-outline"
+                  size={20}
+                  color={theme.colors.gray}
+                />
+                <RNText style={styles.deliveryInfoText}>
+                  {restaurant.estimatedPrepTime}min -{" "}
+                  {restaurant.estimatedPrepTime + 10}min
+                </RNText>
               </View>
-            ))}
+            </View>
+          </View>
+
+          {/* Categories Header */}
+          <View style={styles.categoriesHeaderContainer}>
+            <RNText style={styles.categoriesHeaderText}>Categories</RNText>
+          </View>
+
+          {/* Regular Category Tabs */}
+          <View style={styles.categoryTabsContainer}>
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={categories}
+              renderItem={renderCategoryTab}
+              keyExtractor={(item) => item}
+              contentContainerStyle={styles.categoryTabsList}
+            />
+          </View>
+
+          {/* Regular Search */}
+          <View style={styles.searchContainer}>
+            <Ionicons
+              name="search"
+              size={20}
+              color="#888"
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search for items"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#888"
+            />
           </View>
         </View>
-      </ScrollView>
 
-      {/* Added to cart confirmation modal */}
+        {/* Menu Content */}
+        <View style={styles.menuContainer}>
+          <View style={styles.menuHeaderContainer}>
+            <Ionicons name="star" size={22} color="#222" />
+            <RNText style={styles.menuHeaderText}>Menu</RNText>
+          </View>
+
+          {renderDishSections()}
+        </View>
+      </Animated.ScrollView>
+
+      {/* Modals */}
       <Portal>
         <Modal
           visible={modalVisible}
@@ -348,10 +694,10 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
                   size={60}
                   color={theme.colors.success}
                 />
-                <Text style={styles.modalTitle}>Added to Cart</Text>
-                <Text style={styles.modalText}>
+                <RNText style={styles.modalTitle}>Added to Cart</RNText>
+                <RNText style={styles.modalText}>
                   {currentItem?.name} has been added to your cart.
-                </Text>
+                </RNText>
 
                 <View style={styles.modalButtons}>
                   <Button
@@ -381,7 +727,6 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
         </Modal>
       </Portal>
 
-      {/* Cart confirmation modal */}
       <Portal>
         <Modal
           visible={cartModalVisible}
@@ -397,11 +742,11 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
               size={60}
               color={theme.colors.warning}
             />
-            <Text style={styles.modalTitle}>Clear Cart?</Text>
-            <Text style={styles.modalText}>
+            <RNText style={styles.modalTitle}>Clear Cart?</RNText>
+            <RNText style={styles.modalText}>
               Your cart contains items from {cartRestaurant?.name}. Do you want
               to clear your cart and add items from {restaurant.name}?
-            </Text>
+            </RNText>
 
             <View style={styles.modalButtons}>
               <Button
@@ -426,7 +771,6 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
         </Modal>
       </Portal>
 
-      {/* Location Modal */}
       <Portal>
         <Modal
           visible={locationModalVisible}
@@ -437,7 +781,9 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
           ]}
         >
           <View style={styles.locationModalContent}>
-            <Text style={styles.locationModalTitle}>Restaurant Location</Text>
+            <RNText style={styles.locationModalTitle}>
+              Restaurant Location
+            </RNText>
 
             <View style={styles.mapContainer}>
               <MapView
@@ -458,22 +804,22 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
             </View>
 
             <View style={styles.coordinatesContainer}>
-              <Text style={styles.coordinatesText}>
-                <Text style={styles.coordinatesLabel}>Latitude: </Text>
+              <RNText style={styles.coordinatesText}>
+                <RNText style={styles.coordinatesLabel}>Latitude: </RNText>
                 {restaurantLocation.latitude.toFixed(6)}
-              </Text>
-              <Text style={styles.coordinatesText}>
-                <Text style={styles.coordinatesLabel}>Longitude: </Text>
+              </RNText>
+              <RNText style={styles.coordinatesText}>
+                <RNText style={styles.coordinatesLabel}>Longitude: </RNText>
                 {restaurantLocation.longitude.toFixed(6)}
-              </Text>
+              </RNText>
             </View>
 
             <View style={styles.addressContainer}>
-              <Text style={styles.addressLabel}>Address:</Text>
-              <Text style={styles.addressValue}>
+              <RNText style={styles.addressLabel}>Address:</RNText>
+              <RNText style={styles.addressValue}>
                 {restaurant.address.street}, {restaurant.address.city},{" "}
                 {restaurant.address.province}
-              </Text>
+              </RNText>
             </View>
 
             <Button
@@ -497,6 +843,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  cuisineType: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 12,
+    fontStyle: "italic",
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -517,6 +869,7 @@ const styles = StyleSheet.create({
   },
   header: {
     position: "relative",
+    zIndex: 5,
   },
   coverImage: {
     width: "100%",
@@ -529,85 +882,249 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.4)",
     borderRadius: 20,
     padding: 8,
+    zIndex: 200, // Very high z-index
+  },
+  favoriteButton: {
+    position: "absolute",
+    top: 15,
+    right: 60,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    borderRadius: 20,
+    padding: 8,
+  },
+  shareButton: {
+    position: "absolute",
+    top: 15,
+    right: 15,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    borderRadius: 20,
+    padding: 8,
   },
   restaurantInfoContainer: {
-    padding: 16,
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 24,
+  },
+  openStatus: {
+    fontSize: 16,
+    color: "#4CAF50",
+    fontWeight: "bold",
+    marginBottom: 8,
   },
   restaurantName: {
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 8,
+    marginBottom: 5,
   },
-  restaurantMetaInfo: {
+  serviceTypesContainer: {
+    flexDirection: "row",
+    marginBottom: 16,
+  },
+  serviceTypeItem: {
     flexDirection: "row",
     alignItems: "center",
-    flexWrap: "wrap",
-    marginBottom: 12,
+    marginRight: 16,
   },
-  ratingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: 10,
-  },
-  ratingText: {
-    marginLeft: 4,
-    fontWeight: "bold",
-  },
-  cuisineText: {
-    marginRight: 10,
-    color: "#666",
-  },
-  addressText: {
-    color: "#666",
+  serviceTypeText: {
+    marginLeft: 6,
+    fontSize: 14,
+    color: "#444",
   },
   deliveryInfoContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
     marginBottom: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "#eee",
   },
   deliveryInfo: {
     flexDirection: "row",
     alignItems: "center",
+    marginRight: 20,
   },
   deliveryInfoText: {
     marginLeft: 4,
+    fontSize: 14,
     color: "#666",
   },
-  descriptionText: {
-    color: "#444",
-    lineHeight: 22,
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 25,
+    marginHorizontal: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginVertical: 12,
     marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
+    elevation: 1,
   },
-  locationButton: {
-    marginTop: 8,
-    borderColor: "#666",
+  searchIcon: {
+    marginRight: 10,
+    color: "#888",
   },
-  locationButtonContent: {
-    height: 44,
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: "#333",
+    padding: 0,
+    height: 36,
   },
+
+  // Regular category tabs
+  categoryTabsContainer: {
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eeeeee",
+    marginBottom: 10,
+    paddingBottom: 5,
+  },
+
+  // Sticky Header styles
+  stickyHeaderContainer: {
+    position: "absolute",
+    top: 20,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    pointerEvents: "box-none", // This allows touches to pass through to elements below
+  },
+
+  // Sticky Navigation Bar
+  stickyNavBar: {
+    height: STICKY_NAV_HEIGHT,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eeeeee",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    paddingTop: 5,
+    zIndex: 150,
+  },
+  stickyBackButton: {
+    padding: 10,
+    marginRight: 12,
+    borderRadius: 20,
+    zIndex: 151,
+  },
+  stickyRestaurantName: {
+    fontSize: 19,
+    fontWeight: "bold",
+    flex: 1,
+    color: "#333",
+  },
+
+  // Sticky Category Tabs
+  stickyCategoryTabsContainer: {
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eeeeee",
+    paddingVertical: 10,
+    height: STICKY_CATEGORY_HEIGHT,
+    justifyContent: "center",
+  },
+
+  // Sticky Search
+  stickySearchContainerOutside: {
+    backgroundColor: "#FFF",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    zIndex: 100,
+  },
+  stickySearchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 25,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+
+  // Categories header
+  categoriesHeaderContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    backgroundColor: "#fff",
+  },
+  categoriesHeaderText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+
+  // Category tabs styling
+  categoryTabsList: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+  },
+  categoryTab: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    marginHorizontal: 6,
+    borderRadius: 20,
+    backgroundColor: "#f0f0f0",
+    minWidth: 100,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  activeCategoryTab: {
+    // backgroundColor is added dynamically with theme.colors.primary
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  categoryTabText: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#555",
+  },
+  activeCategoryText: {
+    color: "#fff",
+  },
+
+  // Menu section styling improvements
   menuContainer: {
     padding: 16,
+    paddingTop: 16,
   },
-  menuTitle: {
+  menuHeaderContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  menuHeaderText: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginLeft: 10,
+    color: "#222",
+  },
+  categorySection: {
+    marginBottom: 24,
+  },
+  categorySectionTitle: {
     fontSize: 20,
     fontWeight: "bold",
     marginBottom: 12,
-  },
-  categoriesList: {
-    marginBottom: 12,
-  },
-  categoriesContainer: {
-    paddingRight: 20,
-  },
-  categoryChip: {
-    marginRight: 8,
-  },
-  dishesContainer: {
-    marginTop: 8,
+    color: "#333",
   },
   dishItem: {
     marginBottom: 16,
@@ -688,12 +1205,32 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 8,
   },
-  // Location modal styles
+  moreInfoButton: {
+    position: "absolute",
+    bottom: -18,
+    right: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    zIndex: 10,
+  },
+  moreInfoText: {
+    marginLeft: 6,
+    fontSize: 14,
+    fontWeight: "bold",
+  },
   locationModal: {
     margin: 20,
     borderRadius: 16,
     padding: 16,
-    height: "80%", // Set a fixed height for the modal
+    height: "80%",
   },
   locationModalContent: {
     flex: 1,
@@ -743,6 +1280,32 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     marginTop: 8,
+  },
+  noResultsContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 30,
+    marginTop: 20,
+  },
+  noResultsText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#555",
+    marginTop: 15,
+  },
+  noResultsSubText: {
+    fontSize: 14,
+    color: "#888",
+    marginTop: 5,
+  },
+  searchResultsContainer: {
+    paddingBottom: 20,
+  },
+  searchResultsTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#555",
+    marginBottom: 15,
   },
 });
 

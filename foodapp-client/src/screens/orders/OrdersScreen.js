@@ -17,10 +17,16 @@ const OrdersScreen = ({ navigation }) => {
   const theme = useTheme();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState("all");
 
   useEffect(() => {
     loadOrders();
+  }, []);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    loadOrders().finally(() => setRefreshing(false));
   }, []);
 
   const loadOrders = async () => {
@@ -162,18 +168,18 @@ const OrdersScreen = ({ navigation }) => {
     </View>
   );
 
-  if (loading) {
-    return (
-      <View
-        style={[
-          styles.loadingContainer,
-          { backgroundColor: theme.colors.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <View
+  //       style={[
+  //         styles.loadingContainer,
+  //         { backgroundColor: theme.colors.background },
+  //       ]}
+  //     >
+  //       <ActivityIndicator size="large" color={theme.colors.primary} />
+  //     </View>
+  //   );
+  // }
 
   const filteredOrders = getFilteredOrders();
 
@@ -250,6 +256,8 @@ const OrdersScreen = ({ navigation }) => {
         keyExtractor={(item) => item.orderId}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={renderEmptyOrders}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
       />
     </SafeAreaView>
   );

@@ -97,7 +97,7 @@ export const LocationProvider = ({ children }) => {
 
   const addCustomLocation = (location) => {
     setSelectedAddress({
-      label: location.label || "Custom Location",
+      label: location.label || "Custom",
       street: location.street || location.address || "Custom Address",
       city: location.city || "",
       state: location.state || location.region || "",

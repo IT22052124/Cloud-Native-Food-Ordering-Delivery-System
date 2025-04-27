@@ -26,6 +26,7 @@ import dataService from "../../services/dataService";
 import { creditCard, COD } from "../../assets/index";
 import { useStripe } from "@stripe/stripe-react-native";
 import LottieView from "lottie-react-native";
+import { TAX_RATE } from "../../utils/taxUtils";
 
 const PAYMENT_METHODS = [
   {
@@ -47,8 +48,15 @@ const PaymentScreen = ({ navigation, route }) => {
   const { clearCart } = useCart();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
-  const { orderType, selectedAddress, subtotal, deliveryFee, total } =
-    route.params;
+  const {
+    orderType,
+    selectedAddress,
+    subtotal,
+    deliveryFee,
+    tax,
+    total,
+    currency = "LKR",
+  } = route.params;
 
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -80,6 +88,10 @@ const PaymentScreen = ({ navigation, route }) => {
             : null,
         paymentMethod: selectedPayment.id.toUpperCase(),
         status: selectedPayment.id === "cod" ? "PAID" : "PENDING_PAYMENT",
+        tax: tax || 0,
+        deliveryFee: deliveryFee || 0,
+        subtotal: subtotal || 0,
+        customTaxRate: TAX_RATE,
       };
 
       const response = await dataService.createOrder(orderData);
@@ -110,7 +122,7 @@ const PaymentScreen = ({ navigation, route }) => {
       // 2. Create Payment Intent with order ID
       const response = await dataService.createPaymentIntent({
         orderId: order.id,
-        amount: total * 100,
+        amount: Math.round(total * 100), // Convert to cents and ensure it's an integer
         currency: "lkr",
       });
 
@@ -245,23 +257,34 @@ const PaymentScreen = ({ navigation, route }) => {
           <Card.Content>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
-              <Text style={styles.summaryValue}>${subtotal.toFixed(2)}</Text>
+              <Text style={styles.summaryValue}>
+                {currency} {subtotal.toFixed(2)}
+              </Text>
             </View>
 
             {orderType === "DELIVERY" && (
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Delivery Fee</Text>
                 <Text style={styles.summaryValue}>
-                  ${deliveryFee.toFixed(2)}
+                  {currency} {deliveryFee.toFixed(2)}
                 </Text>
               </View>
             )}
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Tax (5%)</Text>
+              <Text style={styles.summaryValue}>
+                {currency} {tax.toFixed(2)}
+              </Text>
+            </View>
 
             <Divider style={styles.divider} />
 
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
+              <Text style={styles.totalValue}>
+                {currency} {total.toFixed(2)}
+              </Text>
             </View>
           </Card.Content>
         </Card>
@@ -368,7 +391,7 @@ const PaymentScreen = ({ navigation, route }) => {
               ? "Processing..."
               : selectedPayment?.id === "cod"
               ? `Place Order`
-              : `Pay $${total.toFixed(2)}`}
+              : `Pay ${currency} ${total.toFixed(2)}`}
           </Button>
         </View>
       </ScrollView>

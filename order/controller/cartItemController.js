@@ -119,9 +119,26 @@ const addCartItem = async (req, res) => {
         .json({ status: 404, message: "Restaurant not found" });
     }
 
-    const dish = restaurant.data?.dishes.find(
-      (d) => d.toString() === req.body.itemId
+    // Get dish details to properly set price
+    const dishesResponse = await getRestaurantDishes(
+      req.headers.authorization,
+      req.body.restaurantId
     );
+
+    if (
+      !dishesResponse ||
+      !dishesResponse.data ||
+      !dishesResponse.data.dishes
+    ) {
+      return res
+        .status(404)
+        .json({ status: 404, message: "Failed to fetch restaurant menu" });
+    }
+
+    const dish = dishesResponse.data.dishes.find(
+      (d) => d._id === req.body.itemId
+    );
+
     if (!dish) {
       return res
         .status(404)
@@ -152,16 +169,21 @@ const addCartItem = async (req, res) => {
     if (existingItem) {
       // If item exists, increment quantity
       existingItem.quantity += req.body.quantity || 1;
+      // Recalculate total price based on updated quantity
+      existingItem.totalPrice = existingItem.itemPrice * existingItem.quantity;
       savedItem = await existingItem.save();
     } else {
+      // Use the price from the request if provided, otherwise use price from dish
+      const itemPrice = req.body.itemPrice || dish.price;
+
       // If item doesn't exist, create new cart item
       const newCartItem = new CartItem({
         customerId: userId,
         itemId: req.body.itemId,
         restaurantId: req.body.restaurantId,
-        // itemPrice: dish.price,
-        itemPrice: 100,
+        itemPrice: itemPrice,
         quantity: req.body.quantity || 1,
+        totalPrice: itemPrice * (req.body.quantity || 1),
       });
       savedItem = await newCartItem.save();
     }
@@ -171,6 +193,7 @@ const addCartItem = async (req, res) => {
       restaurantId: savedItem.restaurantId,
       itemId: savedItem.itemId,
       quantity: savedItem.quantity,
+      itemPrice: savedItem.itemPrice,
       totalPrice: savedItem.totalPrice,
     });
   } catch (err) {

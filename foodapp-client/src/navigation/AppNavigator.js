@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import LoginScreen from "../screens/auth/LoginScreen";
 import RegisterScreen from "../screens/auth/RegisterScreen";
 import ForgotPasswordScreen from "../screens/auth/ForgotPasswordScreen";
+import OnboardingScreen from "../screens/onboarding/OnboardingScreen";
 
 // Main App Screens
 import HomeScreen from "../screens/home/HomeScreen";
@@ -15,6 +16,7 @@ import LocationMapScreen from "../screens/home/LocationMapScreen";
 import RestaurantsScreen from "../screens/restaurants/RestaurantsScreen";
 import RestaurantDetailScreen from "../screens/restaurants/RestaurantDetailScreen";
 import DishDetailScreen from "../screens/restaurants/DishDetailScreen";
+import RestaurantInfoScreen from "../screens/restaurants/RestaurantInfoScreen";
 import CartScreen from "../screens/cart/CartScreen";
 import CheckoutScreen from "../screens/cart/CheckoutScreen";
 import PaymentScreen from "../screens/cart/PaymentScreen";
@@ -25,6 +27,11 @@ import OrderConfirmationScreen from "../screens/orders/OrderConfirmationScreen";
 import ProfileScreen from "../screens/profile/ProfileScreen";
 import ChangePasswordScreen from "../screens/profile/ChangePasswordScreen";
 import SavedAddressesScreen from "../screens/profile/SavedAddressesScreen";
+import SearchScreen from "../screens/search/SearchScreen";
+import HelpCenterScreen from "../screens/support/HelpCenterScreen";
+import AboutUsScreen from "../screens/support/AboutUsScreen";
+import PrivacyPolicyScreen from "../screens/support/PrivacyPolicyScreen";
+import TermsOfServiceScreen from "../screens/support/TermsOfServiceScreen";
 
 // Loading screen
 import SplashScreen from "../screens/SplashScreen";
@@ -36,6 +43,7 @@ const Tab = createBottomTabNavigator();
 const AuthNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
@@ -53,7 +61,9 @@ const HomeStack = () => {
         component={RestaurantDetailScreen}
       />
       <Stack.Screen name="DishDetail" component={DishDetailScreen} />
+      <Stack.Screen name="RestaurantInfo" component={RestaurantInfoScreen} />
       <Stack.Screen name="LocationMap" component={LocationMapScreen} />
+      <Stack.Screen name="Search" component={SearchScreen} />
     </Stack.Navigator>
   );
 };
@@ -68,6 +78,8 @@ const RestaurantsStack = () => {
         component={RestaurantDetailScreen}
       />
       <Stack.Screen name="DishDetail" component={DishDetailScreen} />
+      <Stack.Screen name="RestaurantInfo" component={RestaurantInfoScreen} />
+      <Stack.Screen name="Search" component={SearchScreen} />
     </Stack.Navigator>
   );
 };
@@ -117,6 +129,10 @@ const ProfileStack = () => {
       <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       <Stack.Screen name="SavedAddresses" component={SavedAddressesScreen} />
+      <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
+      <Stack.Screen name="AboutUs" component={AboutUsScreen} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+      <Stack.Screen name="TermsOfService" component={TermsOfServiceScreen} />
     </Stack.Navigator>
   );
 };

@@ -32,9 +32,8 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
       try {
         setLoading(true);
         const response = await dataService.getOrderById(orderId);
-
         setOrder(response.order.order);
-        console.log(response.order.order.restaurantOrder);
+        console.log(response.order.order);
         setRestaurant(response.order.restaurant);
       } catch (error) {
         console.error("Error fetching order details:", error);
@@ -197,7 +196,7 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
                   </View>
                 </View>
                 <Text style={styles.itemPrice}>
-                  LKR {(item.price * item.quantity)?.toFixed(2)}
+                  LKR {(item.price * item.quantity).toFixed(2)}
                 </Text>
               </View>
             ))}
@@ -215,13 +214,25 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
               {order.type === "DELIVERY" && (
                 <View style={styles.priceRow}>
                   <Text style={styles.priceLabel}>Delivery Fee</Text>
-                  <Text style={styles.priceValue}>${order.deliveryFee}</Text>
+                  <Text style={styles.priceValue}>
+                    LKR{" "}
+                    {order.restaurantOrder.deliveryFee?.toFixed(2) || "0.00"}
+                  </Text>
                 </View>
               )}
 
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>Tax</Text>
+                <Text style={styles.priceValue}>
+                  LKR {order.restaurantOrder.tax?.toFixed(2) || "0.00"}
+                </Text>
+              </View>
+
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Total</Text>
-                <Text style={styles.totalValue}>${order.totalAmount}</Text>
+                <Text style={styles.totalValue}>
+                  LKR {order.totalAmount?.toFixed(2)}
+                </Text>
               </View>
             </View>
           </Card.Content>
@@ -231,6 +242,23 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
   };
 
   const renderPaymentInfo = () => {
+    const getPaymentStatus = () => {
+      if (order.paymentStatus === "PAID") {
+        return { text: "Paid", color: theme.colors.success };
+      } else if (order.paymentStatus === "PENDING") {
+        return { text: "Pending", color: theme.colors.warning };
+      } else if (order.paymentMethod === "COD") {
+        return { text: "Cash on Delivery", color: theme.colors.info };
+      } else {
+        return {
+          text: order.paymentStatus || "Unknown",
+          color: theme.colors.text,
+        };
+      }
+    };
+
+    const paymentStatus = getPaymentStatus();
+
     return (
       <View style={styles.section}>
         <Title style={styles.sectionTitle}>Payment</Title>
@@ -248,8 +276,10 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
             </View>
             <View style={styles.paymentRow}>
               <Text style={styles.paymentLabel}>Status</Text>
-              <Text style={[styles.paymentValue, styles.paymentStatus]}>
-                Paid
+              <Text
+                style={[styles.paymentValue, { color: paymentStatus.color }]}
+              >
+                {paymentStatus.text}
               </Text>
             </View>
           </Card.Content>
@@ -279,7 +309,9 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
         <IconButton
           icon="arrow-left"
           size={24}
-          onPress={() => navigation.navigate("Cart")}
+          onPress={() => {
+            navigation.navigate("Cart", { screen: "CartScreen" });
+          }}
           color={theme.colors.text}
         />
         <Text style={styles.headerTitle}>Order Confirmation</Text>
@@ -298,9 +330,12 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
             mode="contained"
             style={styles.trackButton}
             labelStyle={styles.buttonLabel}
-            onPress={() =>
-              navigation.navigate("OrderTracking", { orderId: order.id })
-            }
+            onPress={() => {
+              navigation.navigate("Orders", {
+                screen: "OrderTracking",
+                params: { orderId: order.orderId },
+              });
+            }}
           >
             Track Order
           </Button>
@@ -309,9 +344,11 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
             mode="outlined"
             style={styles.homeButton}
             labelStyle={styles.homeButtonLabel}
-            onPress={() => navigation.navigate("Home")}
+            onPress={() => {
+              navigation.navigate("Orders", { screen: "OrdersScreen" });
+            }}
           >
-            Back to Home
+            Back to Orders
           </Button>
         </View>
       </ScrollView>
@@ -504,9 +541,6 @@ const styles = StyleSheet.create({
   paymentValue: {
     fontSize: 14,
     fontWeight: "500",
-  },
-  paymentStatus: {
-    color: "#276749",
   },
   buttonContainer: {
     paddingHorizontal: 16,
