@@ -5,13 +5,12 @@ const dotenv = require('dotenv');
 const morgan = require('morgan');
 const { createServer } = require('http');
 const { setupSocket } = require('./services/socket');
-const httpServer = createServer(app);
 const deliveryRoutes = require('./routes/deliveryRoutes');
 const earningsRoutes = require('./routes/earningsRoutes');
 const { protect } = require('./middleware/auth');
 const { checkHealth } = require('./middleware/health');
 const authRoutes = require('./routes/authRoutes');
-
+const liveDriverRoutes = require('./routes/liveDrivers');
 
 dotenv.config();
 
@@ -35,12 +34,14 @@ mongoose.connect(process.env.MONGO_URI)
 global.gConfig = {
   auth_url: process.env.AUTH_SERVICE_URL || 'http://localhost:5001',
   order_url: process.env.ORDER_SERVICE_URL || 'http://localhost:5002',
-  restaurant_url: process.env.RESTAURANT_SERVICE_URL || 'http://localhost:5003'
+  restaurant_url: process.env.RESTAURANT_SERVICE_URL || 'http://localhost:5003',
+  delivery_url: process.env.DELIVERY_SERVICE_URL || 'http://localhost:5004'
 };
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/deliveries', protect, deliveryRoutes);
 app.use('/api/earnings', protect, earningsRoutes);
+app.use('/api/live-drivers', liveDriverRoutes);
 
 // Health check
 app.get('/health', async (_req, res) => {
@@ -58,10 +59,11 @@ app.use((err, req, res, next) => {
   });
 });
 
+const httpServer = createServer(app);
+
 // Socket.IO Setup
-const { io, liveDriverLocations } = setupSocket(httpServer);
+const { io } = setupSocket(httpServer);
 app.set('io', io);
-app.set('liveDriverLocations', liveDriverLocations);
 
 // Start server
 httpServer.listen(PORT, () => {

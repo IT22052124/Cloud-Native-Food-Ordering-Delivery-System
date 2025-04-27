@@ -1,7 +1,7 @@
-import axios from 'axios';
-import mongoose from 'mongoose';
+const { axios } = require('axios');
+const { mongoose } = require('mongoose');
 
-export const checkHealth = async () => {
+const checkHealth = async () => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
   
   // Check dependent services

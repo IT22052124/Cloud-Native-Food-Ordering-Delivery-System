@@ -1,10 +1,8 @@
 const { Server } = require('socket.io');
 const axios = require('axios');
-const Delivery = require('../models/Delivery');
-const { retryDeliveryAssignment } = require('../controllers/deliveryController');
-
-// In-memory store for driver live locations
-const liveDriverLocations = new Map();
+const { Delivery } = require('../models/Delivery');
+const LiveDriver = require('../models/LiveDriver'); // Live driver model
+// const { retryDeliveryAssignment } = require('../controllers/deliveryController'); // ⛔ Commented for future use
 
 /**
  * Setup Socket.IO for real-time delivery updates
@@ -35,6 +33,7 @@ function setupSocket(server) {
 
       if (response.data?.user) {
         socket.user = response.data.user;
+        console.log('✅ Socket auth success for user:', socket.user.id);
         return next();
       }
 
@@ -54,22 +53,12 @@ function setupSocket(server) {
 
     if (user.role === 'delivery') {
       socket.join('drivers_room');
-
-      // Track live location
-      socket.on('driverLiveLocation', ({ lat, lng }) => {
-        liveDriverLocations.set(user.id, {
-          coordinates: [lng, lat],
-          timestamp: Date.now(),
-        });
-      });
-
-      socket.on('disconnect', () => {
-        console.log(`❌ Driver ${user.id} disconnected`);
-        liveDriverLocations.delete(user.id);
-      });
     }
 
-    // Handle driver response to delivery assignment
+    /**
+     * ⛔ Future accept/reject logic is commented for now
+     */
+    /*
     socket.on('driverResponse', async ({ deliveryId, accept }) => {
       try {
         const delivery = await Delivery.findById(deliveryId);
@@ -96,12 +85,12 @@ function setupSocket(server) {
           };
           await delivery.save();
 
-          // Notify restaurant + customer
           io.to(`user_${delivery.restaurant.id}`).emit('driverAssigned', {
             deliveryId: delivery._id,
             orderId: delivery.orderId,
             driver: delivery.driver,
           });
+
           io.to(`user_${delivery.customer.id}`).emit('driverAssigned', {
             deliveryId: delivery._id,
             orderId: delivery.orderId,
@@ -110,7 +99,6 @@ function setupSocket(server) {
 
           socket.emit('responseSuccess', { message: 'Delivery accepted' });
         } else {
-          // Reject
           delivery.proposedDrivers = delivery.proposedDrivers.filter(
             d => d.driverId.toString() !== user.id
           );
@@ -126,6 +114,91 @@ function setupSocket(server) {
         console.error('Driver response error:', err);
         socket.emit('responseError', { message: 'Processing error' });
       }
+    });
+    */
+
+    socket.on('driverAvailableToggle', async ({ isAvailable, location }) => {
+      try {
+        if (isAvailable) {
+          if (!location?.coordinates) {
+            return socket.emit('toggleError', { message: 'Location required to go online' });
+          }
+    
+          await LiveDriver.findOneAndUpdate(
+            { driverId: user.id },
+            {
+              driverId: user.id,
+              name: user.name,
+              phone: user.phone,
+              isAvailable: true,
+              location
+            },
+            { upsert: true }
+          );
+    
+        } else {
+          await LiveDriver.deleteOne({ driverId: user.id });
+        }
+    
+        socket.emit('toggleSuccess', { isAvailable });
+      } catch (err) {
+        console.error('Toggle availability socket error:', err.message);
+        socket.emit('toggleError', { message: 'Could not update availability' });
+      }
+    });
+
+    socket.on('goOnline', async ({ lat, lng }) => {
+      try {
+        if (!lat || !lng) {
+          return socket.emit('availabilityError', { message: 'Location required' });
+        }
+    
+        const response = await axios.put(`${global.gConfig.auth_url}/api/users/me/availability/toggle`, {}, {
+          headers: { Authorization: `Bearer ${socket.handshake.auth.token}` }
+        });
+    
+        // Save/update live driver location
+        await LiveDriver.findOneAndUpdate(
+          { driverId: socket.user.id },
+          {
+            driverId: socket.user.id,
+            name: socket.user.name,
+            phone: socket.user.phone,
+            coordinates: [lng, lat],
+            isAvailable: true
+          },
+          { upsert: true }
+        );
+    
+        socket.emit('availabilityUpdated', { isAvailable: true });
+      } catch (err) {
+        console.error('Go online error:', err);
+        socket.emit('availabilityError', { message: 'Failed to go online' });
+      }
+    });
+
+    socket.on('goOffline', async () => {
+      try {
+        await axios.put(`${global.gConfig.auth_url}/api/users/me/availability/toggle`, {}, {
+          headers: { Authorization: `Bearer ${socket.handshake.auth.token}` }
+        });
+    
+        await axios.delete(`${process.env.DELIVERY_SERVICE_URL || 'http://localhost:5004'}/api/live-drivers/${socket.user.id}`, {
+          headers: { Authorization: `Bearer ${socket.handshake.auth.token}` }
+        });
+        socket.emit('availabilityUpdated', { isAvailable: false });
+      } catch (err) {
+        console.error('Go offline error:', err);
+        socket.emit('availabilityError', { message: 'Failed to go offline' });
+      }
+    });
+    
+    
+
+    // ✅ NEW: Delivery directly assigned to driver
+    socket.on('deliveryAssignedDirect', (data) => {
+      console.log(`📦 New delivery assigned to driver ${user.id}`, data);
+      // Frontend should display popup with this data
     });
 
     // Driver sends live location for active delivery
@@ -172,7 +245,7 @@ function setupSocket(server) {
     });
   });
 
-  return { io, liveDriverLocations };
+  return { io };
 }
 
 module.exports = { setupSocket };

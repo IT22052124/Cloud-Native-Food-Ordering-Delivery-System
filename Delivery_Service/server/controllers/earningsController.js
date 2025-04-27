@@ -1,11 +1,11 @@
-import DeliveryEarningsReport from '../models/DeliveryEarningsReport.js';
+const { DeliveryEarningsReport } = require('../models/Delivery.js');
 
 /**
  * @desc    Get earnings history for current driver
  * @route   GET /api/earnings/history
  * @access  Private/Delivery
  */
-export const getEarningsHistory = async (req, res) => {
+const getEarningsHistory = async (req, res) => {
   try {
     const reports = await DeliveryEarningsReport.find({ driverId: req.user.id }).sort({ createdAt: -1 });
     res.json({ success: true, reports });
@@ -14,3 +14,5 @@ export const getEarningsHistory = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
+
+module.exports = { getEarningsHistory };

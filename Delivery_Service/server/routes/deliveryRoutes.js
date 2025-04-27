@@ -1,14 +1,15 @@
-import express from 'express';
-import { 
+const express = require('express');
+const {
   assignDelivery,
   updateDeliveryStatus,
   updateDriverLocation,
-  getDeliveryDetails,
-  getDriverDeliveries,
-  confirmCashPayment,
-  toggleAvailability
-} from '../controllers/deliveryController.js';
-import { protect, authorize } from '../middleware/auth.js';
+  toggleAvailability,
+  respondToAssignment,
+  getDeliveryById,
+  getDeliveriesByQuery,
+  getCustomerDeliveries,
+} = require('../controllers/deliveryController');
+const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -19,13 +20,14 @@ router.use(protect);
 router.post('/assign', authorize('restaurant'), assignDelivery);
 
 // Driver endpoints
-router.get('/driver', authorize('delivery'), getDriverDeliveries);
-router.patch('/availability', protect, authorize('delivery'), toggleAvailability);
+router.patch('/availability', authorize('delivery'), toggleAvailability);
 router.patch('/:id/status', authorize('delivery'), updateDeliveryStatus);
 router.patch('/:id/location', authorize('delivery'), updateDriverLocation);
-router.patch('/:id/confirm-payment', authorize('delivery'), confirmCashPayment);
+router.post('/respond', authorize('delivery'), respondToAssignment);
 
 // Shared endpoints
-router.get('/:id', authorize('customer', 'restaurant', 'delivery', 'admin'), getDeliveryDetails);
+router.get('/:id', authorize('customer', 'restaurant', 'delivery', 'admin'), getDeliveryById);
+router.get('/', authorize('admin', 'restaurant', 'delivery'), getDeliveriesByQuery);
+router.get('/customer/history', authorize('customer'), getCustomerDeliveries);
 
-export default router;
+module.exports = router;

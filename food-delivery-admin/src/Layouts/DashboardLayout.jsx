@@ -2,23 +2,9 @@ import { useState, useContext } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { ThemeContext } from "../context/ThemeContext";
+import Icons from "../assets/icons";
 
-// Icons (simplified with text but in real implementation, use svg icons)
-const Icons = {
-  Dashboard: "Chart Bar",
-  Notifications: "Bell",
-  Restaurants: "Store",
-  Drivers: "Truck",
-  Finance: "Currency Dollar",
-  Reports: "Document Report",
-  Settings: "Cog",
-  Logout: "Logout",
-  Sun: "Sun",
-  Moon: "Moon",
-  Menu: "Menu",
-  Close: "X",
-  User: "User",
-};
+
 
 function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);

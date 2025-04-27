@@ -1,19 +1,43 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
+import { View, StyleSheet, LayoutAnimation } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-import * as Yup from 'yup';
 import { Formik } from 'formik';
+import * as Yup from 'yup';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../../services/firebase';
 import Toast from 'react-native-toast-message';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import {
+  Text,
+  TextInput,
+  Button,
+  ActivityIndicator,
+  useTheme,
+  Card,
+  HelperText,
+} from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+type FormValues = {
+  name: string;
+  email: string;
+  phone: string;
+  nic: string;
+  vehiclePlate: string;
+  password: string;
+  confirmPassword: string;
+};
 
 const validationSchema = Yup.object().shape({
   name: Yup.string().required('Name is required'),
   email: Yup.string().email('Invalid email').required('Email is required'),
   phone: Yup.string().required('Phone number is required'),
   nic: Yup.string().required('NIC number is required'),
+  vehiclePlate: Yup.string()
+    .required('Vehicle plate is required')
+    .matches(/^[A-Z]{2,3}-\d{4}$/, 'Format should be ABC-1234'),
   password: Yup.string()
     .min(6, 'Password must be at least 6 characters')
     .required('Password is required'),
@@ -27,6 +51,9 @@ export default function DeliveryRegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [nicImage, setNicImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [secureTextEntry, setSecureTextEntry] = useState(true);
+  const [confirmSecureTextEntry, setConfirmSecureTextEntry] = useState(true);
+  const { colors } = useTheme();
 
   const pickImage = async () => {
     try {
@@ -42,27 +69,32 @@ export default function DeliveryRegisterScreen() {
         const uploadUrl = await uploadImageAsync(result.assets[0].uri);
         setNicImage(uploadUrl);
         setUploading(false);
+        Toast.show({
+          type: 'success',
+          text1: 'Upload Successful',
+          text2: 'NIC image uploaded successfully',
+        });
       }
     } catch (error) {
       console.error('Image picker error:', error);
       setUploading(false);
+      Toast.show({
+        type: 'error',
+        text1: 'Upload Failed',
+        text2: 'Failed to upload NIC image',
+      });
     }
   };
 
   const uploadImageAsync = async (uri: string) => {
     try {
-      // Convert image to blob
       const response = await fetch(uri);
       const blob = await response.blob();
-      
-      // Create unique filename
-      const filename = `nic-images/${Date.now()}-${Math.random().toString(36).substring(7)}`;
+
+      const filename = `nic-images/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
       const storageRef = ref(storage, filename);
-      
-      // Upload to Firebase
+
       await uploadBytes(storageRef, blob);
-      
-      // Get download URL
       return await getDownloadURL(storageRef);
     } catch (error) {
       console.error('Upload error:', error);
@@ -70,171 +102,376 @@ export default function DeliveryRegisterScreen() {
     }
   };
 
-  const handleSubmit = async (values: {
-    name: string;
-    email: string;
-    phone: string;
-    nic: string;
-    password: string;
-  }) => {
+  const handleSubmit = async (values: FormValues) => {
     if (!nicImage) {
-      Alert.alert('Error', 'Please upload your NIC image');
+      Toast.show({
+        type: 'error',
+        text1: 'NIC Image Required',
+        text2: 'Please upload your NIC image',
+        position: 'bottom',
+      });
       return;
     }
 
     try {
       setLoading(true);
-      await register(
-        {
-          name: values.name,
-          email: values.email,
-          phone: values.phone,
-          password: values.password,
-          nic: values.nic,
-          nicImage,
-        }, 
-        'delivery' // role as second argument
+      const user = await register({
+        name: values.name,
+        email: values.email,
+        phone: values.phone,
+        nic: values.nic,
+        vehiclePlate: values.vehiclePlate,
+        nicImage: nicImage,
+        password: values.password,
+      });
+
+      router.replace(
+        user.status === 'pending_approval'
+          ? '/(auth)/pending-approval'
+          : '/(delivery)/dashboard'
       );
-      router.replace('/(auth)/pending-approval');
-    } catch (error : any) {
-        Toast.show({
-          type: 'error',
-          text1: 'Registration Failed',
-          text2: error.response?.data?.message || 'Server error',
-        });
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Registration Failed',
+        text2: error?.message || 'Something went wrong',
+        position: 'bottom',
+      });
     } finally {
       setLoading(false);
     }
   };
 
+  // Configure animation for smooth transitions
+  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Register as Delivery Partner</Text>
-      
-      <Formik
-        initialValues={{
-          name: '',
-          email: '',
-          phone: '',
-          nic: '',
-          password: '',
-          confirmPassword: '',
-        }}
-        validationSchema={validationSchema}
-        onSubmit={handleSubmit}
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.scrollContainer}
+        enableOnAndroid={true}
+        extraHeight={100}
+        extraScrollHeight={20}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        enableAutomaticScroll={true}
+        style={{ flex: 1 }}
       >
-        {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
-          <View style={styles.form}>
-            <TextInput
-              style={styles.input}
-              placeholder="Full Name"
-              onChangeText={handleChange('name')}
-              onBlur={handleBlur('name')}
-              value={values.name}
-            />
-            {touched.name && errors.name && (
-              <Text style={styles.errorText}>{errors.name}</Text>
-            )}
-
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              onChangeText={handleChange('email')}
-              onBlur={handleBlur('email')}
-              value={values.email}
-            />
-            {touched.email && errors.email && (
-              <Text style={styles.errorText}>{errors.email}</Text>
-            )}
-
-            <TextInput
-              style={styles.input}
-              placeholder="Phone Number"
-              keyboardType="phone-pad"
-              onChangeText={handleChange('phone')}
-              onBlur={handleBlur('phone')}
-              value={values.phone}
-            />
-            {touched.phone && errors.phone && (
-              <Text style={styles.errorText}>{errors.phone}</Text>
-            )}
-
-            <TextInput
-              style={styles.input}
-              placeholder="NIC Number"
-              onChangeText={handleChange('nic')}
-              onBlur={handleBlur('nic')}
-              value={values.nic}
-            />
-            {touched.nic && errors.nic && (
-              <Text style={styles.errorText}>{errors.nic}</Text>
-            )}
-
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              secureTextEntry
-              onChangeText={handleChange('password')}
-              onBlur={handleBlur('password')}
-              value={values.password}
-            />
-            {touched.password && errors.password && (
-              <Text style={styles.errorText}>{errors.password}</Text>
-            )}
-
-            <TextInput
-              style={styles.input}
-              placeholder="Confirm Password"
-              secureTextEntry
-              onChangeText={handleChange('confirmPassword')}
-              onBlur={handleBlur('confirmPassword')}
-              value={values.confirmPassword}
-            />
-            {touched.confirmPassword && errors.confirmPassword && (
-              <Text style={styles.errorText}>{errors.confirmPassword}</Text>
-            )}
-
-            <TouchableOpacity
-              style={styles.uploadButton}
-              onPress={pickImage}
-              disabled={uploading}
-            >
-              <Text style={styles.uploadButtonText}>
-                {uploading ? 'Uploading...' : nicImage ? 'NIC Image Uploaded ✓' : 'Upload NIC Image'}
-              </Text>
-            </TouchableOpacity>
-
-            {nicImage && (
-              <Image 
-                source={{ uri: nicImage }} 
-                style={styles.imagePreview} 
-                resizeMode="contain"
+        <Card style={styles.card}>
+          <Card.Content>
+            <View style={styles.logoContainer}>
+              <MaterialCommunityIcons
+                name="account-plus"
+                size={48}
+                color={colors.primary}
               />
-            )}
-
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => handleSubmit()}
-              disabled={loading || uploading}
-            >
-              <Text style={styles.buttonText}>
-                {loading ? 'Registering...' : 'Register as Delivery Partner'}
+              <Text variant="headlineMedium" style={styles.title}>
+                Delivery Registration
               </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </Formik>
+              <Text variant="bodyMedium" style={styles.subtitle}>
+                Create your delivery partner account
+              </Text>
+            </View>
 
-      <TouchableOpacity
-        style={styles.loginLink}
-        onPress={() => router.push('/(auth)/login')}
-      >
-        <Text style={styles.loginLinkText}>
-          Already have an account? Login
-        </Text>
-      </TouchableOpacity>
+            <Formik<FormValues>
+              initialValues={{
+                name: '',
+                email: '',
+                phone: '',
+                nic: '',
+                vehiclePlate: '',
+                password: '',
+                confirmPassword: '',
+              }}
+              validationSchema={validationSchema}
+              onSubmit={handleSubmit}
+              validateOnBlur={true}
+              validateOnChange={true}
+            >
+              {({
+                handleChange,
+                handleBlur,
+                handleSubmit,
+                values,
+                errors,
+                touched,
+                setFieldTouched,
+                setFieldError,
+              }) => {
+                const [focusedField, setFocusedField] = useState<keyof FormValues | null>(null);
+
+                const handleFieldChange = (field: keyof FormValues) => (text: string) => {
+                  // Auto-format vehicle plate (ABC-1234)
+                  if (field === 'vehiclePlate') {
+                    text = text.toUpperCase();
+                    if (text.length === 3 && !text.includes('-')) {
+                      text = text + '-';
+                    }
+                    if (text.length > 8) {
+                      return; // Limit to ABC-1234 format
+                    }
+                  }
+                  
+                  handleChange(field)(text);
+                  validationSchema.validateAt(field, { [field]: text })
+                    .then(() => {
+                      setFieldError(field, undefined);
+                      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                    })
+                    .catch((err) => {
+                      if (touched[field]) {
+                        setFieldError(field, err.errors[0]);
+                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                      }
+                    });
+                };
+
+                const customHandleBlur = (field: keyof FormValues) => (e: any) => {
+                  handleBlur(field)(e);
+                  setFieldTouched(field, true, false);
+                  setFocusedField(null);
+                  
+                  if (!values[field]) {
+                    validationSchema.validateAt(field, {})
+                      .then(() => setFieldError(field, undefined))
+                      .catch((err) => {
+                        setFieldError(field, err.errors[0]);
+                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                      });
+                  }
+                };
+
+                const handleFocus = (field: keyof FormValues) => {
+                  setFocusedField(field);
+                };
+
+                return (
+                  <>
+                    {/* Name Field */}
+                    <View>
+                      <TextInput
+                        mode="outlined"
+                        label="Full Name"
+                        placeholder="Enter your full name"
+                        onChangeText={handleFieldChange('name')}
+                        onFocus={() => handleFocus('name')}
+                        onBlur={customHandleBlur('name')}
+                        value={values.name}
+                        error={focusedField === 'name' ? false : (touched.name && !!errors.name)}
+                        style={styles.input}
+                        left={<TextInput.Icon icon="account" />}
+                      />
+                      {touched.name && errors.name && (
+                        <HelperText type="error" style={styles.errorHelper}>
+                          {errors.name}
+                        </HelperText>
+                      )}
+                    </View>
+
+                    {/* Email Field */}
+                    <View>
+                      <TextInput
+                        mode="outlined"
+                        label="Email"
+                        placeholder="Enter your email"
+                        onChangeText={handleFieldChange('email')}
+                        onFocus={() => handleFocus('email')}
+                        onBlur={customHandleBlur('email')}
+                        value={values.email}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        error={focusedField === 'email' ? false : (touched.email && !!errors.email)}
+                        style={styles.input}
+                        left={<TextInput.Icon icon="email" />}
+                      />
+                      {touched.email && errors.email && (
+                        <HelperText type="error" style={styles.errorHelper}>
+                          {errors.email}
+                        </HelperText>
+                      )}
+                    </View>
+
+                    {/* Phone Field */}
+                    <View>
+                      <TextInput
+                        mode="outlined"
+                        label="Phone Number"
+                        placeholder="Enter your phone number"
+                        onChangeText={handleFieldChange('phone')}
+                        onFocus={() => handleFocus('phone')}
+                        onBlur={customHandleBlur('phone')}
+                        value={values.phone}
+                        keyboardType="phone-pad"
+                        error={focusedField === 'phone' ? false : (touched.phone && !!errors.phone)}
+                        style={styles.input}
+                        left={<TextInput.Icon icon="phone" />}
+                      />
+                      {touched.phone && errors.phone && (
+                        <HelperText type="error" style={styles.errorHelper}>
+                          {errors.phone}
+                        </HelperText>
+                      )}
+                    </View>
+
+                    {/* NIC Field */}
+                    <View>
+                      <TextInput
+                        mode="outlined"
+                        label="NIC Number"
+                        placeholder="Enter your NIC number"
+                        onChangeText={handleFieldChange('nic')}
+                        onFocus={() => handleFocus('nic')}
+                        onBlur={customHandleBlur('nic')}
+                        value={values.nic}
+                        error={focusedField === 'nic' ? false : (touched.nic && !!errors.nic)}
+                        style={styles.input}
+                        left={<TextInput.Icon icon="card-account-details" />}
+                      />
+                      {touched.nic && errors.nic && (
+                        <HelperText type="error" style={styles.errorHelper}>
+                          {errors.nic}
+                        </HelperText>
+                      )}
+                    </View>
+
+                    {/* Vehicle Plate Field */}
+                    <View>
+                      <TextInput
+                        mode="outlined"
+                        label="Vehicle Plate (ABC-1234)"
+                        placeholder="Enter your vehicle plate"
+                        onChangeText={handleFieldChange('vehiclePlate')}
+                        onFocus={() => handleFocus('vehiclePlate')}
+                        onBlur={customHandleBlur('vehiclePlate')}
+                        value={values.vehiclePlate}
+                        error={focusedField === 'vehiclePlate' ? false : (touched.vehiclePlate && !!errors.vehiclePlate)}
+                        style={styles.input}
+                        left={<TextInput.Icon icon="car" />}
+                        maxLength={8}
+                      />
+                      {touched.vehiclePlate && errors.vehiclePlate && (
+                        <HelperText type="error" style={styles.errorHelper}>
+                          {errors.vehiclePlate}
+                        </HelperText>
+                      )}
+                    </View>
+
+                    {/* Password Field */}
+                    <View>
+                      <TextInput
+                        mode="outlined"
+                        label="Password"
+                        placeholder="Enter your password"
+                        onChangeText={handleFieldChange('password')}
+                        onFocus={() => handleFocus('password')}
+                        onBlur={customHandleBlur('password')}
+                        value={values.password}
+                        secureTextEntry={secureTextEntry}
+                        error={focusedField === 'password' ? false : (touched.password && !!errors.password)}
+                        style={styles.input}
+                        left={<TextInput.Icon icon="lock" />}
+                        right={
+                          <TextInput.Icon
+                            icon={secureTextEntry ? 'eye-off' : 'eye'}
+                            onPress={() => setSecureTextEntry(!secureTextEntry)}
+                          />
+                        }
+                      />
+                      {touched.password && errors.password && (
+                        <HelperText type="error" style={styles.errorHelper}>
+                          {errors.password}
+                        </HelperText>
+                      )}
+                    </View>
+
+                    {/* Confirm Password Field */}
+                    <View>
+                      <TextInput
+                        mode="outlined"
+                        label="Confirm Password"
+                        placeholder="Confirm your password"
+                        onChangeText={handleFieldChange('confirmPassword')}
+                        onFocus={() => handleFocus('confirmPassword')}
+                        onBlur={customHandleBlur('confirmPassword')}
+                        value={values.confirmPassword}
+                        secureTextEntry={confirmSecureTextEntry}
+                        error={focusedField === 'confirmPassword' ? false : (touched.confirmPassword && !!errors.confirmPassword)}
+                        style={styles.input}
+                        left={<TextInput.Icon icon="lock-check" />}
+                        right={
+                          <TextInput.Icon
+                            icon={confirmSecureTextEntry ? 'eye-off' : 'eye'}
+                            onPress={() => setConfirmSecureTextEntry(!confirmSecureTextEntry)}
+                          />
+                        }
+                      />
+                      {touched.confirmPassword && errors.confirmPassword && (
+                        <HelperText type="error" style={styles.errorHelper}>
+                          {errors.confirmPassword}
+                        </HelperText>
+                      )}
+                    </View>
+
+                    <Button
+                      mode="contained-tonal"
+                      icon="upload"
+                      onPress={pickImage}
+                      loading={uploading}
+                      disabled={uploading}
+                      style={styles.uploadButton}
+                      labelStyle={styles.uploadButtonText}
+                    >
+                      {uploading ? 'Uploading...' : nicImage ? 'NIC Uploaded' : 'Upload NIC Image'}
+                    </Button>
+
+                    {nicImage && (
+                      <View style={styles.imagePreviewContainer}>
+                        <Text variant="labelMedium" style={styles.imagePreviewText}>
+                          NIC Image Preview
+                        </Text>
+                        <Card.Cover source={{ uri: nicImage }} style={styles.imagePreview} />
+                      </View>
+                    )}
+
+                    <Button
+                      mode="contained"
+                      onPress={() => {
+                        (Object.keys(values) as Array<keyof FormValues>).forEach(field => {
+                          setFieldTouched(field, true, true);
+                        });
+                        handleSubmit();
+                      }}
+                      loading={loading}
+                      disabled={loading || uploading || !nicImage}
+                      style={styles.button}
+                      labelStyle={styles.buttonLabel}
+                      icon="account-check"
+                    >
+                      {loading ? 'Registering...' : 'Register'}
+                    </Button>
+                  </>
+                );
+              }}
+            </Formik>
+
+            <View style={styles.footer}>
+              <Text variant="bodyMedium" style={styles.footerText}>
+                Already have an account?
+              </Text>
+              <Button
+                mode="text"
+                onPress={() => router.push('/(auth)/login')}
+                compact
+                labelStyle={styles.loginButton}
+                icon="login"
+              >
+                Login
+              </Button>
+            </View>
+          </Card.Content>
+        </Card>
+      </KeyboardAwareScrollView>
+      <Toast />
     </View>
   );
 }
@@ -242,66 +479,78 @@ export default function DeliveryRegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContainer: {
+    flexGrow: 1,
     padding: 20,
-    justifyContent: 'center',
+    paddingBottom: 20,
+  },
+  card: {
+    paddingVertical: 15,
+    borderRadius: 16,
+    elevation: 1,
+    margin: 20,
+    marginBottom: 0,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
   },
   title: {
-    fontSize: 24,
+    marginTop: 10,
     fontWeight: 'bold',
-    marginBottom: 20,
     textAlign: 'center',
   },
-  form: {
-    width: '100%',
+  subtitle: {
+    marginTop: 8,
+    textAlign: 'center',
+    opacity: 0.6,
   },
   input: {
-    height: 50,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 15,
-    marginBottom: 10,
-    fontSize: 16,
+    marginBottom: 1,
   },
-  errorText: {
-    color: 'red',
-    marginBottom: 10,
+  errorHelper: {
+    height: 20,
+    marginTop: -4,
+    marginBottom: 8,
   },
   uploadButton: {
-    backgroundColor: '#4CAF50',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginVertical: 10,
+    marginTop: 5,
+    marginBottom: 16,
   },
   uploadButtonText: {
-    color: 'white',
-    fontSize: 16,
+    fontSize: 14,
+  },
+  imagePreviewContainer: {
+    marginBottom: 16,
+  },
+  imagePreviewText: {
+    marginBottom: 8,
+    opacity: 0.6,
   },
   imagePreview: {
-    width: '100%',
-    height: 200,
-    marginBottom: 10,
-    borderRadius: 5,
+    borderRadius: 8,
   },
   button: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 10,
+    marginTop: 8,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
-  buttonText: {
-    color: 'white',
+  buttonLabel: {
     fontSize: 16,
     fontWeight: 'bold',
   },
-  loginLink: {
-    marginTop: 20,
+  footer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 24,
   },
-  loginLinkText: {
-    color: '#007AFF',
-    fontSize: 16,
+  footerText: {
+    opacity: 0.6,
+  },
+  loginButton: {
+    marginLeft: 4,
+    fontWeight: 'bold',
   },
 });

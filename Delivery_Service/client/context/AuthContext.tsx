@@ -1,23 +1,40 @@
-import React, { createContext, useState, useEffect, useContext } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
-import * as api from "../services/api";
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as api from '../services/api';
+import { router } from 'expo-router';
+import { toggleAvailabilityAPI } from '../services/api';
 
 interface User {
   id: string;
   email: string;
   name: string;
-  role: "customer" | "delivery" | "restaurant" | "admin";
+  phone: string;
+  vehiclePlate: string;
+  role: "delivery";
   status: "active" | "inactive" | "suspended" | "pending_approval";
+  driverIsAvailable?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (credentials: { email: string; password: string }) => Promise<User>;
-  register: (userData: any, role: "customer" | "delivery") => Promise<User>;
+  register: (data: RegisterFormValues) => Promise<User>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  toggleAvailability: () => Promise<void>;
+  updateProfile: (updates: Partial<User>) => Promise<void>;
+  changePassword: (data: { currentPassword: string, newPassword: string }) => Promise<void>;
+}
+
+interface RegisterFormValues {
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+  nic: string;
+  vehiclePlate: string;
+  nicImage: string;
 }
 
 const AuthContext = createContext<AuthContextType>(null!);
@@ -30,71 +47,78 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     checkAuth();
   }, []);
 
+  const toggleAvailability = async () => {
+    const result = await toggleAvailabilityAPI();
+    setUser((prev) => prev ? { ...prev, driverIsAvailable: result.isAvailable } : null);
+  };
+
   const checkAuth = async () => {
     try {
-      const token = await AsyncStorage.getItem("token");
+      const token = await AsyncStorage.getItem('token');
       if (token) {
-        const userData = await api.getCurrentUser();
-        setUser(userData);
+        const currentUser = await api.getCurrentUser();
+        setUser(currentUser);
       }
     } catch (error) {
-      console.error("Auth check error:", error);
+      console.error('Check auth error:', error);
     } finally {
       setLoading(false);
     }
   };
-
+  
   const refreshUser = async () => {
-    try {
-      const userData = await api.getCurrentUser();
-      setUser(userData);
-    } catch (error) {
-      console.error("Refresh user error:", error);
-      throw error;
-    }
+    const userData = await api.getCurrentUser();
+    setUser(userData);
   };
 
   const login = async (credentials: { email: string; password: string }): Promise<User> => {
-    try {
-      const { token, refreshToken, user } = await api.loginUser(credentials); // Destructure refreshToken
-      await AsyncStorage.multiSet([
-        ['token', token],
-        ['refreshToken', refreshToken] // Store refresh token
-      ]);
-      setUser(user);
-      return user;
-    } catch (error) {
-      throw error;
-    }
+    const { token, refreshToken, user } = await api.loginUser(credentials);
+    await AsyncStorage.multiSet([
+      ['token', token],
+      ['refreshToken', refreshToken]
+    ]);
+    setUser(user);
+    return user;
   };
 
-  const register = async (userData: any, role: 'customer' | 'delivery'): Promise<User> => {
-    try {
-      const { token, refreshToken, user } = await api.registerUser(userData, role);
-      await AsyncStorage.multiSet([
-        ['token', token],
-        ['refreshToken', refreshToken] // Store refresh token
-      ]);
-      setUser(user);
-      return user;
-    } catch (error) {
-      throw error;
-    }
+  const updateProfile = async (updates: Partial<User>) => {
+    const updated = await api.updateProfile(updates);
+    setUser(updated.user);
+  };
+  
+  const changePassword = async (data: { currentPassword: string, newPassword: string }) => {
+    await api.changePassword(data);
   };
 
   const logout = async () => {
     try {
       await api.logoutUser();
-      await AsyncStorage.removeItem("token");
+    } finally {
+      await AsyncStorage.multiRemove(['token', 'refreshToken']);
       setUser(null);
-      router.replace("/(auth)/role-selection");
-    } catch (error) {
-      console.error("Logout error:", error);
+      router.replace('/(auth)/login');
     }
   };
 
+  const register = async (data: RegisterFormValues) => {
+    const payload = {
+      ...data,
+      role: 'delivery', // Force role from frontend too (optional since backend also enforces)
+    };
+    
+    const { token, refreshToken, user } = await api.registerUser(payload);
+    await AsyncStorage.multiSet([
+      ["token", token],
+      ["refreshToken", refreshToken],
+    ]);
+    setUser(user);
+    return user;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, refreshUser, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, refreshUser, login, register, logout, toggleAvailability, updateProfile, changePassword }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -24,17 +24,21 @@ const Drivers = () => {
   ];
 
   const filteredDrivers = drivers.filter((driver) => {
-    // Filter by tab
-    if (activeTab === "active" && driver.status !== "active") return false;
-    if (activeTab === "pending" && driver.status !== "pending") return false;
-    if (activeTab === "offline" && driver.status !== "offline") return false;
+    // Filter by tab (converting status to lowercase for case-insensitive comparison)
+    const driverStatus = driver.status.toLowerCase();
+    if (activeTab === "active" && driverStatus !== "active") return false;
+    if (activeTab === "pending" && driverStatus !== "pending") return false;
+    if (
+      activeTab === "offline" &&
+      driverStatus !== "offline" &&
+      driverStatus !== "inactive"
+    )
+      return false;
 
-    // Filter by search
+    // Filter by search using the name property
     if (
       searchTerm &&
-      !`${driver.firstName} ${driver.lastName}`
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase())
+      !driver.name.toLowerCase().includes(searchTerm.toLowerCase())
     )
       return false;
 
@@ -42,12 +46,13 @@ const Drivers = () => {
   });
 
   const getStatusClass = (status) => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case "active":
         return "bg-green-100 text-green-800";
       case "pending":
         return "bg-yellow-100 text-yellow-800";
       case "offline":
+      case "inactive":
         return "bg-gray-100 text-gray-800";
       case "suspended":
         return "bg-red-100 text-red-800";
@@ -57,13 +62,56 @@ const Drivers = () => {
   };
 
   const handleViewDetails = (driver) => {
-    setSelectedDriver(driver);
+    // Create a compatible driver object structure for the modal
+    const enhancedDriver = {
+      ...driver,
+      firstName: driver.name.split(" ")[0],
+      lastName: driver.name.split(" ")[1] || "",
+      vehicle: {
+        make: driver.vehicle.split(" ")[0] || "",
+        model: driver.vehicle.split(" ").slice(1).join(" ") || "",
+        plate: driver.licensePlate,
+        year: new Date().getFullYear().toString(),
+        insuranceVerified: true,
+      },
+      idVerified: true,
+      acceptanceRate: Math.floor(Math.random() * 20) + 80, // Random value between 80-99%
+      avgDeliveryTime: Math.floor(Math.random() * 15) + 20, // Random value between 20-35 mins
+      recentOrders: [
+        {
+          id: Math.floor(Math.random() * 10000) + 1000,
+          restaurant: "Burger King",
+          date: "2024-04-20",
+          amount: Math.random() * 50 + 20,
+          earnings: Math.random() * 15 + 5,
+        },
+        {
+          id: Math.floor(Math.random() * 10000) + 1000,
+          restaurant: "Pizza Hut",
+          date: "2024-04-19",
+          amount: Math.random() * 50 + 20,
+          earnings: Math.random() * 15 + 5,
+        },
+        {
+          id: Math.floor(Math.random() * 10000) + 1000,
+          restaurant: "Subway",
+          date: "2024-04-18",
+          amount: Math.random() * 50 + 20,
+          earnings: Math.random() * 15 + 5,
+        },
+      ],
+      avatar: driver.image,
+    };
+
+    setSelectedDriver(enhancedDriver);
   };
 
   return (
     <div className="p-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold mb-4 md:mb-0">Driver Management</h1>
+        <h1 className="text-2xl font-semibold text-gray-800 dark:text-white">
+          Driver Management
+        </h1>
         <div className="flex items-center">
           <div className="relative mr-4">
             <input
@@ -161,13 +209,13 @@ const Drivers = () => {
                       <div className="flex-shrink-0 h-10 w-10">
                         <img
                           className="h-10 w-10 rounded-full object-cover"
-                          src={driver.avatar}
+                          src={driver.image}
                           alt=""
                         />
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {driver.firstName} {driver.lastName}
+                          {driver.name}
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
                           {driver.email}
@@ -177,10 +225,10 @@ const Drivers = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900 dark:text-white">
-                      {driver.vehicle.make} {driver.vehicle.model}
+                      {driver.vehicle}
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {driver.vehicle.plate}
+                      {driver.licensePlate}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -207,8 +255,7 @@ const Drivers = () => {
                         driver.status
                       )}`}
                     >
-                      {driver.status.charAt(0).toUpperCase() +
-                        driver.status.slice(1)}
+                      {driver.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
@@ -266,7 +313,7 @@ const Drivers = () => {
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold dark:text-white">
-                    {selectedDriver.firstName} {selectedDriver.lastName}
+                    {selectedDriver.name}
                   </h2>
                   <div className="flex items-center mt-1">
                     <span
@@ -274,8 +321,7 @@ const Drivers = () => {
                         selectedDriver.status
                       )}`}
                     >
-                      {selectedDriver.status.charAt(0).toUpperCase() +
-                        selectedDriver.status.slice(1)}
+                      {selectedDriver.status}
                     </span>
                     <div className="flex items-center ml-4">
                       <span className="text-gray-700 dark:text-gray-300 mr-1">
@@ -362,9 +408,7 @@ const Drivers = () => {
                       <div>
                         <h4 className="font-medium dark:text-white">Vehicle</h4>
                         <p className="text-gray-600 dark:text-gray-300">
-                          {selectedDriver.vehicle.year}{" "}
-                          {selectedDriver.vehicle.make}{" "}
-                          {selectedDriver.vehicle.model}
+                          {selectedDriver.vehicle.year}
                         </p>
                       </div>
                     </div>
@@ -377,7 +421,7 @@ const Drivers = () => {
                           License Plate
                         </h4>
                         <p className="text-gray-600 dark:text-gray-300">
-                          {selectedDriver.vehicle.plate}
+                          {selectedDriver.licensePlate}
                         </p>
                       </div>
                     </div>
@@ -523,12 +567,12 @@ const Drivers = () => {
                 </button>
                 <button
                   className={`px-4 py-2 rounded-lg text-white ${
-                    selectedDriver.status === "active"
+                    selectedDriver.status.toLowerCase() === "active"
                       ? "bg-red-600 hover:bg-red-700"
                       : "bg-green-600 hover:bg-green-700"
                   }`}
                 >
-                  {selectedDriver.status === "active"
+                  {selectedDriver.status.toLowerCase() === "active"
                     ? "Suspend Driver"
                     : "Activate Driver"}
                 </button>

@@ -1,4 +1,5 @@
-import { Schema, model } from "mongoose";
+const mongoose = require("mongoose");
+const { Schema, model } = mongoose;
 
 const locationSchema = new Schema({
   type: {
@@ -141,14 +142,12 @@ DeliverySchema.pre('save', function(next) {
       status: this.status,
       notes: `Status changed to ${this.status}`
     });
-    
-    // Set timestamps for specific status changes
+
     if (this.status === 'PICKED_UP') {
       this.pickupTime = new Date();
     } else if (this.status === 'DELIVERED') {
       this.deliveryTime = new Date();
-      
-      // If cash payment, mark as paid upon delivery
+
       if (this.payment.method === 'CASH') {
         this.payment.status = 'PAID';
         this.payment.processedAt = new Date();
@@ -161,4 +160,18 @@ DeliverySchema.pre('save', function(next) {
 
 const Delivery = model('Delivery', DeliverySchema);
 
-export default Delivery;
+// 📦 Delivery Earnings Monthly Report Schema
+const earningsRecordSchema = new Schema({
+  driverId: { type: String, required: true },
+  year: { type: Number, required: true },
+  month: { type: Number, required: true },
+  total: { type: Number, required: true },
+  deliveries: [{ type: Schema.Types.ObjectId, ref: 'Delivery' }],
+}, { timestamps: true });
+
+const DeliveryEarningsReport = model('DeliveryEarningsReport', earningsRecordSchema);
+
+module.exports = {
+  Delivery,
+  DeliveryEarningsReport,
+};

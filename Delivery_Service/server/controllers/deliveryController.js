@@ -1,6 +1,8 @@
-const Delivery = require('../models/Delivery.js');
 const axios = require('axios');
 const { getDistanceMatrix, getRouteAndETA } = require('../utils/geoUtils.js');
+const { Delivery } = require('../models/Delivery.js');
+const  LiveDriver  = require('../models/LiveDriver.js');
+// const { retryDeliveryAssignment } = require('./deliveryController'); // ⛔ Commented for now
 
 let retryQueue = {}; // In-memory retry tracking
 const MAX_RETRIES = 2;
@@ -26,37 +28,33 @@ const assignDelivery = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid delivery assignment request' });
     }
 
-    // 1. Get available drivers from auth service
-    const usersResponse = await axios.get(
-      `${global.gConfig.auth_url}/api/users?role=delivery&status=active`,
-      { headers: { Authorization: req.headers.authorization } }
-    );
-    // 2. Filter for available & live-located drivers
-    const availableDrivers = usersResponse.data.users.filter(user => {
-      const live = liveDriverLocations.get(user._id);
-      return user.driverIsAvailable && live && Date.now() - live.timestamp < 60000;
-    });
+    // 2. Get active live drivers with location
+    const liveDrivers = await LiveDriver.find({ isAvailable: true, location: { $exists: true } });
 
-    if (availableDrivers.length === 0) {
+    if (liveDrivers.length === 0) {
       return res.status(404).json({ success: false, message: 'No available drivers' });
     }
 
-    // 3. Use Google Distance Matrix API
     const origins = `${order.restaurantOrder.restaurantLocation.lat},${order.restaurantOrder.restaurantLocation.lng}`;
-    const destinations = availableDrivers.map(driver => {
-      const coords = liveDriverLocations.get(driver._id).coordinates;
-      return `${coords[1]},${coords[0]}`;
-    });
+    const destinations = liveDrivers.map(driver => `${driver.location.coordinates[1]},${driver.location.coordinates[0]}`);
 
     const matrix = await getDistanceMatrix(origins, destinations.join('|'));
-    const sortedDrivers = availableDrivers.map((driver, i) => ({
-      ...driver,
+    const driversWithDistance = liveDrivers.map((driver, i) => ({
+      ...driver.toObject(),
       distance: matrix.rows[0].elements[i].distance.value,
-      coordinates: liveDriverLocations.get(driver._id).coordinates
-    })).sort((a, b) => a.distance - b.distance);
+    }));
 
-    // 3. Create delivery record
-    const deliveryData = {
+    // 3. Filter drivers within 10km
+    const nearbyDrivers = driversWithDistance.filter(d => d.distance <= 10000);
+    if (nearbyDrivers.length === 0) {
+      return res.status(404).json({ success: false, message: 'No drivers within 10km radius' });
+    }
+
+    // 4. Pick closest driver
+    const assignedDriver = nearbyDrivers.sort((a, b) => a.distance - b.distance)[0];
+
+    // 5. Create Delivery
+    const delivery = await Delivery.create({
       orderId: order.orderId,
       orderRef: order._id,
       restaurant: {
@@ -86,50 +84,77 @@ const assignDelivery = async (req, res) => {
           }
         }
       },
-      status: 'PENDING_ASSIGNMENT',
-      proposedDrivers: sortedDrivers.map(d => ({ driverId: d._id, name: d.name, distance: d.distance })),
+      driver: {
+        id: assignedDriver.driverId,
+        name: assignedDriver.name,
+        phone: assignedDriver.phone,
+        assignedAt: new Date()
+      },
+      status: 'DRIVER_ASSIGNED',
       deliveryFee: order.restaurantOrder.deliveryFee,
       payment: {
         method: order.paymentMethod,
         status: order.paymentStatus
       },
-      earningsAmount: order.paymentMethod === 'CASH' ? -order.restaurantOrder.deliveryFee : order.restaurantOrder.deliveryFee
-    };
+      earningsAmount: order.paymentMethod === 'CASH'
+        ? -order.restaurantOrder.deliveryFee
+        : order.restaurantOrder.deliveryFee
+    });
 
-    const delivery = await Delivery.create(deliveryData);
+    // Remove driver from available pool
+    await LiveDriver.deleteOne({ driverId: assignedDriver.driverId });
 
-    // 4. Notify top 3 drivers (or all if <3) via socket
+    // 7. Notify assigned driver via Socket.IO
     const io = req.app.get('io');
-    sortedDrivers.slice(0, 3).forEach(driver => {
-      io.to(`user_${driver._id}`).emit('deliveryAssignment', {
-        deliveryId: delivery._id,
-        orderId: order.orderId,
-        restaurant: delivery.restaurant,
-        deliveryAddress: delivery.customer.deliveryAddress,
-        deliveryFee: delivery.deliveryFee,
-        expiresAt: new Date(Date.now() + 60000)
-      });
+    io.to(`user_${assignedDriver.driverId}`).emit('deliveryAssignedDirect', {
+      deliveryId: delivery._id,
+      orderId: order.orderId,
+      restaurant: delivery.restaurant,
+      deliveryAddress: delivery.customer.deliveryAddress,
+      deliveryFee: delivery.deliveryFee
     });
 
-    // 5. Set fallback timeout
-    setTimeout(() => retryDeliveryAssignment(delivery._id, io, req.headers.authorization), 60000);
-
-    res.status(201).json({
-      success: true,
-      delivery,
-      notifiedDrivers: sortedDrivers.length
+    // Notify restaurant + customer
+    io.to(`user_${delivery.restaurant.id}`).emit('driverAssigned', {
+      deliveryId: delivery._id,
+      orderId: delivery.orderId,
+      driver: delivery.driver.id
     });
-    
-  } catch (error) {
-    console.error('Assign delivery error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+    io.to(`user_${delivery.customer.id}`).emit('driverAssigned', {
+      deliveryId: delivery._id,
+      orderId: delivery.orderId,
+      driver: delivery.driver
+    });
+
+    res.status(201).json({ success: true, delivery });
+
+  } catch (err) {
+    console.error('assignDelivery error:', err.message);
+    res.status(500).json({ success: false, message: 'Internal error', error: err.message });
   }
 };
+
+module.exports = { assignDelivery };
+
+
+async function findNearestDrivers(location) {
+  const response = await axios.get(`${global.gConfig.auth_url}/api/users?role=delivery&status=active`);
+  const drivers = response.data.users;
+
+  // Fallback to user model location filtering (as per your current approach)
+  return drivers
+    .filter(driver => driver.driverIsAvailable && driver.location?.coordinates)
+    .map(driver => ({
+      id: driver._id,
+      name: driver.name,
+    }))
+    .slice(0, 3); // Limit or sort if needed
+}
 
 /**
  * Retry delivery assignment if declined or timed out
  */
-async function retryDeliveryAssignment(deliveryId, io, token) {
+const retryDeliveryAssignment = async (deliveryId, io, token) => {
   const delivery = await Delivery.findById(deliveryId);
   if (!delivery || delivery.status !== 'PENDING_ASSIGNMENT') return;
 
@@ -152,9 +177,8 @@ async function retryDeliveryAssignment(deliveryId, io, token) {
   });
 
   if (drivers.length === 0) {
-    setTimeout(() => retryDeliveryAssignment(deliveryId, io, token), RETRY_DELAY_MS);
     retryQueue[deliveryId] = { attempt: attempt + 1 };
-    return;
+    return setTimeout(() => retryDeliveryAssignment(deliveryId, io, token), RETRY_DELAY_MS);
   }
 
   delivery.proposedDrivers = drivers.map(d => ({ driverId: d.id, name: d.name }));
@@ -172,9 +196,8 @@ async function retryDeliveryAssignment(deliveryId, io, token) {
   });
 
   retryQueue[deliveryId] = { attempt: attempt + 1 };
-
-  setTimeout(() => retryDeliveryAssignment(deliveryId, io, token), 60000);
-}
+  setTimeout(() => retryDeliveryAssignment(deliveryId, io, token), RETRY_DELAY_MS);
+};
 
 /**
  * @desc    Get single delivery by ID
@@ -242,6 +265,26 @@ const getDeliveriesByQuery = async (req, res) => {
 const updateDeliveryStatus = async (req, res) => {
   try {
     const { status, notes } = req.body;
+
+    // Validate status
+    const validStatuses = [
+      "PENDING_ASSIGNMENT",
+      "DRIVER_ASSIGNED",
+      "EN_ROUTE_TO_RESTAURANT",
+      "ARRIVED_AT_RESTAURANT",
+      "PICKED_UP",
+      "EN_ROUTE_TO_CUSTOMER",
+      "ARRIVED_AT_CUSTOMER",
+      "DELIVERED",
+      "CANCELLED",
+      "FAILED"
+    ];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status'
+      });
+    }
     
     const delivery = await Delivery.findById(req.params.id);
     
@@ -253,38 +296,57 @@ const updateDeliveryStatus = async (req, res) => {
     }
     
     // Verify the driver is assigned to this delivery
-    if (delivery.driver.id !== req.user.id) {
+    if (!delivery.driver || delivery.driver.id !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this delivery'
       });
     }
     
+    // Update status and notes
     delivery.status = status;
     if (notes) {
-      delivery.notes = notes;
+      delivery.notes = delivery.notes ? `${delivery.notes}\n${notes}` : notes;
     }
     
     await delivery.save();
     
     // Notify customer about status change
-    const io = req.app.get('io');
-    io.to(`user_${delivery.customer.id}`).emit('deliveryStatusUpdated', {
-      deliveryId: delivery._id,
-      status: delivery.status,
-      updatedAt: new Date()
-    });
+    if (delivery.customer) {
+      const io = req.app.get('io');
+      io.to(`user_${delivery.customer.id}`).emit('deliveryStatusUpdated', {
+        deliveryId: delivery._id,
+        status: delivery.status,
+        updatedAt: new Date()
+      });
+    }
 
     // Sync 'DELIVERED' status to Order Service
     if (status === 'DELIVERED') {
       try {
+        // Sync order
         await axios.patch(
-          `${global.gConfig.order_url}/api/orders/${delivery.orderId}/status`,
+          `${process.env.ORDER_SERVICE_URL}/api/orders/${delivery.orderId}/status`,
           { status: 'DELIVERED' },
           { headers: { Authorization: req.headers.authorization } }
         );
-      } catch (syncError) {
-        console.warn('Order status sync failed:', syncError.message);
+    
+        // ✅ Restore availability (add to LiveDriver)
+        if (delivery.driver?.id && delivery.driver?.currentLocation) {
+          await LiveDriver.findOneAndUpdate(
+            { driverId: delivery.driverId },
+            {
+              driverId: delivery.driver.id,
+              name: delivery.driver.name,
+              phone: delivery.driver.phone,
+              coordinates: delivery.driver.currentLocation.coordinates,
+              isAvailable: true
+            },
+            { upsert: true }
+          );
+        }
+      } catch (e) {
+        console.warn('Sync or toggle back failed:', e.message);
       }
     }
     
@@ -370,7 +432,7 @@ const updateDriverLocation = async (req, res) => {
 
 /**
  * @desc    Toggle driver availability
- * @route   PATCH /api/drivers/availability
+ * @route   PUT /api/users/me/availability/toggle
  * @access  Private/Delivery
  */
 const toggleAvailability = async (req, res) => {
@@ -446,12 +508,12 @@ const respondToAssignment = async (req, res) => {
       // 4. Notify restaurant and customer
       io.to(`user_${delivery.restaurant.id}`).emit('driverAssigned', {
         orderId: delivery.orderId,
-        driver: delivery.driver
+        driver: delivery.driver.id
       });
       
       io.to(`user_${delivery.customer.id}`).emit('driverAssigned', {
         orderId: delivery.orderId,
-        driver: delivery.driver
+        driver: delivery.driver.id
       });
 
       res.json({ success: true, message: 'Delivery accepted' });
@@ -495,7 +557,7 @@ const trackDelivery = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Delivery not found' });
     }
 
-    const driverLocation = delivery.driver?.currentLocation;
+    const driverLocation = delivery.driver.currentLocation;
     const destination = delivery.customer?.deliveryAddress?.coordinates;
 
     if (!driverLocation || !destination) {
@@ -524,7 +586,7 @@ const trackDelivery = async (req, res) => {
  * Calculate and store earnings after each delivery completion
  * Called when delivery status is set to 'DELIVERED'
  */
-export const recordDeliveryEarning = async (deliveryId) => {
+const recordDeliveryEarning = async (deliveryId) => {
   try {
     const delivery = await Delivery.findById(deliveryId);
     if (!delivery || delivery.status !== 'DELIVERED') return;
@@ -562,7 +624,7 @@ export const recordDeliveryEarning = async (deliveryId) => {
  * @route GET /api/earnings/current
  * @access Private (Delivery)
  */
-export const getCurrentEarnings = async (req, res) => {
+const getCurrentEarnings = async (req, res) => {
   try {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -586,7 +648,7 @@ export const getCurrentEarnings = async (req, res) => {
  * (Stub) Mark cash payment as paid (to be completed later)
  * Called by delivery person upon payment received from customer
  */
-export const markCashPaymentAsPaid = async (req, res) => {
+const markCashPaymentAsPaid = async (req, res) => {
   // Placeholder - waiting for Payment Service API
   return res.status(501).json({
     success: false,
@@ -599,7 +661,7 @@ export const markCashPaymentAsPaid = async (req, res) => {
  * @route   GET /api/deliveries/driver
  * @access  Private/Delivery
  */
-export const getDriverDeliveries = async (req, res) => {
+const getDriverDeliveries = async (req, res) => {
   try {
     const deliveries = await Delivery.find({
       'driver.id': req.user.id,
@@ -618,7 +680,7 @@ export const getDriverDeliveries = async (req, res) => {
  * @route   GET /api/deliveries/customer
  * @access  Private/Customer
  */
-export const getCustomerDeliveries = async (req, res) => {
+const getCustomerDeliveries = async (req, res) => {
   try {
     const deliveries = await Delivery.find({
       'customer.id': req.user.id,
@@ -639,6 +701,7 @@ module.exports = {
   toggleAvailability,
   respondToAssignment,
   trackDelivery,
+  retryDeliveryAssignment,
   getDeliveryById,
   getDeliveriesByQuery,
   getCurrentEarnings,

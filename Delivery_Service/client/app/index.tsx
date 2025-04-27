@@ -15,5 +15,5 @@ export default function Index() {
     return <Redirect href="/(auth)/pending-approval" />;
   }
 
-  return <Redirect href="/home" />; // Will create home later
+  return <Redirect href="/(auth)/login" />; // Will create home later
 }
