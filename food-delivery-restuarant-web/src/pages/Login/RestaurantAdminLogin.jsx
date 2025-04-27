@@ -20,7 +20,7 @@ const RestaurantAdminLogin = () => {
     setLoading(true)
     try {
       const response = await loginRestaurantAdmin({ username, password })
-      login(response.token)
+      login(response.token,"admin")
       toast.success("Login successful!")
       navigate("/dishes")
     } catch (error) {

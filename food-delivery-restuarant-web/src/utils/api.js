@@ -5,7 +5,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('adminToken');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -23,7 +23,7 @@ export const loginRestaurantAdmin = async (credentials) => {
 };
 export const addRestaurant = async (restaurantData) => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('ownerToken');
     const response = await axios.post('http://localhost:3000/api/restaurants/add', restaurantData, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -38,8 +38,8 @@ export const addRestaurant = async (restaurantData) => {
 
 export const getRestaurants = async () => {
   try {
-    const token = localStorage.getItem('token');
-    const response = await axios.get('http://localhost:3000/api/restaurants', {
+    const token = localStorage.getItem('ownerToken');
+    const response = await axios.get('http://localhost:3000/api/owner/restaurants', {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -52,14 +52,29 @@ export const getRestaurants = async () => {
     throw error;
   }
 };
+
+
 export const getRestaurant = async (id) => {
-  const response = await api.get(`/restaurants/${id}`);
-  return response.data;
+  try {
+    const token = localStorage.getItem('ownerToken');
+    if (!token) throw new Error('No owner token found');
+    const response = await api.get(`/restaurants/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('getRestaurant: Error:', error.response?.data || error.message);
+    throw error;
+  }
 };
 
 export const getRestaurantById = async (id) => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('ownerToken');
+    if (!token) throw new Error('No owner token found');
+
     const response = await axios.get(`http://localhost:3000/api/restaurants/${id}`, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -74,7 +89,9 @@ export const getRestaurantById = async (id) => {
 
 export const updateRestaurantStatus = async (id, isActive) => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('ownerToken');
+    if (!token) throw new Error('No owner token found');
+
     const response = await axios.patch(
       `http://localhost:3000/api/restaurants/${id}/status`,
       { isActive },
@@ -92,8 +109,8 @@ export const updateRestaurantStatus = async (id, isActive) => {
 };
 
 export const updateRestaurant = async (id, data) => {
-  const token = localStorage.getItem('token');
-  console.log('Sending data:', data);
+  const token = localStorage.getItem('ownerToken');
+  if (!token) throw new Error('No owner token found');
   const response = await axios.put(`http://localhost:3000/api/restaurants/${id}`, data,{
     headers: {
       Authorization: `Bearer ${token}`,
@@ -103,7 +120,8 @@ export const updateRestaurant = async (id, data) => {
 };
 
 export const deleteRestaurant = async (id) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('ownerToken');
+  if (!token) throw new Error('No owner token found');
 
   const response = await axios.delete(`http://localhost:3000/api/restaurants/${id}`, {
     headers: {
@@ -143,7 +161,9 @@ export const deleteDish = async (id) => {
 // Updated getOrders to fetch orders with a specific status
 export const getOrders = async (status) => {
   try {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("adminToken");
+    if (!token) throw new Error('No admin token found');
+
     const response = await axios.post(
       "http://localhost:5002/api/orders/restaurant",
       status,
@@ -172,7 +192,7 @@ export const updateOrderStatus = async (id, status, notes = '', estimatedReadyMi
       payload,
       {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${localStorage.getItem('ownerToken')}`,
         },
       }
     );
@@ -185,6 +205,8 @@ export const updateOrderStatus = async (id, status, notes = '', estimatedReadyMi
 // Fetch current user details
 export const getCurrentUser = async (token) => {
   try {
+    const token = localStorage.getItem('ownerToken');
+    if (!token) throw new Error('No owner token found');
     const response = await axios.get('http://localhost:5001/api/auth/me', {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -200,6 +222,8 @@ export const getCurrentUser = async (token) => {
 // Update user profile
 export const updateProfile = async (token, updates) => {
   try {
+    const token = localStorage.getItem('ownerToken');
+    if (!token) throw new Error('No owner token found');
     const response = await axios.put('http://localhost:5001/api/users/me', updates, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -209,3 +233,53 @@ export const updateProfile = async (token, updates) => {
     throw error.response?.data || { success: false, message: 'Failed to update profile' };
   }
 };
+
+export const AdmingetRestaurantById = async (id) => {
+  try {
+    const token = localStorage.getItem('adminToken');
+    const response = await axios.get(`http://localhost:3000/api/branch/restaurants/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('getRestaurantById: Error:', error);
+    throw error;
+  }
+};
+
+export const AdminupdateRestaurant = async (id, data) => {
+  const token = localStorage.getItem('adminToken');
+  console.log('Sending data:', data);
+  const response = await axios.put(`http://localhost:3000/api/branch/restaurants/${id}`, data,{
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+
+
+export const AdminupdateRestaurantStatus = async (id, isActive) => {
+  try {
+    const token = localStorage.getItem('adminToken');
+    if (!token) throw new Error('No admin token found');
+    const response = await axios.patch(
+      `http://localhost:3000/api/branch/restaurants/${id}/status`,
+      { isActive },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('updateRestaurantStatus: Error:', error);
+    throw error;
+  }
+};
+
+
+

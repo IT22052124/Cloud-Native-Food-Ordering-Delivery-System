@@ -13,6 +13,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  console.log('User:', user);
 
   useEffect(() => {
     const fetchData = async () => {
