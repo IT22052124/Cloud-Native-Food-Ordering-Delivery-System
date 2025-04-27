@@ -5,7 +5,6 @@ import User from "../model/User.js";
  * Middleware to protect routes by verifying JWT token
  */
 const protect = async (req, res, next) => {
-  console.log("hi");
   try {
     let token;
 

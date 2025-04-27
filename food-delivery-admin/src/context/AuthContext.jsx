@@ -3,18 +3,31 @@ import { createContext, useState } from "react";
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null); // Initialize user state
+  const [user, setUser] = useState(() => {
+    // Initialize from localStorage if available
+    const token = localStorage.getItem("token");
+    return token ? { token } : null;
+  });
 
-  // Function to update user (login)
   const login = (userData) => {
+    // Add validation
+    if (!userData || !userData.token) {
+      console.error("Invalid userData in login:", userData);
+      throw new Error("Login failed: Missing token in user data");
+    }
+
+    // Only proceed if token exists
     setUser(userData);
-    localStorage.setItem("token", userData.token); // Optional: Store token
+    localStorage.setItem("token", userData.token);
   };
 
-  // Function to clear user (logout)
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("token"); // Optional: Remove token
+    // Clear ALL auth-related items
+    localStorage.removeItem("token");
+    localStorage.removeItem("loggedInUser");
+    localStorage.removeItem("refreshToken");
+    sessionStorage.removeItem("token_backup");
   };
 
   return (

@@ -61,6 +61,31 @@ const getPendingApprovalUsers = async (req, res) => {
   }
 };
 
+const getDrivers = async (req, res) => {
+  try {
+    const { status } = req.query; // Optional status filter (e.g., 'active', 'inactive')
+    const query = { role: "delivery" }; // Fixed role = 'driver'
+
+    // Add status filter if provided
+    if (status) query.status = status;
+
+    const drivers = await User.find(query).select("-password -refreshToken"); // Exclude sensitive fields
+
+    res.status(200).json({
+      success: true,
+      count: drivers.length,
+      drivers, // Returns only drivers
+    });
+  } catch (error) {
+    console.error("Get drivers error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch drivers",
+      error: error.message,
+    });
+  }
+};
+
 /**
  * Approve user (for restaurant or delivery roles)
  * @route PUT /api/users/:id/approve
@@ -643,4 +668,5 @@ export {
   updateAddress,
   setDefaultAddress,
   removeAddress,
+  getDrivers,
 };

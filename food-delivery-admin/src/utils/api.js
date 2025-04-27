@@ -1,4 +1,5 @@
 import axios from "axios";
+import { TokenManager } from "./auth";
 
 export const loginUser = async (email, password) => {
   try {
@@ -7,31 +8,23 @@ export const loginUser = async (email, password) => {
       password,
     });
 
-    console.log("loginUser: API response:", response.data);
-
-    // Store the token in localStorage
-    if (response.data.token) {
-      localStorage.setItem("token", response.data.token);
+    // Validate response structure
+    if (!response.data?.token || !response.data?.user) {
+      throw new Error("Invalid server response structure");
     }
 
-    // Store the refresh token if needed (consider security implications)
-    if (response.data.refreshToken) {
-      localStorage.setItem("refreshToken", response.data.refreshToken);
-    }
-
+    // Return consistent shape
     return {
       success: true,
-      user: response.data.user,
+      user: {
+        ...response.data.user,
+        token: response.data.token, // Ensure token is in user object
+      },
       token: response.data.token,
-      refreshToken: response.data.refreshToken,
     };
   } catch (error) {
-    console.error("loginUser: Error:", error.response?.data || error.message);
-
-    // Return the error message from server if available
-    const errorMessage = error.response?.data?.message || "Login failed";
-
-    throw new Error(errorMessage);
+    console.error("API login error:", error);
+    throw error;
   }
 };
 
@@ -74,6 +67,33 @@ export const updateRestaurantVerification = async (restaurantId, status) => {
     return await response.json();
   } catch (error) {
     console.error("Error updating restaurant verification:", error);
+    throw error;
+  }
+};
+
+export const getDrivers = async () => {
+  try {
+    const token = TokenManager.getToken();
+    if (!token) {
+      throw new Error("No authentication token available");
+    }
+
+    const response = await axios.get(
+      "http://localhost:5001/api/users/drivers",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    return response.data.drivers || [];
+  } catch (error) {
+    console.error("API Error:", {
+      error: error.message,
+      tokenStatus: TokenManager.getToken() ? "exists" : "missing",
+      time: new Date().toISOString(),
+    });
     throw error;
   }
 };

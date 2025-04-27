@@ -21,19 +21,31 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setError("");
 
     try {
       const result = await loginUser(email, password);
-      login(result.user); // Use the context's login function
+
+      // Add validation before calling context login
+      if (!result?.user?.token) {
+        throw new Error("Server response missing user token");
+      }
+
+      // Debug what we're about to pass to login
+      console.log("Data being passed to login:", {
+        hasToken: !!result.user.token,
+        fullUser: result.user,
+      });
+
+      login(result.user); // This should now receive proper data
       navigate("/");
     } catch (err) {
-      setError(err.message || "Invalid email or password");
+      console.error("Login failed:", err);
+      setError(err.message);
     } finally {
       setIsLoading(false);
     }
   };
-
+  
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">

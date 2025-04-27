@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ThemeContext } from "./context/ThemeContext";
 import { AuthContext } from "./context/AuthContext";
@@ -15,7 +15,9 @@ import Reports from "./pages/Reports";
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useContext(AuthContext);
-  if (!user) {
+  const token = localStorage.getItem("token");
+
+  if (!user || !token) {
     return <Navigate to="/login" />;
   }
   return children;
@@ -23,6 +25,40 @@ const ProtectedRoute = ({ children }) => {
 
 function App() {
   const { theme } = useContext(ThemeContext);
+  const { user } = useContext(AuthContext);
+
+  useEffect(() => {
+    // Store original localStorage methods
+    const originalSetItem = localStorage.setItem;
+    const originalRemoveItem = localStorage.removeItem;
+
+    // Override setItem to track token changes
+    localStorage.setItem = function (key, value) {
+      if (key === "token") {
+        console.group("Token Setter Trace");
+        console.log("Setting token to:", value);
+        console.trace("Full stack trace");
+        console.groupEnd();
+      }
+      originalSetItem.apply(this, arguments);
+    };
+
+    // Override removeItem to track token removal
+    localStorage.removeItem = function (key) {
+      if (key === "token") {
+        console.group("Token Removal Trace");
+        console.trace("Who is removing the token?");
+        console.groupEnd();
+      }
+      originalRemoveItem.apply(this, arguments);
+    };
+
+    return () => {
+      // Restore original methods
+      localStorage.setItem = originalSetItem;
+      localStorage.removeItem = originalRemoveItem;
+    };
+  }, []);
 
   return (
     <div className={`${theme} min-h-screen`}>
