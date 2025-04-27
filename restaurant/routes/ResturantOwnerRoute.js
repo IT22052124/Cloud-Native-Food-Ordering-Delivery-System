@@ -10,7 +10,7 @@ import {
   updateRestaurantStatus,
   getFoodCategories,
   updateRestaurantVerification,
-  getMyRestaurants
+  getMyRestaurants,
 } from "../Controller/ResturantController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 
@@ -19,27 +19,15 @@ const router = express.Router();
 // Owner Routes
 router.post("/restaurants/add", authMiddleware, addRestaurant);
 router.get("/restaurants/", getRestaurants);
-router.get("/owner/restaurants/",authMiddleware, getMyRestaurants);
+router.get("/owner/restaurants/", authMiddleware, getMyRestaurants);
 
 router.get("/restaurants/:id/dishes", restaurantDishes);
 router.get("/restaurants/:id", getRestaurantById);
 router.put("/restaurants/:id", authMiddleware, updateRestaurant);
 router.delete("/restaurants/:id", authMiddleware, deleteRestaurant);
 router.patch("/restaurants/:id/status", authMiddleware, updateRestaurantStatus);
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-router.patch(
-  "/restaurants/:id/verfication",
-  updateRestaurantVerification
-); //mufeez call this
-=======
-router.patch("/restaurants/:id/verfication", authMiddleware, updateRestaurantVerification); //mufeez call this
 
->>>>>>> Stashed changes
-=======
-router.patch("/restaurants/:id/verfication", authMiddleware, updateRestaurantVerification); //mufeez call this
-
->>>>>>> Stashed changes
+router.patch("/restaurants/:id/verfication", updateRestaurantVerification); //mufeez call this
 
 // Retrieve categories
 router.get("/categories", getFoodCategories);
