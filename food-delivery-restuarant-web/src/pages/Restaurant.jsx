@@ -25,7 +25,6 @@ const Resturant = () => {
         setRestaurants(Array.isArray(data) ? data : []);
         console.log('Fetched Restaurants:', data);
       } catch (error) {
-        toast.error('Failed to fetch restaurants');
         setRestaurants([]);
       }
       setLoading(false);

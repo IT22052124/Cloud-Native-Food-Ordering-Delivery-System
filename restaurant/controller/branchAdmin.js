@@ -84,7 +84,7 @@ export const restaurantAdminLogin = async (req, res) => {
 
 export const createDish = async (req, res) => {
   try {
-    const { name, description, price, amount, food_type, category ,imageUrls} = req.body;
+    const { name, description, price, portions, food_type, category ,imageUrls} = req.body;
 
     const restaurantId = req.resturantId;
     if (!restaurantId) {
@@ -96,11 +96,21 @@ export const createDish = async (req, res) => {
       return res.status(400).json({ message: "Dish already exists" });
     }
 
+    // Validate price and portions
+    const hasPrice = price !== null && price !== undefined;
+    const hasPortions = portions && Array.isArray(portions) && portions.length > 0;
+    if (hasPrice && hasPortions) {
+      return res.status(400).json({ message: "A dish cannot have both a single price and portions" });
+    }
+    if (!hasPrice && !hasPortions) {
+      return res.status(400).json({ message: "A dish must have either a single price or at least one portion" });
+    }
+
     const dish = {
       name,
       description,
-      price,
-      amount,
+      price: hasPrice ? price : null,
+      portions: hasPortions ? portions : null,
       food_type,
       category,
       restaurantId,
@@ -154,7 +164,7 @@ export const updateDishById = async (req, res) => {
       name,
       description,
       price,
-      amount,
+      portions,
       food_type,
       category,
       isAvailable,
@@ -171,7 +181,19 @@ export const updateDishById = async (req, res) => {
     if (!dish) {
       return res.status(404).json({ message: "Dish not found" });
     }
-     // 2. Compare old vs new image URLs and delete removed ones
+
+   
+    // Validate price and portions
+    const hasPrice = price !== null && price !== undefined;
+    const hasPortions = portions && Array.isArray(portions) && portions.length > 0;
+    if (hasPrice && hasPortions) {
+      return res.status(400).json({ message: "A dish cannot have both a single price and portions" });
+    }
+    if (!hasPrice && !hasPortions && dish.price === null && (!dish.portions || dish.portions.length === 0)) {
+      return res.status(400).json({ message: "A dish must have either a single price or at least one portion" });
+    }
+
+// Handle image deletion
      if (Array.isArray(newImageUrls)) {
       const imagesToDelete = dish.imageUrls.filter(url => !newImageUrls.includes(url));
       
@@ -189,8 +211,8 @@ export const updateDishById = async (req, res) => {
 
     dish.name = name ?? dish.name;
     dish.description = description ?? dish.description;
-    dish.price = price ?? dish.price;
-    dish.amount = amount ?? dish.amount;
+    dish.price = hasPrice ? price : (hasPortions ? null : dish.price);
+    dish.portions = hasPortions ? portions : (hasPrice ? null : dish.portions);
     dish.food_type = food_type ?? dish.food_type;
     dish.category = category ?? dish.category;
 

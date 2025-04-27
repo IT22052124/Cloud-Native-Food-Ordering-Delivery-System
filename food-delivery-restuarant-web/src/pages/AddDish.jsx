@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { addDish } from "../utils/api.js";
 import DishSidebar from "../components/DishSidebar.jsx";
-import Toast from "../components/Toast.jsx";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import Navbar from "../components/Navbar";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '../../firebase-config.js';
@@ -13,10 +13,12 @@ function AddDish() {
     name: "",
     description: "",
     price: "",
+    portions: [{ size: "regular", price: "" }],
     category: "",
-    foodType: "veg",
+    food_type: "veg",
     isAvailable: true,
-    imageUrls: [], // Changed from imageUrl to imageUrls (array)
+    imageUrls: [],
+    pricingType: "single", // "single" or "portion"
   });
 
   const [suggestedPrice, setSuggestedPrice] = useState("");
@@ -45,27 +47,77 @@ function AddDish() {
     { value: "vegan", label: "Vegan", icon: "🥬" },
   ];
 
+  const portionSizes = ["small", "regular", "large"];
+
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === "checkbox" ? checked : value,
-    });
 
-    if (name === "price" && value) {
-      const basePrice = parseFloat(value);
-      if (!isNaN(basePrice)) {
-        const withMargin = basePrice * 1.15;
-        setSuggestedPrice(withMargin.toFixed(2));
-      } else {
-        setSuggestedPrice("");
+    if (name.startsWith("portions")) {
+      const [_, index, field] = name.match(/portions\[(\d+)\]\.(\w+)/);
+      const updatedPortions = [...formData.portions];
+      updatedPortions[index] = {
+        ...updatedPortions[index],
+        [field]: value,
+      };
+
+      setFormData({
+        ...formData,
+        portions: updatedPortions,
+      });
+
+      // Calculate suggested price for the changed portion
+      if (field === "price" && value) {
+        const basePrice = parseFloat(value);
+        if (!isNaN(basePrice)) {
+          const withMargin = basePrice * 1.2; // 20% margin
+          setSuggestedPrice(withMargin.toFixed(2));
+        } else {
+          setSuggestedPrice("");
+        }
+      }
+    } else {
+      setFormData({
+        ...formData,
+        [name]: type === "checkbox" ? checked : value,
+      });
+
+      // Calculate suggested price for single price
+      if (name === "price" && value) {
+        const basePrice = parseFloat(value);
+        if (!isNaN(basePrice)) {
+          const withMargin = basePrice * 1.2; // 20% margin
+          setSuggestedPrice(withMargin.toFixed(2));
+        } else {
+          setSuggestedPrice("");
+        }
       }
     }
   };
 
-  // Handle multiple image file selection and upload
+  const addPortion = () => {
+    const usedSizes = formData.portions.map(p => p.size);
+    const availableSizes = portionSizes.filter(size => !usedSizes.includes(size));
+    if (availableSizes.length === 0) {
+      setError("All portion sizes are already added.");
+      return;
+    }
+    setFormData({
+      ...formData,
+      portions: [...formData.portions, { size: availableSizes[0], price: "" }],
+    });
+  };
+
+  const removePortion = (index) => {
+    const updatedPortions = formData.portions.filter((_, i) => i !== index);
+    setFormData({
+      ...formData,
+      portions: updatedPortions.length > 0 ? updatedPortions : [{ size: "regular", price: "" }],
+    });
+    setSuggestedPrice("");
+  };
+
   const handleImageChange = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) {
@@ -101,7 +153,6 @@ function AddDish() {
     }
   };
 
-  // Handle deletion of a specific image
   const handleDeleteImage = async (imageUrl) => {
     try {
       const imageRef = ref(storage, imageUrl);
@@ -120,11 +171,16 @@ function AddDish() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await addDish({
+      const submitData = {
         ...formData,
-        price: parseFloat(formData.price),
-      });
-      toast.success("Dish added successfully");
+        price: formData.pricingType === "single" && formData.price ? parseFloat(formData.price) : null,
+        portions: formData.pricingType === "portion" ? formData.portions.map(p => ({
+          size: p.size,
+          price: parseFloat(p.price)
+        })) : null,
+      };
+      await addDish(submitData);
+      toast.success("Dish added successfully!");
       navigate("/dishes");
     } catch (err) {
       toast.error("Failed to add dish");
@@ -136,7 +192,7 @@ function AddDish() {
       <DishSidebar />
       <div className="flex-1 ml-64">
         <Navbar />
-        <Toast />
+        <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick pauseOnHover draggable />
 
         <div className="p-6 max-w-3xl mx-auto">
           <div className="mb-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border-l-4 border-l-orange-500 border border-orange-100 dark:border-gray-700">
@@ -235,33 +291,116 @@ function AddDish() {
               </div>
             </div>
 
-            {/* Price, Category */}
+            {/* Pricing Type, Price/Portions, Category */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="group">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 group-focus-within:text-orange-500 transition-colors duration-200">
-                  Base Price (LKR)
+                  Pricing Type
                 </label>
                 <div className="relative">
-                  <input
-                    type="number"
-                    name="price"
-                    value={formData.price}
+                  <select
+                    name="pricingType"
+                    value={formData.pricingType}
                     onChange={handleChange}
-                    className="w-full p-4 pl-5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
-                    required
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                  />
+                    className="w-full p-4 pl-5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200 appearance-none"
+                    style={{
+                      backgroundImage:
+                        "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' strokeLinecap='round' strokeLinejoin='round' strokeWidth='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                      backgroundPosition: "right 0.75rem center",
+                      backgroundRepeat: "no-repeat",
+                      backgroundSize: "1.5em 1.5em",
+                    }}
+                  >
+                    <option value="single">Single Price (e.g., Juice)</option>
+                    <option value="portion">Portions (e.g., Pizza)</option>
+                  </select>
                   <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
                 </div>
-                {suggestedPrice && (
-                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    Suggested selling price (with 15% margin):{" "}
-                    <span className="font-semibold text-green-600 dark:text-green-400">
-                      LKR {suggestedPrice}
-                    </span>
-                  </p>
+              </div>
+
+              <div className="group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 group-focus-within:text-orange-500 transition-colors duration-200">
+                  {formData.pricingType === "single" ? "Base Price (LKR)" : "Portion Prices (LKR)"}
+                </label>
+                {formData.pricingType === "single" ? (
+                  <div className="relative">
+                    <input
+                      type="number"
+                      name="price"
+                      value={formData.price}
+                      onChange={handleChange}
+                      className="w-full p-4 pl-5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                      required
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                    />
+                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                    {suggestedPrice && (
+                      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                        Suggested selling price (add 20% margin):{" "}
+                        <span className="font-semibold text-green-600 dark:text-green-400">
+                          LKR {suggestedPrice}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {formData.portions.map((portion, index) => (
+                      <div key={index} className="flex items-center space-x-4">
+                        <select
+                          name={`portions[${index}].size`}
+                          value={portion.size}
+                          onChange={handleChange}
+                          className="w-1/3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                        >
+                          {portionSizes.map((size) => (
+                            <option key={size} value={size} disabled={formData.portions.some(p => p.size === size && p.size !== portion.size)}>
+                              {size.charAt(0).toUpperCase() + size.slice(1)}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          name={`portions[${index}].price`}
+                          value={portion.price}
+                          onChange={handleChange}
+                          className="w-2/3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                          required
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                        />
+                        {formData.portions.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removePortion(index)}
+                            className="text-red-500 hover:text-red-600"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {formData.portions.length < portionSizes.length && (
+                      <button
+                        type="button"
+                        onClick={addPortion}
+                        className="text-orange-500 hover:text-orange-600 text-sm"
+                      >
+                        + Add Portion
+                      </button>
+                    )}
+                    {suggestedPrice && (
+                      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                        Suggested selling price (add 20% margin):{" "}
+                        <span className="font-semibold text-green-600 dark:text-green-400">
+                          LKR {suggestedPrice}
+                        </span>
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -305,7 +444,7 @@ function AddDish() {
                   <label
                     key={type.value}
                     className={`flex-1 p-3 rounded-md cursor-pointer transition-colors duration-200 ${
-                      formData.foodType === type.value
+                      formData.food_type === type.value
                         ? "bg-orange-100 dark:bg-gray-600 border border-orange-300 dark:border-orange-500"
                         : "hover:bg-gray-50 dark:hover:bg-gray-600"
                     }`}
@@ -313,9 +452,9 @@ function AddDish() {
                     <div className="flex items-center">
                       <input
                         type="radio"
-                        name="foodType"
+                        name="food_type"
                         value={type.value}
-                        checked={formData.foodType === type.value}
+                        checked={formData.food_type === type.value}
                         onChange={handleChange}
                         className="h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 dark:border-gray-600"
                       />
@@ -323,7 +462,7 @@ function AddDish() {
                         <span className="mr-2">{type.icon}</span>
                         <span
                           className={
-                            formData.foodType === type.value
+                            formData.food_type === type.value
                               ? "text-orange-600 font-medium dark:text-orange-400"
                               : "text-gray-700 dark:text-gray-300"
                           }
