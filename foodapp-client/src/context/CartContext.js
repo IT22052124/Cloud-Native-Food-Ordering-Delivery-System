@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from "react";
 import * as SecureStore from "expo-secure-store";
 import { useAuth } from "./AuthContext";
 import dataService from "../services/dataService";
+import { calculateTax, calculateTotalWithTax } from "../utils/taxUtils";
 
 const CartContext = createContext();
 
@@ -52,14 +53,16 @@ export const CartProvider = ({ children }) => {
             image:
               cartData.restaurantDetails.imageUrls[0] ||
               cartData.restaurantDetails.coverImageUrl,
-            deliveryFee: cartData.restaurantDetails.deliveryFee || "2.99",
+            deliveryFee: cartData.restaurantDetails.deliveryFee || "0",
             deliveryTime:
               cartData.restaurantDetails.deliveryTime || "30-45 min",
             address: {
-              city: "Kandy",
-              province: "Central",
-              street: "M. B. Dodanwala Mawatha",
+              city: cartData.restaurantDetails.address.city,
+              province: cartData.restaurantDetails.address.province,
+              street: cartData.restaurantDetails.address.street,
+              coordinates: cartData.restaurantDetails.address.coordinates,
             },
+            serviceType: cartData.restaurantDetails.serviceType,
           });
         }
       } else {
@@ -275,11 +278,22 @@ export const CartProvider = ({ children }) => {
     return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   };
 
+  const getTax = () => {
+    const subtotal = getSubtotal();
+    const deliveryFee = restaurant
+      ? parseFloat(restaurant.deliveryFee || 0)
+      : 0;
+    return calculateTax(subtotal, true, deliveryFee);
+  };
+
   const getTotal = () => {
     const subtotal = getSubtotal();
-    console.log(subtotal);
-    const deliveryFee = restaurant ? parseFloat(restaurant.deliveryFee) : 0;
-    return subtotal + deliveryFee;
+    const deliveryFee = restaurant
+      ? parseFloat(restaurant.deliveryFee || 0)
+      : 0;
+
+    const { total } = calculateTotalWithTax(subtotal, deliveryFee, true);
+    return total;
   };
 
   const getItemCount = () => {
@@ -298,6 +312,7 @@ export const CartProvider = ({ children }) => {
         clearCart,
         replaceCart,
         getSubtotal,
+        getTax,
         getTotal,
         getItemCount,
         refreshCart: fetchCartFromApi,
