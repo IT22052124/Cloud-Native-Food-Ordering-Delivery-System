@@ -29,12 +29,7 @@ class KafkaProducer {
   }
 }
 
-// Singleton instance
 const kafkaProducer = new KafkaProducer();
-
-// Named export
-export const sendNotification =
+export const sendKafkaNotification =
   kafkaProducer.sendNotification.bind(kafkaProducer);
-
-// Alternative: Export the class directly if needed
 export { KafkaProducer };

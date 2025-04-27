@@ -3,6 +3,7 @@ import { Dish } from "../model/dish.js";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import { ref, deleteObject } from "firebase/storage";
+import { sendKafkaNotification } from "shared-kafka";
 dotenv.config();
 
 export const addRestaurant = async (req, res) => {
@@ -103,6 +104,31 @@ export const addRestaurant = async (req, res) => {
     };
 
     const resturants = await Restaurant.create(restaurant);
+
+    const kafkaMessage = {
+      topic: "restaurant-registrations",
+      type: "NEW_RESTAURANT_REGISTERED",
+      restaurantId: resturants._id.toString(),
+      name: resturants.name,
+      ownerId: resturants.ownerId, // Include ownerId from JWT
+      ownerEmail: resturants.contact.email, // Fixed: Get email from contact object
+      address: resturants.address,
+      status: resturants.isVerified, // Use the actual field from your schema
+      timestamp: new Date().toISOString(),
+      metadata: {
+        // Additional useful data
+        cuisineType: resturants.cuisineType,
+        location: resturants.location,
+        requiresApproval: true, // Explicit flag
+      },
+    };
+
+    await sendKafkaNotification("restaurant-registrations", kafkaMessage).catch(
+      (err) => {
+        console.error("Kafka notification failed, saving for retry:", err);
+      }
+    );
+
     res
       .status(201)
       .json({ message: "Restaurant added successfully!", resturants });
@@ -659,28 +685,28 @@ export const searchRestaurants = async (req, res) => {
 };
 
 /* @desc    Get all restaurants for the current owner
-* @route   GET /api/restaurants/my-restaurants
-* @access  Private (Owner only)
-*/
+ * @route   GET /api/restaurants/my-restaurants
+ * @access  Private (Owner only)
+ */
 export const getMyRestaurants = async (req, res) => {
- try {
-   const ownerId = req.owner; // From JWT middleware
-   const restaurants = await Restaurant.find({ ownerId });
+  try {
+    const ownerId = req.owner; // From JWT middleware
+    const restaurants = await Restaurant.find({ ownerId });
 
-   if (!restaurants || restaurants.length === 0) {
-     return res.status(404).json({ 
-       message: "You don't have any restaurants yet!" 
-     });
-   }
+    if (!restaurants || restaurants.length === 0) {
+      return res.status(404).json({
+        message: "You don't have any restaurants yet!",
+      });
+    }
 
-   res.json({ 
-     count: restaurants.length, 
-     restaurants 
-   });
- } catch (error) {
-   res.status(500).json({ 
-     message: "Server error", 
-     error: error.message 
-   });
- }
+    res.json({
+      count: restaurants.length,
+      restaurants,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
 };
