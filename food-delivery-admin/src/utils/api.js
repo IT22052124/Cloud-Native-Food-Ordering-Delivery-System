@@ -1,5 +1,40 @@
 import axios from "axios";
 
+export const loginUser = async (email, password) => {
+  try {
+    const response = await axios.post("http://localhost:5001/api/auth/login", {
+      email,
+      password,
+    });
+
+    console.log("loginUser: API response:", response.data);
+
+    // Store the token in localStorage
+    if (response.data.token) {
+      localStorage.setItem("token", response.data.token);
+    }
+
+    // Store the refresh token if needed (consider security implications)
+    if (response.data.refreshToken) {
+      localStorage.setItem("refreshToken", response.data.refreshToken);
+    }
+
+    return {
+      success: true,
+      user: response.data.user,
+      token: response.data.token,
+      refreshToken: response.data.refreshToken,
+    };
+  } catch (error) {
+    console.error("loginUser: Error:", error.response?.data || error.message);
+
+    // Return the error message from server if available
+    const errorMessage = error.response?.data?.message || "Login failed";
+
+    throw new Error(errorMessage);
+  }
+};
+
 export const getRestaurants = async () => {
   try {
     const token = localStorage.getItem("token");

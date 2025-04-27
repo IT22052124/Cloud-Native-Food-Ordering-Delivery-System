@@ -2,6 +2,7 @@ import { useState, useContext } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { ThemeContext } from "../context/ThemeContext";
+import { loginUser } from "../utils/api";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -23,10 +24,11 @@ function Login() {
     setError("");
 
     try {
-      await login(email, password);
+      const result = await loginUser(email, password);
+      login(result.user); // Use the context's login function
       navigate("/");
     } catch (err) {
-      setError("Invalid email or password");
+      setError(err.message || "Invalid email or password");
     } finally {
       setIsLoading(false);
     }
