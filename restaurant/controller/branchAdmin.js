@@ -84,7 +84,7 @@ export const restaurantAdminLogin = async (req, res) => {
 
 export const createDish = async (req, res) => {
   try {
-    const { name, description, price, amount, food_type, category ,imageUrls} = req.body;
+    const { name, description, price, portions, food_type, category ,imageUrls} = req.body;
 
     const restaurantId = req.resturantId;
     if (!restaurantId) {
@@ -96,11 +96,21 @@ export const createDish = async (req, res) => {
       return res.status(400).json({ message: "Dish already exists" });
     }
 
+    // Validate price and portions
+    const hasPrice = price !== null && price !== undefined;
+    const hasPortions = portions && Array.isArray(portions) && portions.length > 0;
+    if (hasPrice && hasPortions) {
+      return res.status(400).json({ message: "A dish cannot have both a single price and portions" });
+    }
+    if (!hasPrice && !hasPortions) {
+      return res.status(400).json({ message: "A dish must have either a single price or at least one portion" });
+    }
+
     const dish = {
       name,
       description,
-      price,
-      amount,
+      price: hasPrice ? price : null,
+      portions: hasPortions ? portions : null,
       food_type,
       category,
       restaurantId,
@@ -154,7 +164,7 @@ export const updateDishById = async (req, res) => {
       name,
       description,
       price,
-      amount,
+      portions,
       food_type,
       category,
       isAvailable,
@@ -171,7 +181,19 @@ export const updateDishById = async (req, res) => {
     if (!dish) {
       return res.status(404).json({ message: "Dish not found" });
     }
-     // 2. Compare old vs new image URLs and delete removed ones
+
+   
+    // Validate price and portions
+    const hasPrice = price !== null && price !== undefined;
+    const hasPortions = portions && Array.isArray(portions) && portions.length > 0;
+    if (hasPrice && hasPortions) {
+      return res.status(400).json({ message: "A dish cannot have both a single price and portions" });
+    }
+    if (!hasPrice && !hasPortions && dish.price === null && (!dish.portions || dish.portions.length === 0)) {
+      return res.status(400).json({ message: "A dish must have either a single price or at least one portion" });
+    }
+
+// Handle image deletion
      if (Array.isArray(newImageUrls)) {
       const imagesToDelete = dish.imageUrls.filter(url => !newImageUrls.includes(url));
       
@@ -189,8 +211,8 @@ export const updateDishById = async (req, res) => {
 
     dish.name = name ?? dish.name;
     dish.description = description ?? dish.description;
-    dish.price = price ?? dish.price;
-    dish.amount = amount ?? dish.amount;
+    dish.price = hasPrice ? price : (hasPortions ? null : dish.price);
+    dish.portions = hasPortions ? portions : (hasPrice ? null : dish.portions);
     dish.food_type = food_type ?? dish.food_type;
     dish.category = category ?? dish.category;
 
@@ -322,3 +344,151 @@ export const getOrdersForRestaurant = async (req, res) => {
   }
 };
 
+export const updateRestaurant = async (req, res) => {
+  try {
+    // Check if req.body exists
+    if (!req.body) {
+      return res.status(400).json({ message: "Request body is missing" });
+    }
+    const {
+      name,
+      description,
+      address,
+      contact,
+      restaurantAdmin,
+      imageUrls: newImageUrls,
+      coverImageUrl,
+      openingHours,
+      bank,
+      serviceType,
+      cuisineType,
+      estimatedPrepTime,
+    } = req.body;
+
+    const restaurant = await Restaurant.findById(req.params.id);
+
+    
+
+    if (restaurantAdmin?.password) {
+      const hashedPassword = await bcrypt.hash(restaurantAdmin.password, 10);
+      restaurant.restaurantAdmin.password = hashedPassword;
+    }
+
+    if (Array.isArray(newImageUrls)) {
+      const imagesToDelete = restaurant.imageUrls.filter(
+        (url) => !newImageUrls.includes(url)
+      );
+
+      for (const oldImageUrl of imagesToDelete) {
+        try {
+          const imageRef = ref(storage, oldImageUrl);
+          await deleteObject(imageRef);
+        } catch (err) {
+          console.error("Failed to delete old image:", err);
+        }
+      }
+
+      restaurant.imageUrls = newImageUrls; // Update with new URLs
+    }
+    if (coverImageUrl && coverImageUrl !== restaurant.coverImageUrl) {
+      if (restaurant.coverImageUrl) {
+        try {
+          const imageRef = ref(storage, restaurant.coverImageUrl);
+          await deleteObject(imageRef);
+        } catch (err) {
+          console.error("Failed to delete old cover image:", err);
+        }
+      }
+      restaurant.coverImageUrl = coverImageUrl;
+    } else if (coverImageUrl === "") {
+      if (restaurant.coverImageUrl) {
+        try {
+          const imageRef = ref(storage, restaurant.coverImageUrl);
+          await deleteObject(imageRef);
+        } catch (err) {
+          console.error("Failed to delete old cover image:", err);
+        }
+      }
+      restaurant.coverImageUrl = "";
+    } else {
+      restaurant.coverImageUrl = restaurant.coverImageUrl;
+    }
+    restaurant.name = name || restaurant.name;
+    restaurant.description = description || restaurant.description;
+    restaurant.address = address || restaurant.address;
+    restaurant.contact = contact || restaurant.contact;
+    restaurant.openingHours = openingHours || restaurant.openingHours;
+    restaurant.bank = bank || restaurant.bank;
+    restaurant.serviceType = serviceType || restaurant.serviceType;
+    restaurant.cuisineType = cuisineType || restaurant.cuisineType;
+    restaurant.estimatedPrepTime =
+      estimatedPrepTime || restaurant.estimatedPrepTime;
+    restaurant.restaurantAdmin.username =
+      restaurantAdmin?.username || restaurant.restaurantAdmin.username;
+
+    restaurant.location = {
+      type: "Point",
+      coordinates: [
+        address.coordinates.lng || restaurant.address.coordinates.lng,
+        address.coordinates.lat || restaurant.address.coordinates.lat,
+      ],
+    };
+
+    await restaurant.save();
+    res.json({ message: "Restaurant updated successfully!", restaurant });
+  } catch (error) {
+    console.log("Error in updating restaurant", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+export const getRestaurantById = async (req, res) => {
+  try {
+    const restaurant = await Restaurant.findById(req.params.id);
+
+    if (!restaurant) {
+      return res.status(404).json({ message: "Restaurant not found!" });
+    }
+    res.json(restaurant);
+  } catch (error) {
+    console.log("Error in getting restaurant by ID", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+
+export const updateRestaurantStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    // Validate request body
+    if (typeof isActive !== "boolean") {
+      return res
+        .status(400)
+        .json({ message: "isActive must be a boolean value" });
+    }
+
+    // Find the restaurant
+    const restaurant = await Restaurant.findById(id);
+    if (!restaurant) {
+      return res.status(404).json({ message: "Restaurant not found!" });
+    }
+
+    // Check if the requester is the owner
+    if (restaurant.ownerId.toString() !== req.owner) {
+      return res.status(403).json({ message: "Access denied!" });
+    }
+
+    // Update the status
+    restaurant.isActive = isActive;
+    await restaurant.save();
+
+    res.json({
+      message: "Restaurant status updated successfully!",
+      restaurant,
+    });
+  } catch (error) {
+    console.log("Error in updating restaurant status", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};

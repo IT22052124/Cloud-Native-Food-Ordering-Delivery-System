@@ -1,9 +1,16 @@
 import React from 'react';
+import Lottie from 'lottie-react';
+import loaderAnimation from '../assets/loader.json';
 
 const LoadingSpinner = () => {
   return (
-    <div className="flex justify-center items-center">
-      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin dark:border-blue-400"></div>
+    <div className="flex justify-center items-center  bg-gray-900 h-screen ">
+      <Lottie
+        animationData={loaderAnimation}
+        loop={true}
+        autoplay={true}
+        style={{ width: 500, height: 500 }}
+      />
     </div>
   );
 };

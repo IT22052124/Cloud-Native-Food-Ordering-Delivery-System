@@ -1,57 +1,44 @@
-import { createContext, useState, useEffect } from "react";
+import { createContext, useState } from "react";
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [user, setUser] = useState(() => {
+    // Initialize from localStorage if available
+    const token = localStorage.getItem("token");
+    return token ? { token } : null;
+  });
 
-  // Function to handle login
-  const login = async (email, password) => {
-    try {
-      setLoading(true);
-      // In real implementation, this would make a request to your auth service
-      // For demo purposes, we'll use dummy data
-      if (email === "admin@example.com" && password === "password") {
-        const userData = {
-          id: "admin-123",
-          name: "Admin User",
-          email: "admin@example.com",
-          role: "admin",
-          token: "dummy-jwt-token",
-        };
-        localStorage.setItem("user", JSON.stringify(userData));
-        setUser(userData);
-        return userData;
-      } else {
-        throw new Error("Invalid credentials");
-      }
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
+  const login = (userData) => {
+    // Add validation
+    if (!userData || !userData.token) {
+      console.error("Invalid userData in login:", userData);
+      throw new Error("Login failed: Missing token in user data");
     }
+
+    // Only proceed if token exists
+    setUser(userData);
+    localStorage.setItem("token", userData.token);
   };
 
-  // Function to handle logout
   const logout = () => {
-    localStorage.removeItem("user");
     setUser(null);
+    // Clear ALL auth-related items
+    localStorage.removeItem("token");
+    localStorage.removeItem("loggedInUser");
+    localStorage.removeItem("refreshToken");
+    sessionStorage.removeItem("token_backup");
   };
-
-  // Check for stored user on component mount
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
-  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, error }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        login, // Expose login function
+        logout, // Expose logout function
+        setUser, // Also expose setUser directly (optional)
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

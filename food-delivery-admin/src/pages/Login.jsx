@@ -2,6 +2,7 @@ import { useState, useContext } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { ThemeContext } from "../context/ThemeContext";
+import { loginUser } from "../utils/api";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -20,18 +21,31 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setError("");
 
     try {
-      await login(email, password);
+      const result = await loginUser(email, password);
+
+      // Add validation before calling context login
+      if (!result?.user?.token) {
+        throw new Error("Server response missing user token");
+      }
+
+      // Debug what we're about to pass to login
+      console.log("Data being passed to login:", {
+        hasToken: !!result.user.token,
+        fullUser: result.user,
+      });
+
+      login(result.user); // This should now receive proper data
       navigate("/");
     } catch (err) {
-      setError("Invalid email or password");
+      console.error("Login failed:", err);
+      setError(err.message);
     } finally {
       setIsLoading(false);
     }
   };
-
+  
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">

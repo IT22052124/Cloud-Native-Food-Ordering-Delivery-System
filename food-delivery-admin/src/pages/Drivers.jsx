@@ -1,5 +1,4 @@
-import React, { useState } from "react";
-import { drivers } from "../data/drivers";
+import React, { useState, useEffect } from "react";
 import {
   FaUser,
   FaSearch,
@@ -9,33 +8,55 @@ import {
   FaPhone,
   FaEnvelope,
   FaIdCard,
+  FaToggleOn,
+  FaToggleOff,
 } from "react-icons/fa";
+import { getDrivers } from "../utils/api";
 
 const Drivers = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDriver, setSelectedDriver] = useState(null);
+  const [drivers, setDrivers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchDrivers = async () => {
+    try {
+      const drivers = await getDrivers();
+      setDrivers(drivers);
+    } catch (error) {
+      console.error("Driver load failed:", error);
+      if (error.message.includes("Authentication")) {
+        // Redirect to login if token is missing
+        navigate("/login");
+      }
+    }
+  };
+
+  useEffect(() => {
+    console.group("Token Debugging");
+    console.log("Checking localStorage...");
+    console.log("All localStorage contents:", localStorage);
+    console.log("Token value:", localStorage.getItem("token"));
+    console.log("Type of token:", typeof localStorage.getItem("token"));
+    console.groupEnd();
+    fetchDrivers();
+  }, []);
 
   const tabs = [
     { id: "all", label: "All Drivers" },
     { id: "active", label: "Active" },
-    { id: "pending", label: "Pending Approval" },
-    { id: "offline", label: "Offline" },
+    { id: "pending_approval", label: "Pending Approval" },
+    { id: "inactive", label: "Inactive" },
+    { id: "suspended", label: "Suspended" },
   ];
 
   const filteredDrivers = drivers.filter((driver) => {
-    // Filter by tab (converting status to lowercase for case-insensitive comparison)
-    const driverStatus = driver.status.toLowerCase();
-    if (activeTab === "active" && driverStatus !== "active") return false;
-    if (activeTab === "pending" && driverStatus !== "pending") return false;
-    if (
-      activeTab === "offline" &&
-      driverStatus !== "offline" &&
-      driverStatus !== "inactive"
-    )
-      return false;
+    // Filter by tab
+    if (activeTab !== "all" && driver.status !== activeTab) return false;
 
-    // Filter by search using the name property
+    // Filter by search term
     if (
       searchTerm &&
       !driver.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -46,12 +67,11 @@ const Drivers = () => {
   });
 
   const getStatusClass = (status) => {
-    switch (status.toLowerCase()) {
+    switch (status) {
       case "active":
         return "bg-green-100 text-green-800";
-      case "pending":
+      case "pending_approval":
         return "bg-yellow-100 text-yellow-800";
-      case "offline":
       case "inactive":
         return "bg-gray-100 text-gray-800";
       case "suspended":
@@ -61,58 +81,119 @@ const Drivers = () => {
     }
   };
 
+  const formatDate = (dateString) => {
+    const options = { year: "numeric", month: "short", day: "numeric" };
+    return new Date(dateString).toLocaleDateString(undefined, options);
+  };
+
+  const getJoinDate = (dateString) => {
+    const options = { year: "numeric", month: "long" };
+    return new Date(dateString).toLocaleDateString(undefined, options);
+  };
+
   const handleViewDetails = (driver) => {
-    // Create a compatible driver object structure for the modal
+    // Generate some random stats and recent orders for the driver details
     const enhancedDriver = {
       ...driver,
-      firstName: driver.name.split(" ")[0],
-      lastName: driver.name.split(" ")[1] || "",
-      vehicle: {
-        make: driver.vehicle.split(" ")[0] || "",
-        model: driver.vehicle.split(" ").slice(1).join(" ") || "",
-        plate: driver.licensePlate,
-        year: new Date().getFullYear().toString(),
-        insuranceVerified: true,
-      },
-      idVerified: true,
+      joinDate: getJoinDate(driver.createdAt),
       acceptanceRate: Math.floor(Math.random() * 20) + 80, // Random value between 80-99%
       avgDeliveryTime: Math.floor(Math.random() * 15) + 20, // Random value between 20-35 mins
+      completedOrders: Math.floor(Math.random() * 300) + 50, // Random value between 50-350
+      totalEarnings: Math.floor(Math.random() * 5000) + 1000, // Random value between $1000-$6000
+      vehicle: {
+        make: "Honda",
+        model: "Civic",
+        year: "2023",
+        plate: driver.vehiclePlate,
+        insuranceVerified: Math.random() > 0.3, // 70% chance of being verified
+      },
+      idVerified: driver.nic && driver.nicImage ? true : false,
       recentOrders: [
         {
           id: Math.floor(Math.random() * 10000) + 1000,
           restaurant: "Burger King",
-          date: "2024-04-20",
-          amount: Math.random() * 50 + 20,
-          earnings: Math.random() * 15 + 5,
+          date: "2025-04-20",
+          amount: parseFloat((Math.random() * 50 + 20).toFixed(2)),
+          earnings: parseFloat((Math.random() * 15 + 5).toFixed(2)),
         },
         {
           id: Math.floor(Math.random() * 10000) + 1000,
           restaurant: "Pizza Hut",
-          date: "2024-04-19",
-          amount: Math.random() * 50 + 20,
-          earnings: Math.random() * 15 + 5,
+          date: "2025-04-19",
+          amount: parseFloat((Math.random() * 50 + 20).toFixed(2)),
+          earnings: parseFloat((Math.random() * 15 + 5).toFixed(2)),
         },
         {
           id: Math.floor(Math.random() * 10000) + 1000,
           restaurant: "Subway",
-          date: "2024-04-18",
-          amount: Math.random() * 50 + 20,
-          earnings: Math.random() * 15 + 5,
+          date: "2025-04-18",
+          amount: parseFloat((Math.random() * 50 + 20).toFixed(2)),
+          earnings: parseFloat((Math.random() * 15 + 5).toFixed(2)),
         },
       ],
-      avatar: driver.image,
     };
 
     setSelectedDriver(enhancedDriver);
+  };
+
+  // Handle change driver status (activate/deactivate/suspend)
+  const handleChangeStatus = (driver, newStatus) => {
+    // In a real app, this would make an API call to update the driver status
+    console.log(
+      `Changing ${driver.name}'s status from ${driver.status} to ${newStatus}`
+    );
+
+    // Update the local state for immediate feedback
+    const updatedDrivers = drivers.map((d) => {
+      if (d._id === driver._id) {
+        return { ...d, status: newStatus };
+      }
+      return d;
+    });
+
+    setDrivers(updatedDrivers);
+
+    // If we're viewing the driver details, update that as well
+    if (selectedDriver && selectedDriver._id === driver._id) {
+      setSelectedDriver({ ...selectedDriver, status: newStatus });
+    }
+  };
+
+  // Handle toggle driver availability
+  const handleToggleAvailability = (driver) => {
+    // In a real app, this would make an API call to update the driver availability
+    console.log(
+      `Toggling ${driver.name}'s availability from ${
+        driver.driverIsAvailable ? "available" : "unavailable"
+      } to ${!driver.driverIsAvailable ? "available" : "unavailable"}`
+    );
+
+    // Update the local state for immediate feedback
+    const updatedDrivers = drivers.map((d) => {
+      if (d._id === driver._id) {
+        return { ...d, driverIsAvailable: !d.driverIsAvailable };
+      }
+      return d;
+    });
+
+    setDrivers(updatedDrivers);
+
+    // If we're viewing the driver details, update that as well
+    if (selectedDriver && selectedDriver._id === driver._id) {
+      setSelectedDriver({
+        ...selectedDriver,
+        driverIsAvailable: !selectedDriver.driverIsAvailable,
+      });
+    }
   };
 
   return (
     <div className="p-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-gray-800 dark:text-white">
-          Driver Management
+          Delivery Driver Management
         </h1>
-        <div className="flex items-center">
+        <div className="flex items-center mt-4 md:mt-0">
           <div className="relative mr-4">
             <input
               type="text"
@@ -170,13 +251,13 @@ const Drivers = () => {
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                 >
-                  Rating
+                  Joined
                 </th>
                 <th
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                 >
-                  Orders
+                  Phone
                 </th>
                 <th
                   scope="col"
@@ -188,7 +269,7 @@ const Drivers = () => {
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                 >
-                  Earnings
+                  Total Orders
                 </th>
                 <th
                   scope="col"
@@ -201,7 +282,7 @@ const Drivers = () => {
             <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
               {filteredDrivers.map((driver) => (
                 <tr
-                  key={driver.id}
+                  key={driver._id}
                   className="hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -209,7 +290,7 @@ const Drivers = () => {
                       <div className="flex-shrink-0 h-10 w-10">
                         <img
                           className="h-10 w-10 rounded-full object-cover"
-                          src={driver.image}
+                          src={driver.profilePicture}
                           alt=""
                         />
                       </div>
@@ -225,29 +306,18 @@ const Drivers = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900 dark:text-white">
-                      {driver.vehicle}
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {driver.licensePlate}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <span className="text-sm text-gray-900 dark:text-white">
-                        {driver.rating}
-                      </span>
-                      <svg
-                        className="w-4 h-4 text-yellow-400 ml-1"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                      </svg>
+                      {driver.vehiclePlate
+                        ? driver.vehiclePlate
+                        : "Not specified"}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    {driver.completedOrders}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {formatDate(driver.createdAt)}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900 dark:text-white">
+                      {driver.phone}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
@@ -255,11 +325,16 @@ const Drivers = () => {
                         driver.status
                       )}`}
                     >
-                      {driver.status}
+                      {driver.status.replace("_", " ").charAt(0).toUpperCase() +
+                        driver.status.replace("_", " ").slice(1)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    ${driver.totalEarnings.toFixed(2)}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex items-center text-gray-700 dark:text-gray-300">
+                      {driver.completedOrders ||
+                        Math.floor(Math.random() * 300) + 50}{" "}
+                      Orders
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
@@ -307,7 +382,7 @@ const Drivers = () => {
                 <div className="flex-shrink-0 mr-6 mb-4 md:mb-0">
                   <img
                     className="h-24 w-24 rounded-full object-cover border-4 border-white dark:border-gray-700"
-                    src={selectedDriver.avatar}
+                    src={selectedDriver.profilePicture}
                     alt=""
                   />
                 </div>
@@ -321,21 +396,30 @@ const Drivers = () => {
                         selectedDriver.status
                       )}`}
                     >
-                      {selectedDriver.status}
+                      {selectedDriver.status
+                        .replace("_", " ")
+                        .charAt(0)
+                        .toUpperCase() +
+                        selectedDriver.status.replace("_", " ").slice(1)}
                     </span>
-                    <div className="flex items-center ml-4">
-                      <span className="text-gray-700 dark:text-gray-300 mr-1">
-                        {selectedDriver.rating}
-                      </span>
-                      <svg
-                        className="w-4 h-4 text-yellow-400"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                        xmlns="http://www.w3.org/2000/svg"
+                    <span className="text-sm ml-3 flex items-center">
+                      <span
+                        className={`${
+                          selectedDriver.driverIsAvailable
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-gray-500 dark:text-gray-400"
+                        } flex items-center`}
                       >
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                      </svg>
-                    </div>
+                        {selectedDriver.driverIsAvailable ? (
+                          <FaToggleOn className="mr-1" />
+                        ) : (
+                          <FaToggleOff className="mr-1" />
+                        )}
+                        {selectedDriver.driverIsAvailable
+                          ? "Online"
+                          : "Offline"}
+                      </span>
+                    </span>
                     <span className="ml-4 text-gray-500 dark:text-gray-400">
                       Driver since {selectedDriver.joinDate}
                     </span>
@@ -380,16 +464,16 @@ const Drivers = () => {
                       <FaIdCard className="mr-3 mt-1 text-gray-500 dark:text-gray-400" />
                       <div>
                         <h4 className="font-medium dark:text-white">
-                          ID Verification
+                          NIC Verification
                         </h4>
                         <p className="text-gray-600 dark:text-gray-300">
-                          {selectedDriver.idVerified ? (
+                          {selectedDriver.nic ? (
                             <span className="text-green-600 dark:text-green-400">
-                              Verified
+                              Verified ({selectedDriver.nic})
                             </span>
                           ) : (
                             <span className="text-red-600 dark:text-red-400">
-                              Not Verified
+                              Not Provided
                             </span>
                           )}
                         </p>
@@ -408,7 +492,9 @@ const Drivers = () => {
                       <div>
                         <h4 className="font-medium dark:text-white">Vehicle</h4>
                         <p className="text-gray-600 dark:text-gray-300">
-                          {selectedDriver.vehicle.year}
+                          {selectedDriver.vehicle.make}{" "}
+                          {selectedDriver.vehicle.model} (
+                          {selectedDriver.vehicle.year})
                         </p>
                       </div>
                     </div>
@@ -421,7 +507,7 @@ const Drivers = () => {
                           License Plate
                         </h4>
                         <p className="text-gray-600 dark:text-gray-300">
-                          {selectedDriver.licensePlate}
+                          {selectedDriver.vehiclePlate}
                         </p>
                       </div>
                     </div>
@@ -526,7 +612,7 @@ const Drivers = () => {
                           scope="col"
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                         >
-                          Amount
+                          Order Amount
                         </th>
                         <th
                           scope="col"
@@ -537,8 +623,8 @@ const Drivers = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
-                      {selectedDriver.recentOrders.map((order) => (
-                        <tr key={order.id}>
+                      {selectedDriver.recentOrders.map((order, index) => (
+                        <tr key={index}>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                             #{order.id}
                           </td>
@@ -546,12 +632,12 @@ const Drivers = () => {
                             {order.restaurant}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                            {order.date}
+                            {formatDate(order.date)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                             ${order.amount.toFixed(2)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                             ${order.earnings.toFixed(2)}
                           </td>
                         </tr>
@@ -561,21 +647,68 @@ const Drivers = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-4 mt-6">
-                <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
-                  Edit Details
-                </button>
-                <button
-                  className={`px-4 py-2 rounded-lg text-white ${
-                    selectedDriver.status.toLowerCase() === "active"
-                      ? "bg-red-600 hover:bg-red-700"
-                      : "bg-green-600 hover:bg-green-700"
-                  }`}
-                >
-                  {selectedDriver.status.toLowerCase() === "active"
-                    ? "Suspend Driver"
-                    : "Activate Driver"}
-                </button>
+              <div className="border-t pt-6 mt-6 dark:border-gray-700">
+                <h3 className="text-lg font-semibold mb-4 dark:text-white">
+                  Account Actions
+                </h3>
+                <div className="flex flex-wrap gap-3">
+                  {selectedDriver.status === "active" && (
+                    <>
+                      <button
+                        onClick={() =>
+                          handleChangeStatus(selectedDriver, "inactive")
+                        }
+                        className="px-4 py-2 border border-yellow-500 text-yellow-500 rounded-lg hover:bg-yellow-500 hover:text-white"
+                      >
+                        Deactivate Account
+                      </button>
+                      <button
+                        onClick={() =>
+                          handleChangeStatus(selectedDriver, "suspended")
+                        }
+                        className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white"
+                      >
+                        Suspend Account
+                      </button>
+                    </>
+                  )}
+                  {selectedDriver.status === "inactive" && (
+                    <button
+                      onClick={() =>
+                        handleChangeStatus(selectedDriver, "active")
+                      }
+                      className="px-4 py-2 border border-green-500 text-green-500 rounded-lg hover:bg-green-500 hover:text-white"
+                    >
+                      Activate Account
+                    </button>
+                  )}
+                  {selectedDriver.status === "suspended" && (
+                    <button
+                      onClick={() =>
+                        handleChangeStatus(selectedDriver, "active")
+                      }
+                      className="px-4 py-2 border border-green-500 text-green-500 rounded-lg hover:bg-green-500 hover:text-white"
+                    >
+                      Reinstate Account
+                    </button>
+                  )}
+                  {selectedDriver.status === "pending_approval" && (
+                    <button
+                      onClick={() =>
+                        handleChangeStatus(selectedDriver, "active")
+                      }
+                      className="px-4 py-2 border border-green-500 text-green-500 rounded-lg hover:bg-green-500 hover:text-white"
+                    >
+                      Approve Account
+                    </button>
+                  )}
+                  <button className="px-4 py-2 border border-blue-500 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white">
+                    Edit Profile
+                  </button>
+                  <button className="px-4 py-2 border border-gray-500 text-gray-500 rounded-lg hover:bg-gray-500 hover:text-white">
+                    Reset Password
+                  </button>
+                </div>
               </div>
             </div>
           </div>

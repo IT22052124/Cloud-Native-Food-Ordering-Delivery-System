@@ -203,6 +203,19 @@ const DishSidebar = () => {
             </span>
           ) : null}
         </NavLink>
+        <NavLink
+          to="/restaurants/admin"
+          className={({ isActive }) =>
+            `flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 ${
+              isActive
+                ? 'bg-accent text-white shadow-md'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`
+          }
+        >
+          <FaTachometerAlt className="flex-shrink-0" />
+          <span className="font-medium">resutant</span>
+        </NavLink>
 
         {/* <NavLink
           to="/users"
@@ -220,17 +233,8 @@ const DishSidebar = () => {
       </nav>
 
       {/* User profile/settings at bottom */}
-      <div className="mt-auto p-3 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
-          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white">
-            <span>AD</span>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-800 dark:text-white">Admin User</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{user.email || user.username}</p>
-          </div>
-        </div>
-      </div>
+      
+    
     </div>
   );
 };

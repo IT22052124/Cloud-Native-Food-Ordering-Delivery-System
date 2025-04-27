@@ -21,6 +21,8 @@ import ReadyForPickupOrders from "./pages/Orders/PickUp";
 import Resturant from "./pages/Restaurant";
 import UserProfile from "./pages/userprofile";
 import PendingRestaurantTable from "./pages/pendingRestaurant";
+import RestaurantAdminDetails from "./pages/Admin/resturantAdminDetails"
+import AdminEditRestaurant from "./pages/Admin/AdminEditRestaurant"
 const App = () => {
   return (
     <Router>
@@ -36,6 +38,9 @@ const App = () => {
         {/* New */}
         <Route path="/restaurants/add" element={<AddRestaurant />} />
         <Route path="/restaurants/" element={<Resturant />} />
+        <Route path="/restaurants/admin" element={<RestaurantAdminDetails />} />
+        <Route path="/restaurants/admin/edit/:id" element={<AdminEditRestaurant />} />
+
         <Route path="/restaurants/:id" element={<RestaurantDetails />} />
         <Route path="/restaurants/edit/:id" element={<EditRestaurant />} />
         <Route path="/orders" element={<Orders />} />

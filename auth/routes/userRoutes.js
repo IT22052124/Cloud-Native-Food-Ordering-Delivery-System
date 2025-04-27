@@ -13,6 +13,7 @@ import {
   updateAddress,
   setDefaultAddress,
   removeAddress,
+  getDrivers,
 } from "../controller/userController.js";
 import { getCurrentUser } from "../controller/authController.js";
 import { protect, authorize } from "../middleware/auth.js";
@@ -35,6 +36,7 @@ router.delete("/me/addresses/:addressId", removeAddress);
 
 // Admin only routes
 router.get("/", authorize("admin"), getAllUsers);
+router.get("/drivers", authorize("admin"), getDrivers);
 router.get("/pending-approval", authorize("admin"), getPendingApprovalUsers);
 router.put("/:id/approve", authorize("admin"), approveUser);
 router.put("/:id/status", authorize("admin"), updateUserStatus);

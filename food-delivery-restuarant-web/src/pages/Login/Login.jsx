@@ -16,7 +16,7 @@ const Login = () => {
     setLoading(true);
     try {
       const response = await loginOwner({ email, password });
-      login(response.token);
+      login(response.token,"owner");
       toast.success('Login successful!');
       console.log('Navigating to /dashboard');
       navigate('/dashboard');

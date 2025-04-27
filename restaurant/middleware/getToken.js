@@ -1,5 +1,5 @@
-// Middleware to verify token and extract owner ID
 import jwt from "jsonwebtoken";
+
 const authMiddlewareAdmin = (req, res, next) => {
   const token = req.header("Authorization");
   if (!token) {
@@ -8,12 +8,11 @@ const authMiddlewareAdmin = (req, res, next) => {
   }
 
   try {
- 
-    const decoded = jwt.verify(
-      token.replace("Bearer ", ""),
-      process.env.JWT_SECRET
-    );
-    req.resturantId = decoded.id; // Attach owner ID to request
+    const decoded = jwt.verify(token.replace("Bearer ", ""), process.env.JWT_SECRET);
+    console.log("Decoded admin token:", decoded); // Debug log
+    req.resturantId = decoded.id; // Restaurant ID from token
+    req.adminId = decoded.adminId; // Admin ID for additional checks if needed
+    req.role = decoded.role; // Role for authorizeRole middleware
     next();
   } catch (error) {
     console.error("Token verification failed:", error.message);
