@@ -269,21 +269,6 @@ const ProfileScreen = ({ navigation }) => {
                 />
               )}
             />
-
-            <Divider />
-
-            <List.Item
-              title="Payment Methods"
-              description="Manage your payment methods"
-              left={(props) => <List.Icon {...props} icon="credit-card" />}
-              right={(props) => (
-                <IconButton
-                  {...props}
-                  icon="chevron-right"
-                  onPress={() => navigation.navigate("PaymentMethods")}
-                />
-              )}
-            />
           </Card.Content>
         </Card>
 
@@ -339,6 +324,7 @@ const ProfileScreen = ({ navigation }) => {
 
             <List.Item
               title="Help Center"
+              description="Find answers to common questions"
               left={(props) => <List.Icon {...props} icon="help-circle" />}
               right={(props) => (
                 <IconButton
@@ -353,6 +339,7 @@ const ProfileScreen = ({ navigation }) => {
 
             <List.Item
               title="About Us"
+              description="Learn more about our company"
               left={(props) => <List.Icon {...props} icon="information" />}
               right={(props) => (
                 <IconButton
@@ -367,6 +354,7 @@ const ProfileScreen = ({ navigation }) => {
 
             <List.Item
               title="Privacy Policy"
+              description="Read our privacy policy"
               left={(props) => <List.Icon {...props} icon="shield" />}
               right={(props) => (
                 <IconButton
@@ -381,6 +369,7 @@ const ProfileScreen = ({ navigation }) => {
 
             <List.Item
               title="Terms of Service"
+              description="Read our terms and conditions"
               left={(props) => <List.Icon {...props} icon="file-document" />}
               right={(props) => (
                 <IconButton

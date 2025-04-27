@@ -7,22 +7,30 @@ import {
   ActivityIndicator,
   Image,
 } from "react-native";
-import { Text, Card, Title, Searchbar, Chip, Badge } from "react-native-paper";
+import {
+  Text,
+  Card,
+  Title,
+  Searchbar,
+  Chip,
+  Badge,
+  Button,
+} from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
+import { useLocation } from "../../context/LocationContext";
 import dataService from "../../services/dataService";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 
 const RestaurantsScreen = ({ navigation, route }) => {
   const theme = useTheme();
-  const categoryId = route.params?.categoryId;
+  const { selectedAddress, deliveryRange } = useLocation();
 
   const [restaurants, setRestaurants] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(categoryId || null);
-  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [locationBased, setLocationBased] = useState(false);
+  const [error, setError] = useState(null);
 
   // Create theme-dependent styles inside the component
   const themedStyles = {
@@ -31,31 +39,123 @@ const RestaurantsScreen = ({ navigation, route }) => {
       fontWeight: "600",
       marginLeft: 6,
     },
+    locationDisclaimerContainer: {
+      backgroundColor: theme.colors.primary + "15",
+      borderLeftWidth: 3,
+      borderLeftColor: theme.colors.primary,
+    },
+    locationDisclaimerText: {
+      color: theme.colors.text,
+    },
+    locationName: {
+      color: theme.colors.primary,
+      fontWeight: "bold",
+    },
+    changeLocationText: {
+      color: theme.colors.primary,
+    },
+    errorText: {
+      color: theme.colors.error,
+    },
+    errorContainer: {
+      backgroundColor: theme.colors.errorContainer || "#FFEBEE",
+      borderRadius: 8,
+      padding: 16,
+      marginVertical: 8,
+    },
+    changeLocationButton: {
+      backgroundColor: theme.colors.primary,
+      marginTop: 16,
+    },
   };
 
   useEffect(() => {
     loadData();
-  }, [selectedCategory]);
+  }, [selectedAddress]);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const categoriesData = await dataService.getCategories();
-      setCategories(categoriesData.categories);
+      setError(null);
 
       let restaurantsData;
-      // if (selectedCategory) {
-      //   restaurantsData = await dataService.getRestaurantsByCategory(
-      //     selectedCategory
-      //   );
-      // } else {
-      restaurantsData = await dataService.getRestaurants();
-      // }
 
-      setRestaurants(restaurantsData.restaurants);
-      console.log("restaurantsData", restaurantsData.restaurants);
+      // Check if location is available and fetch restaurants by location
+      if (
+        selectedAddress &&
+        selectedAddress.latitude &&
+        selectedAddress.longitude
+      ) {
+        try {
+          restaurantsData = await dataService.getRestaurantsByLocation(
+            selectedAddress.latitude,
+            selectedAddress.longitude,
+            deliveryRange || 5
+          );
+
+          if (
+            restaurantsData.success &&
+            restaurantsData.restaurants &&
+            restaurantsData.restaurants.length > 0
+          ) {
+            setLocationBased(true);
+            setRestaurants(restaurantsData.restaurants);
+          } else {
+            // No restaurants found near location
+            setLocationBased(true);
+            setRestaurants([]);
+            setError({
+              message: "No restaurants found near your location.",
+              type: "location",
+            });
+          }
+        } catch (locationError) {
+          console.error(
+            "Error fetching restaurants by location:",
+            locationError
+          );
+          // Fall back to all restaurants if location-based search fails
+          restaurantsData = await dataService.getRestaurants();
+          setLocationBased(false);
+
+          if (
+            restaurantsData.restaurants &&
+            restaurantsData.restaurants.length > 0
+          ) {
+            setRestaurants(restaurantsData.restaurants);
+          } else {
+            setRestaurants([]);
+            setError({
+              message: "Failed to fetch restaurants. Please try again later.",
+              type: "general",
+            });
+          }
+        }
+      } else {
+        // If no location is set, get all restaurants
+        restaurantsData = await dataService.getRestaurants();
+        setLocationBased(false);
+
+        if (
+          restaurantsData.restaurants &&
+          restaurantsData.restaurants.length > 0
+        ) {
+          setRestaurants(restaurantsData.restaurants);
+        } else {
+          setRestaurants([]);
+          setError({
+            message: "No restaurants available at this time.",
+            type: "general",
+          });
+        }
+      }
     } catch (error) {
       console.error("Error loading restaurants:", error);
+      setRestaurants([]);
+      setError({
+        message: "Failed to load restaurants. Please try again.",
+        type: "general",
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -63,24 +163,17 @@ const RestaurantsScreen = ({ navigation, route }) => {
   };
 
   const handleSearch = async () => {
-    // if (!searchQuery.trim()) {
-    //   loadData();
-    //   return;
-    // }
-    // try {
-    //   setLoading(true);
-    //   const results = await dataService.searchRestaurants(searchQuery);
-    //   setRestaurants(results);
-    // } catch (error) {
-    //   console.error("Error searching restaurants:", error);
-    // } finally {
-    //   setLoading(false);
-    // }
+    // Navigate to dedicated search screen instead of performing search here
+    navigation.navigate("Search");
   };
 
   const handleRefresh = () => {
     setRefreshing(true);
     loadData();
+  };
+
+  const handleChangeLocation = () => {
+    navigation.navigate("Home");
   };
 
   const isRestaurantClosed = (restaurant) => {
@@ -116,11 +209,10 @@ const RestaurantsScreen = ({ navigation, route }) => {
 
   const renderRestaurantItem = ({ item }) => {
     const isClosed = isRestaurantClosed(item);
-    // Only show service type label if only one type is available
-    const hasDeliveryOnly = true;
-    // item.serviceTypes?.delivery && !item.serviceTypes?.pickup;
-    const hasPickupOnly = false;
-    // !item.serviceTypes?.delivery && item.serviceTypes?.pickup;
+    const hasDeliveryOnly =
+      item.serviceType?.delivery && !item.serviceType?.pickup;
+    const hasPickupOnly =
+      item.serviceType?.pickup && !item.serviceType?.delivery;
 
     return (
       <Card
@@ -159,7 +251,7 @@ const RestaurantsScreen = ({ navigation, route }) => {
 
           {/* Restaurant Image */}
           <Card.Cover
-            source={{ uri: item._doc.coverImageUrl }}
+            source={{ uri: item.coverImageUrl }}
             style={[styles.restaurantImage, isClosed && styles.closedImage]}
           />
 
@@ -182,6 +274,16 @@ const RestaurantsScreen = ({ navigation, route }) => {
             </View>
           )}
 
+          {/* Distance badge for location-based results */}
+          {locationBased && item.distance && (
+            <View style={styles.distanceBadge}>
+              <Ionicons name="location-outline" size={14} color="#fff" />
+              <Text style={styles.distanceBadgeText}>
+                {parseFloat(item.distance).toFixed(1)} km
+              </Text>
+            </View>
+          )}
+
           {isClosed && (
             <View style={styles.closedOverlay}>
               <Text style={styles.closedText}>CLOSED</Text>
@@ -197,7 +299,7 @@ const RestaurantsScreen = ({ navigation, route }) => {
         <Card.Content>
           <View style={styles.restaurantInfoContainer}>
             <View style={styles.nameAndRatingContainer}>
-              <Title style={styles.restaurantName}>{item._doc.name}</Title>
+              <Title style={styles.restaurantName}>{item.name}</Title>
               {item.rating && (
                 <View style={styles.ratingContainer}>
                   <Ionicons
@@ -240,28 +342,37 @@ const RestaurantsScreen = ({ navigation, route }) => {
     );
   };
 
-  const renderCategoryItem = ({ item }) => (
-    <TouchableOpacity
-      style={[
-        styles.categoryChip,
-        selectedCategory === item.id && {
-          backgroundColor: theme.colors.primary,
-        },
-      ]}
-      onPress={() =>
-        setSelectedCategory(selectedCategory === item.id ? null : item.id)
-      }
-    >
-      <Text
+  const renderLocationDisclaimer = () => {
+    if (!selectedAddress) return null;
+
+    const locationName = selectedAddress.isCurrentLocation
+      ? "Current Location"
+      : selectedAddress.label || "Custom Location";
+
+    return (
+      <View
         style={[
-          styles.categoryText,
-          selectedCategory === item.id && { color: theme.colors.white },
+          styles.locationDisclaimerContainer,
+          themedStyles.locationDisclaimerContainer,
         ]}
       >
-        {item.name}
-      </Text>
-    </TouchableOpacity>
-  );
+        <View style={styles.locationDisclaimerContent}>
+          <Text
+            style={[
+              styles.locationDisclaimerText,
+              themedStyles.locationDisclaimerText,
+            ]}
+          >
+            Showing restaurants near{"       "}
+            <Text style={themedStyles.locationName}>{locationName}</Text>
+          </Text>
+          <TouchableOpacity onPress={handleChangeLocation}>
+            <Text style={themedStyles.changeLocationText}>Change Location</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
@@ -276,24 +387,20 @@ const RestaurantsScreen = ({ navigation, route }) => {
         <View style={styles.placeholder} />
       </View>
 
-      <Searchbar
-        placeholder="Search restaurants"
-        onChangeText={setSearchQuery}
-        value={searchQuery}
-        style={[styles.searchBar, { ...theme.shadow.small }]}
-        iconColor={theme.colors.primary}
-        onSubmitEditing={handleSearch}
-        onIconPress={handleSearch}
-      />
+      <TouchableOpacity onPress={handleSearch} activeOpacity={0.7}>
+        <Searchbar
+          placeholder="Search for restaurants or dishes"
+          value=""
+          style={[styles.searchBar, { backgroundColor: theme.colors.surface }]}
+          onFocus={handleSearch}
+          showSoftInputOnFocus={false}
+          icon="magnify"
+          iconColor={theme.colors.primary}
+        />
+      </TouchableOpacity>
 
-      <FlatList
-        data={categories}
-        renderItem={renderCategoryItem}
-        keyExtractor={(item) => item.id}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoriesList}
-      />
+      {/* Location-based disclaimer */}
+      {locationBased && renderLocationDisclaimer()}
     </View>
   );
 
@@ -305,12 +412,31 @@ const RestaurantsScreen = ({ navigation, route }) => {
         }}
         style={styles.emptyImage}
       />
-      <Text style={styles.emptyText}>No restaurants found</Text>
-      <Text style={styles.emptySubtext}>
-        {selectedCategory
-          ? "Try selecting a different category"
-          : "Try a different search term"}
-      </Text>
+      <Text style={styles.emptyText}>No Restaurants Found</Text>
+
+      {error ? (
+        <Text style={styles.emptySubtext}>{error.message}</Text>
+      ) : (
+        <Text style={styles.emptySubtext}>
+          {locationBased
+            ? "Try changing your location or delivery range"
+            : "No restaurants available at this time"}
+        </Text>
+      )}
+
+      {locationBased && (
+        <Button
+          mode="contained"
+          style={[
+            styles.changeLocationButton,
+            themedStyles.changeLocationButton,
+            { marginTop: 20 },
+          ]}
+          onPress={handleChangeLocation}
+        >
+          Change Location
+        </Button>
+      )}
     </View>
   );
 
@@ -379,20 +505,6 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     borderRadius: 12,
     elevation: 2,
-  },
-  categoriesList: {
-    marginVertical: 10,
-  },
-  categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "#f0f0f0",
-    marginRight: 10,
-    marginBottom: 5,
-  },
-  categoryText: {
-    fontSize: 14,
   },
   listContent: {
     paddingBottom: 20,
@@ -610,6 +722,49 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderColor: "#e6f2ff",
     borderWidth: 1,
+  },
+  locationDisclaimerContainer: {
+    marginVertical: 10,
+    padding: 12,
+    borderRadius: 8,
+  },
+  locationDisclaimerContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  locationDisclaimerText: {
+    flex: 1,
+    fontSize: 14,
+  },
+  distanceBadge: {
+    position: "absolute",
+    bottom: 50,
+    right: 10,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  distanceBadgeText: {
+    color: "#fff",
+    marginLeft: 4,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  errorContainer: {
+    marginVertical: 10,
+    padding: 12,
+    borderRadius: 8,
+  },
+  errorText: {
+    fontSize: 14,
+  },
+  changeLocationButton: {
+    borderRadius: 8,
   },
 });
 

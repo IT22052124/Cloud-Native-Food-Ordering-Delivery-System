@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
   },
   paymentDetails: {
     flex: 1,
-    maxWidth:135
+    maxWidth: 135,
   },
   paymentMethodTitle: {
     fontSize: 16,
@@ -721,7 +721,7 @@ const styles = StyleSheet.create({
   },
   paymentStatusChip: {
     height: 28,
-    maxWidth: 80
+    maxWidth: 80,
   },
   cardDetails: {
     marginTop: 16,

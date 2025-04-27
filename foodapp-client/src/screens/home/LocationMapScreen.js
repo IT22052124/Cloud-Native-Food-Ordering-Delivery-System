@@ -95,6 +95,7 @@ const LocationMapScreen = ({ navigation, route }) => {
 
   const handleMapPress = (event) => {
     const { coordinate } = event.nativeEvent;
+    console.log("coordinate", event.nativeEvent);
     setSelectedLocation(coordinate);
     reverseGeocode(coordinate.latitude, coordinate.longitude);
   };

@@ -17,6 +17,7 @@ import {
   Title,
   Modal,
   Portal,
+  Chip,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
@@ -43,6 +44,7 @@ const CartScreen = ({ navigation }) => {
   const [emptyCartModalVisible, setEmptyCartModalVisible] = useState(false);
   const [orderDetails, setOrderDetails] = useState(null);
   const [checkoutConfirmVisible, setCheckoutConfirmVisible] = useState(false);
+  const [quantityUpdateLoading, setQuantityUpdateLoading] = useState(false);
 
   const handleCheckoutRequest = () => {
     if (!items.length || !restaurant) {
@@ -60,56 +62,16 @@ const CartScreen = ({ navigation }) => {
     navigation.navigate("Checkout");
   };
 
-  // const handleCheckout = async () => {
-  //   if (!items.length || !restaurant) {
-  //     return;
-  //   }
-
-  //   try {
-  //     setOrderLoading(true);
-
-  //     // Create order object
-  //     const orderData = {
-  //       type: "DELIVERY",
-  //       deliveryAddress: {
-  //         street: user?.address?.street || "123 Main St",
-  //         city: user?.address?.city || "Anytown",
-  //         state: user?.address?.state || "CA",
-  //         zipCode: user?.address?.zipCode || "12345",
-  //         country: user?.address?.country || "USA",
-  //         coordinates: user?.address?.coordinates || {
-  //           lat: 37.7749,
-  //           lng: -122.4194,
-  //         },
-  //       },
-  //       paymentMethod: "CARD", // Default payment method
-  //       paymentDetails: {
-  //         cardLastFour: "4242",
-  //         paymentProcessor: "stripe",
-  //       },
-  //     };
-
-  //     // Send order to backend
-  //     const response = await dataService.createOrder(orderData);
-  //     setOrderDetails(response.order || response);
-
-  //     // Show success modal
-  //     setSuccessModalVisible(true);
-
-  //     // Clear cart after successful order
-  //     clearCart();
-  //   } catch (error) {
-  //     console.error("Error during checkout:", error);
-  //     // Show error message to user
-  //     Alert.alert(
-  //       "Checkout Failed",
-  //       error.message ||
-  //         "There was a problem creating your order. Please try again."
-  //     );
-  //   } finally {
-  //     setOrderLoading(false);
-  //   }
-  // };
+  const handleQuantityUpdate = async (cartId, itemId, newQuantity) => {
+    setQuantityUpdateLoading(true);
+    try {
+      await updateQuantity(cartId, itemId, newQuantity);
+    } catch (error) {
+      console.error("Error updating quantity:", error);
+    } finally {
+      setQuantityUpdateLoading(false);
+    }
+  };
 
   const renderCartItem = ({ item }) => (
     <Card style={[styles.cartItem, { ...theme.shadow.small }]}>
@@ -126,7 +88,7 @@ const CartScreen = ({ navigation }) => {
         <View style={styles.itemDetails}>
           <Text style={styles.itemName}>{item.name}</Text>
           <Text style={styles.itemPrice}>
-            ${(item.price * item.quantity).toFixed(2)}
+            LKR {(item.price * item.quantity).toFixed(2)}
           </Text>
         </View>
 
@@ -135,20 +97,22 @@ const CartScreen = ({ navigation }) => {
             icon="minus"
             size={16}
             onPress={() =>
-              updateQuantity(item.id, item.itemId, item.quantity - 1)
+              handleQuantityUpdate(item.id, item.itemId, item.quantity - 1)
             }
             style={styles.quantityButton}
             iconColor={theme.colors.primary}
+            disabled={quantityUpdateLoading}
           />
           <Text style={styles.quantityText}>{item.quantity}</Text>
           <IconButton
             icon="plus"
             size={16}
             onPress={() =>
-              updateQuantity(item.id, item.itemId, item.quantity + 1)
+              handleQuantityUpdate(item.id, item.itemId, item.quantity + 1)
             }
             style={styles.quantityButton}
             iconColor={theme.colors.primary}
+            disabled={quantityUpdateLoading}
           />
         </View>
 
@@ -158,6 +122,7 @@ const CartScreen = ({ navigation }) => {
           onPress={() => removeItem(item.id, item.itemId)}
           style={styles.deleteButton}
           iconColor={theme.colors.error}
+          disabled={quantityUpdateLoading}
         />
       </View>
     </Card>
@@ -165,6 +130,10 @@ const CartScreen = ({ navigation }) => {
 
   const renderHeader = () => {
     if (!restaurant) return null;
+    const hasDeliveryOnly =
+      restaurant.serviceType?.delivery && !restaurant.serviceType?.pickup;
+    const hasPickupOnly =
+      restaurant.serviceType?.pickup && !restaurant.serviceType?.delivery;
 
     return (
       <View style={styles.restaurantContainer}>
@@ -191,6 +160,17 @@ const CartScreen = ({ navigation }) => {
               {restaurant.address.street}, {restaurant.address.province} ,{" "}
               {restaurant.address.city}
             </Text>
+            {(hasDeliveryOnly || hasPickupOnly) && (
+              <View style={styles.disclaimerContainer}>
+                <Chip
+                  style={styles.disclaimerChip}
+                  textStyle={styles.disclaimerChipText}
+                  icon="information-outline"
+                >
+                  {hasDeliveryOnly ? "Delivery only" : "Pickup only"}
+                </Chip>
+              </View>
+            )}
           </View>
           <Ionicons
             name="chevron-forward"
@@ -206,8 +186,10 @@ const CartScreen = ({ navigation }) => {
     if (items.length === 0) return null;
 
     const subtotal = getSubtotal();
-    // const deliveryFee = restaurant ? parseFloat(restaurant.deliveryFee) : 0;
-    const total = getTotal();
+    // Calculate 5% tax on subtotal (delivery fee will be added at checkout)
+    const estimatedTax = subtotal * 0.05;
+    // Estimate of total (excluding delivery fee which will be calculated at checkout)
+    const estimatedTotal = subtotal + estimatedTax;
 
     return (
       <View style={styles.summaryContainer}>
@@ -215,19 +197,24 @@ const CartScreen = ({ navigation }) => {
 
         <View style={styles.summaryRow}>
           <Text style={styles.summaryText}>Subtotal</Text>
-          <Text style={styles.summaryValue}>${subtotal.toFixed(2)}</Text>
+          <Text style={styles.summaryValue}>LKR {subtotal.toFixed(2)}</Text>
+        </View>
+
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryText}>Tax (5%)</Text>
+          <Text style={styles.summaryValue}>LKR {estimatedTax.toFixed(2)}</Text>
         </View>
 
         <View style={styles.summaryRow}>
           <Text style={styles.summaryText}>Delivery Fee</Text>
-          <Text style={styles.summaryValue}>(Exclusive)</Text>
+          <Text style={styles.summaryValue}>(Calculated at checkout)</Text>
         </View>
 
         <Divider style={styles.divider} />
 
         <View style={styles.totalRow}>
-          <Text style={styles.totalText}>Total</Text>
-          <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
+          <Text style={styles.totalText}>Estimated Total</Text>
+          <Text style={styles.totalValue}>LKR {estimatedTotal.toFixed(2)}</Text>
         </View>
 
         <Button
@@ -304,23 +291,16 @@ const CartScreen = ({ navigation }) => {
     );
   };
 
-  // if (loading) {
-  //   return (
-  //     <View
-  //       style={[
-  //         styles.loadingContainer,
-  //         { backgroundColor: theme.colors.background },
-  //       ]}
-  //     >
-  //       <ActivityIndicator size="large" color={theme.colors.primary} />
-  //     </View>
-  //   );
-  // }
-
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
+      {quantityUpdateLoading && (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+        </View>
+      )}
+
       <View style={styles.header}>
         <Title style={styles.headerTitle}>My Cart</Title>
         {items.length > 0 && (
@@ -499,6 +479,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
   },
+  disclaimerContainer: {
+    marginTop: 6,
+  },
+  disclaimerChip: {
+    alignSelf: "flex-start",
+  },
+  disclaimerChipText: {
+    fontSize: 10,
+  },
   cartItem: {
     marginBottom: 12,
     borderRadius: 12,
@@ -665,6 +654,30 @@ const styles = StyleSheet.create({
   },
   confirmButton: {
     backgroundColor: "#FF6B6B",
+  },
+  quantityUpdateModal: {
+    position: "absolute",
+    bottom: 20,
+    right: 20,
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  quantityUpdateText: {
+    marginLeft: 8,
+    fontSize: 14,
+  },
+  loaderContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    zIndex: 1000,
   },
 });
 

@@ -34,6 +34,10 @@ import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
 import { debounce } from "lodash";
 import Constants from "expo-constants";
+import {
+  calculateTax as calcTax,
+  calculateTotalWithTax,
+} from "../../utils/taxUtils";
 const { GOOGLE_MAPS_API_KEY } = Constants.expoConfig.extra; // Google Maps API key from config
 
 const { width, height } = Dimensions.get("window");
@@ -75,6 +79,80 @@ const CheckoutScreen = ({ navigation, route }) => {
     longitude: null,
   });
 
+  // Calculate distance between two coordinates in kilometers using the Haversine formula
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radius of the earth in km
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) *
+        Math.cos(deg2rad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c; // Distance in km
+    return distance;
+  };
+
+  const deg2rad = (deg) => {
+    return deg * (Math.PI / 180);
+  };
+
+  // Calculate delivery fee based on distance
+  const calculateDeliveryFee = (distance) => {
+    // Base delivery fee from restaurant
+    const baseFee = restaurant?.deliveryFee
+      ? parseFloat(restaurant.deliveryFee)
+      : 80;
+
+    // Define distance tiers and additional fees
+    if (!distance) return baseFee;
+
+    // Maximum delivery distance check
+    if (distance > 20) {
+      return -1; // Signal that distance exceeds maximum limit
+    }
+
+    // Distance-based fee calculation
+    if (distance <= 5) {
+      return baseFee; // Base fee for distances under 5km
+    } else {
+      // For distances over 5km, add LKR 30 for each additional km
+      const additionalKm = Math.ceil(distance - 5);
+      return baseFee + additionalKm * 30;
+    }
+  };
+
+  // Update delivery fee when address changes
+  useEffect(() => {
+    if (selectedAddress && restaurant && orderType === "DELIVERY") {
+      const restaurantLat = restaurant.address?.coordinates?.lat;
+      const restaurantLng = restaurant.address?.coordinates?.lng;
+
+      const addressLat =
+        selectedAddress.coordinates?.lat ||
+        selectedAddress.coordinates?.latitude;
+      const addressLng =
+        selectedAddress.coordinates?.lng ||
+        selectedAddress.coordinates?.longitude;
+
+      if (restaurantLat && restaurantLng && addressLat && addressLng) {
+        const distance = calculateDistance(
+          restaurantLat,
+          restaurantLng,
+          addressLat,
+          addressLng
+        );
+        const newDeliveryFee = calculateDeliveryFee(distance);
+        setDeliveryFee(newDeliveryFee);
+      } else {
+        // Fall back to base delivery fee if coordinates are missing
+        setDeliveryFee(parseFloat(restaurant.deliveryFee || 80));
+      }
+    }
+  }, [selectedAddress, restaurant, orderType]);
+
   useEffect(() => {
     const loadAddresses = async () => {
       try {
@@ -100,15 +178,19 @@ const CheckoutScreen = ({ navigation, route }) => {
       }
     };
 
-    // Load delivery fee
-    const loadDeliveryFee = () => {
+    // Set default order type based on available services
+    const setDefaultOrderType = () => {
       if (restaurant) {
-        setDeliveryFee(parseFloat(restaurant.deliveryFee || 5.99));
+        if (restaurant.serviceType?.delivery) {
+          setOrderType("DELIVERY");
+        } else if (restaurant.serviceType?.pickup) {
+          setOrderType("PICKUP");
+        }
       }
     };
 
     loadAddresses();
-    loadDeliveryFee();
+    setDefaultOrderType();
     getUserLocation();
   }, [user, restaurant]);
 
@@ -293,7 +375,7 @@ const CheckoutScreen = ({ navigation, route }) => {
   // Save selected location
   const saveTempLocation = useCallback(() => {
     if (selectedLocation && tempAddressDetails.street) {
-      setTempLocation({
+      const newTempLocation = {
         _id: "temp-location",
         label: tempAddressDetails.label,
         street: tempAddressDetails.street,
@@ -304,19 +386,9 @@ const CheckoutScreen = ({ navigation, route }) => {
           lng: selectedLocation.longitude,
         },
         isTemporary: true,
-      });
-      setSelectedAddress({
-        _id: "temp-location",
-        label: tempAddressDetails.label,
-        street: tempAddressDetails.street,
-        city: tempAddressDetails.city,
-        state: tempAddressDetails.state,
-        coordinates: {
-          lat: selectedLocation.latitude,
-          lng: selectedLocation.longitude,
-        },
-        isTemporary: true,
-      });
+      };
+      setTempLocation(newTempLocation);
+      setSelectedAddress(newTempLocation);
       setMapModalVisible(false);
     } else {
       Alert.alert("Error", "Please select a location on the map");
@@ -333,24 +405,86 @@ const CheckoutScreen = ({ navigation, route }) => {
     }
   };
 
+  // Calculate tax amount (5% of subtotal + delivery fee)
+  const calculateTax = () => {
+    const subtotal = getSubtotal();
+    // Only add delivery fee to tax calculation if it's a valid fee
+    const validDeliveryFee =
+      orderType === "DELIVERY" && deliveryFee > 0 ? deliveryFee : 0;
+    return calcTax(subtotal, true, validDeliveryFee);
+  };
+
+  // Get total with updated delivery fee and tax
+  const getTotalWithDeliveryFee = () => {
+    const subtotal = getSubtotal();
+
+    // If delivery fee is -1, it means max distance exceeded, so don't add delivery fee
+    if (orderType === "DELIVERY" && deliveryFee < 0) {
+      const { total } = calculateTotalWithTax(subtotal, 0, false);
+      return total;
+    }
+
+    const validDeliveryFee = orderType === "DELIVERY" ? deliveryFee : 0;
+    const { total } = calculateTotalWithTax(subtotal, validDeliveryFee, true);
+    return total;
+  };
+
   const handleProceedToPayment = () => {
     if (!selectedAddress && orderType === "DELIVERY") {
       Alert.alert("Error", "Please select a delivery address");
       return;
     }
 
-    // Navigate to payment screen
+    // Check if delivery distance exceeds maximum
+    const deliveryDistance = getDeliveryDistance();
+    if (orderType === "DELIVERY" && deliveryDistance && deliveryDistance > 20) {
+      Alert.alert(
+        "Delivery Not Available",
+        "The selected address is too far from the restaurant. Maximum delivery distance is 20 km. Please select a closer address or try pickup."
+      );
+      return;
+    }
+
+    // Navigate to payment screen with updated total calculation and LKR currency
     navigation.navigate("Payment", {
       orderType,
       selectedAddress: selectedAddress,
       subtotal: getSubtotal(),
       deliveryFee: orderType === "DELIVERY" ? deliveryFee : 0,
-      total: orderType === "DELIVERY" ? getTotal() : getSubtotal(),
+      tax: calculateTax(),
+      total: getTotalWithDeliveryFee(),
+      currency: "LKR",
     });
   };
 
   const handleAddAddress = () => {
     navigation.navigate("SavedAddresses");
+  };
+
+  // Get distance between restaurant and selected address
+  const getDeliveryDistance = () => {
+    if (!selectedAddress || !restaurant || orderType !== "DELIVERY")
+      return null;
+
+    const restaurantLat = restaurant.address?.coordinates?.lat;
+    const restaurantLng = restaurant.address?.coordinates?.lng;
+
+    const addressLat =
+      selectedAddress.coordinates?.lat || selectedAddress.coordinates?.latitude;
+    const addressLng =
+      selectedAddress.coordinates?.lng ||
+      selectedAddress.coordinates?.longitude;
+
+    if (restaurantLat && restaurantLng && addressLat && addressLng) {
+      return calculateDistance(
+        restaurantLat,
+        restaurantLng,
+        addressLat,
+        addressLng
+      );
+    }
+
+    return null;
   };
 
   const renderCartItems = () => {
@@ -373,7 +507,7 @@ const CheckoutScreen = ({ navigation, route }) => {
                 <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
               </View>
               <Text style={styles.itemPrice}>
-                ${(item.price * item.quantity).toFixed(2)}
+                LKR {(item.price * item.quantity).toFixed(2)}
               </Text>
             </Card.Content>
           </Card>
@@ -477,56 +611,87 @@ const CheckoutScreen = ({ navigation, route }) => {
   };
 
   const renderOrderType = () => {
+    const hasDeliveryAvailable = restaurant?.serviceType?.delivery;
+    const hasPickupAvailable = restaurant?.serviceType?.pickup;
+    const deliveryDistance = getDeliveryDistance();
+
     return (
       <View style={styles.section}>
         <Title style={styles.sectionTitle}>Order Type</Title>
         <Card style={styles.orderTypeCard}>
           <Card.Content>
-            <TouchableOpacity
-              style={[
-                styles.orderTypeOption,
-                orderType === "DELIVERY" && styles.selectedOrderType,
-              ]}
-              onPress={() => setOrderType("DELIVERY")}
-            >
-              <RadioButton
-                value="DELIVERY"
-                status={orderType === "DELIVERY" ? "checked" : "unchecked"}
-                onPress={() => setOrderType("DELIVERY")}
-                color={theme.colors.primary}
-              />
-              <View style={styles.orderTypeDetails}>
-                <Text style={styles.orderTypeName}>Delivery</Text>
-                <Text style={styles.orderTypeDescription}>
-                  Delivered to your address
-                </Text>
-              </View>
-              <Text style={styles.deliveryFee}>+${deliveryFee.toFixed(2)}</Text>
-            </TouchableOpacity>
+            {hasDeliveryAvailable && (
+              <>
+                <TouchableOpacity
+                  style={[
+                    styles.orderTypeOption,
+                    orderType === "DELIVERY" && styles.selectedOrderType,
+                  ]}
+                  onPress={() => setOrderType("DELIVERY")}
+                >
+                  <RadioButton
+                    value="DELIVERY"
+                    status={orderType === "DELIVERY" ? "checked" : "unchecked"}
+                    onPress={() => setOrderType("DELIVERY")}
+                    color={theme.colors.primary}
+                  />
+                  <View style={styles.orderTypeDetails}>
+                    <Text style={styles.orderTypeName}>Delivery</Text>
+                    <Text style={styles.orderTypeDescription}>
+                      Delivered to your address
+                      {deliveryDistance
+                        ? ` (${deliveryDistance.toFixed(1)} km away)`
+                        : ""}
+                    </Text>
+                  </View>
+                  <Text style={styles.deliveryFee}>
+                    +LKR {deliveryFee.toFixed(2)}
+                  </Text>
+                </TouchableOpacity>
 
-            <Divider style={styles.divider} />
+                {orderType === "DELIVERY" && (
+                  <View style={styles.deliveryInfoContainer}>
+                    <Ionicons
+                      name="information-circle-outline"
+                      size={16}
+                      color="#888"
+                      style={styles.infoIcon}
+                    />
+                    <Text style={styles.deliveryInfoText}>
+                      Delivery fee is calculated based on distance:
+                      {"\n"}• Up to 5km: LKR 80
+                      {"\n"}• Over 5km: LKR 80 + LKR 30 per additional km
+                    </Text>
+                  </View>
+                )}
 
-            <TouchableOpacity
-              style={[
-                styles.orderTypeOption,
-                orderType === "PICKUP" && styles.selectedOrderType,
-              ]}
-              onPress={() => setOrderType("PICKUP")}
-            >
-              <RadioButton
-                value="PICKUP"
-                status={orderType === "PICKUP" ? "checked" : "unchecked"}
+                {hasPickupAvailable && <Divider style={styles.divider} />}
+              </>
+            )}
+
+            {hasPickupAvailable && (
+              <TouchableOpacity
+                style={[
+                  styles.orderTypeOption,
+                  orderType === "PICKUP" && styles.selectedOrderType,
+                ]}
                 onPress={() => setOrderType("PICKUP")}
-                color={theme.colors.primary}
-              />
-              <View style={styles.orderTypeDetails}>
-                <Text style={styles.orderTypeName}>Pickup</Text>
-                <Text style={styles.orderTypeDescription}>
-                  Pickup from restaurant
-                </Text>
-              </View>
-              <Text style={styles.deliveryFee}>Free</Text>
-            </TouchableOpacity>
+              >
+                <RadioButton
+                  value="PICKUP"
+                  status={orderType === "PICKUP" ? "checked" : "unchecked"}
+                  onPress={() => setOrderType("PICKUP")}
+                  color={theme.colors.primary}
+                />
+                <View style={styles.orderTypeDetails}>
+                  <Text style={styles.orderTypeName}>Pickup</Text>
+                  <Text style={styles.orderTypeDescription}>
+                    Pickup from restaurant
+                  </Text>
+                </View>
+                <Text style={styles.deliveryFee}>Free</Text>
+              </TouchableOpacity>
+            )}
           </Card.Content>
         </Card>
       </View>
@@ -535,7 +700,21 @@ const CheckoutScreen = ({ navigation, route }) => {
 
   const renderOrderSummary = () => {
     const subtotal = getSubtotal();
-    const total = orderType === "DELIVERY" ? getTotal() : subtotal;
+    const tax = calculateTax();
+    const total = getTotalWithDeliveryFee();
+    const deliveryDistance = getDeliveryDistance();
+    const baseFee = restaurant?.deliveryFee
+      ? parseFloat(restaurant.deliveryFee)
+      : 80;
+
+    // Calculate the distance-based additional fee
+    let distanceBasedFee = 0;
+    if (deliveryDistance && deliveryDistance > 5) {
+      const additionalKm = Math.ceil(deliveryDistance - 5);
+      distanceBasedFee = additionalKm * 30;
+    }
+
+    const isMaxDistanceExceeded = deliveryDistance && deliveryDistance > 20;
 
     return (
       <View style={styles.section}>
@@ -544,23 +723,77 @@ const CheckoutScreen = ({ navigation, route }) => {
           <Card.Content>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
-              <Text style={styles.summaryValue}>${subtotal.toFixed(2)}</Text>
+              <Text style={styles.summaryValue}>LKR {subtotal.toFixed(2)}</Text>
             </View>
 
             {orderType === "DELIVERY" && (
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Delivery Fee</Text>
-                <Text style={styles.summaryValue}>
-                  ${deliveryFee.toFixed(2)}
-                </Text>
-              </View>
+              <>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Delivery Fee</Text>
+                  {isMaxDistanceExceeded ? (
+                    <Text style={styles.errorValue}>Not Available</Text>
+                  ) : (
+                    <Text style={styles.summaryValue}>
+                      LKR {deliveryFee.toFixed(2)}
+                    </Text>
+                  )}
+                </View>
+
+                {deliveryDistance && !isMaxDistanceExceeded && (
+                  <View style={styles.feeBreakdownContainer}>
+                    <Text style={styles.feeBreakdown}>
+                      Base fee: LKR {baseFee.toFixed(2)}
+                    </Text>
+                    {distanceBasedFee > 0 && (
+                      <Text style={styles.feeBreakdown}>
+                        Additional distance fee (
+                        {Math.ceil(deliveryDistance - 5)} km above 5km): +LKR{" "}
+                        {distanceBasedFee.toFixed(2)}
+                      </Text>
+                    )}
+                  </View>
+                )}
+
+                {isMaxDistanceExceeded && (
+                  <View style={styles.maxDistanceWarning}>
+                    <Ionicons
+                      name="alert-circle"
+                      size={16}
+                      color="#ff3b30"
+                      style={styles.warningIcon}
+                    />
+                    <Text style={styles.warningText}>
+                      Distance exceeds maximum delivery range of 20 km. Please
+                      select a closer address or try pickup.
+                    </Text>
+                  </View>
+                )}
+              </>
             )}
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Tax (5%)</Text>
+              <Text style={styles.summaryValue}>LKR {tax.toFixed(2)}</Text>
+            </View>
+
+            <View style={styles.taxInfoContainer}>
+              <Text style={styles.feeBreakdown}>
+                5% applied to subtotal{" "}
+                {orderType === "DELIVERY" && deliveryFee > 0
+                  ? "plus delivery fee"
+                  : ""}
+              </Text>
+            </View>
 
             <Divider style={styles.divider} />
 
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
+              {orderType === "DELIVERY" && isMaxDistanceExceeded ? (
+                <Text style={styles.errorValue}>Not Available</Text>
+              ) : (
+                <Text style={styles.totalValue}>LKR {total.toFixed(2)}</Text>
+              )}
             </View>
           </Card.Content>
         </Card>
@@ -700,10 +933,20 @@ const CheckoutScreen = ({ navigation, route }) => {
             labelStyle={styles.buttonLabel}
             onPress={handleProceedToPayment}
             loading={loading}
-            disabled={loading || (orderType === "DELIVERY" && !selectedAddress)}
+            disabled={
+              loading ||
+              (orderType === "DELIVERY" && !selectedAddress) ||
+              (orderType === "DELIVERY" && getDeliveryDistance() > 20)
+            }
           >
             Proceed to Payment
           </Button>
+
+          {orderType === "DELIVERY" && getDeliveryDistance() > 20 && (
+            <Text style={styles.buttonWarningText}>
+              Delivery not available for the selected address (exceeds 20 km)
+            </Text>
+          )}
         </View>
       </ScrollView>
 
@@ -985,6 +1228,67 @@ const styles = StyleSheet.create({
   },
   mapAddressPreviewLoading: {
     backgroundColor: "#f0f0f0",
+  },
+  feeBreakdownContainer: {
+    marginTop: 4,
+    marginBottom: 8,
+    paddingLeft: 16,
+  },
+  feeBreakdown: {
+    fontSize: 12,
+    color: "#888",
+    fontStyle: "italic",
+  },
+  deliveryInfoContainer: {
+    backgroundColor: "#f8f8f8",
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  infoIcon: {
+    marginRight: 6,
+    marginTop: 2,
+  },
+  deliveryInfoText: {
+    fontSize: 12,
+    color: "#555",
+    flex: 1,
+    lineHeight: 18,
+  },
+  maxDistanceWarning: {
+    backgroundColor: "#ffebeb",
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  warningIcon: {
+    marginRight: 6,
+    marginTop: 2,
+  },
+  warningText: {
+    fontSize: 12,
+    color: "#ff3b30",
+    flex: 1,
+    lineHeight: 18,
+  },
+  errorValue: {
+    fontSize: 16,
+    color: "#ff3b30",
+    fontWeight: "bold",
+  },
+  buttonWarningText: {
+    color: "#ff3b30",
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 8,
+  },
+  taxInfoContainer: {
+    marginBottom: 8,
+    paddingLeft: 16,
   },
 });
 
