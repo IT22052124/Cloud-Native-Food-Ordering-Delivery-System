@@ -1,16 +1,34 @@
-const express = require('express');
+import dotenv from "dotenv";
+import cors from "cors";
+import express from "express";
+import mongoose from "mongoose";
+import RestaurantPayment from "./routes/restaurantPaymentRoutes.js";
+
+dotenv.config();
+
+// Initialize Express
 const app = express();
-const PORT = 5000;
 
-// Middleware to parse JSON
-app.use(express.json());
+// Apply CORS globally
+app.use(cors());
 
-// Sample route
-app.get('/', (req, res) => {
-  res.send('Admin backend running 🚀');
-});
+global.gConfig = {
+  auth_url: process.env.AUTH_SERVICE_URL,
+  restaurant_url: process.env.RESTAURANT_SERVICE_URL,
+  notification_url: process.env.NOTIFICATION_SERVICE_URL,
+  order_url: process.env.ORDER_SERVICE_URL,
+};
 
-// Start server
+// Routes
+app.use("/api/restaurant-payments/", RestaurantPayment);
+
+// Database Connection
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => console.error("MongoDB connection error:", err));
+
+const PORT = process.env.PORT || 5008;
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });

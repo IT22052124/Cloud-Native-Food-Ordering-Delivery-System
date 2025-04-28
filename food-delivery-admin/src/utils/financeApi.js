@@ -1,12 +1,11 @@
 // services/financeApi.js
 import axios from "axios";
-import { getAuthToken } from "../utils/auth";
 
-const API_BASE_URL = process.env.ADMIN_API_URL || "http://localhost:5000/api";
+const API_BASE_URL = "http://localhost:5008/api";
 
 // Create axios instance
 const api = axios.create({
-  baseURL: `${API_BASE_URL}/finance`,
+  baseURL: `${API_BASE_URL}`,
   headers: {
     "Content-Type": "application/json",
   },

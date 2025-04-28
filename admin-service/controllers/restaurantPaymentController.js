@@ -1,6 +1,5 @@
 // controllers/restaurantPaymentController.js
-import RestaurantPayment from "../models/RestaurantPayment.js";
-import Order from "../models/Order.js";
+import RestaurantPayment from "../model/RestaurantPayment.js";
 import {
   getWeekNumber,
   getWeekDates,
@@ -8,11 +7,16 @@ import {
   getMonthDates,
   formatDateYMD,
 } from "../utils/dateUtils.js";
+import {
+  fetchOrdersByDateRange,
+  fetchOrdersByIds,
+} from "../services/orderApiService.js";
 
 /**
  * Get restaurant payments with filtering
  */
 export const getRestaurantPayments = async (req, res) => {
+  console.log("Hi");
   try {
     const {
       period = "weekly",
@@ -158,10 +162,11 @@ export const generateWeeklyPayments = async (req, res) => {
       });
     }
 
-    // Find all completed orders in the date range
-    const completedOrders = await Order.find({
-      "restaurantOrder.status": "DELIVERED",
-      createdAt: { $gte: startDate, $lte: endDate },
+    // Fetch all completed orders in the date range from Order API
+    const completedOrders = await fetchOrdersByDateRange({
+      startDate,
+      endDate,
+      status: "DELIVERED",
       paymentStatus: "PAID",
     });
 
@@ -424,10 +429,8 @@ export const getPaymentDetails = async (req, res) => {
       });
     }
 
-    // Get order details
-    const orders = await Order.find({
-      orderId: { $in: payment.orderIds },
-    });
+    // Get order details from Order API
+    const orders = await fetchOrdersByIds(payment.orderIds);
 
     res.json({
       success: true,

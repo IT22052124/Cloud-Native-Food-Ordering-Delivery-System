@@ -9,32 +9,31 @@ import {
   getPaymentDetails,
   getCurrentWeekSummary,
 } from "../controllers/restaurantPaymentController.js";
-import { authenticate } from "../middleware/authMiddleware.js";
+import { protect, authorize } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-// Apply authentication middleware
-router.use(authenticate);
+router.use(protect);
 
 // Get restaurant payments with filtering
-router.get("/", getRestaurantPayments);
+router.get("/", authorize("admin"), getRestaurantPayments);
 
 // Generate weekly payments
-router.post("/generate-weekly", generateWeeklyPayments);
+router.post("/generate-weekly", authorize("admin"), generateWeeklyPayments);
 
 // Process a single payment
-router.post("/:paymentId/process", processPayment);
+router.post("/:paymentId/process", authorize("admin"), processPayment);
 
 // Process multiple payments
-router.post("/process-bulk", processBulkPayments);
+router.post("/process-bulk", authorize("admin"), processBulkPayments);
 
 // Update payment status
-router.patch("/:paymentId/status", updatePaymentStatus);
+router.patch("/:paymentId/status", authorize("admin"), updatePaymentStatus);
 
 // Get payment details
-router.get("/:paymentId", getPaymentDetails);
+router.get("/:paymentId", authorize("admin"), getPaymentDetails);
 
 // Get current week summary
-router.get("/summary/current-week", getCurrentWeekSummary);
+router.get("/summary/current-week", authorize("admin"), getCurrentWeekSummary);
 
 export default router;
