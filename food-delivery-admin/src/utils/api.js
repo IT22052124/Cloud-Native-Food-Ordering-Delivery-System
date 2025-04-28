@@ -178,3 +178,62 @@ export const deleteNotification = async (id) => {
     throw error;
   }
 };
+
+export const getDeliveries = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.get("http://localhost:5004/api/deliveries/", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    console.log("getDeliveries: API response:", response.data);
+    // Extract the deliveries array, fallback to empty array
+    return Array.isArray(response.data.deliveries)
+      ? response.data.deliveries
+      : [];
+  } catch (error) {
+    console.error("getDeliveries: Error:", error);
+    throw error;
+  }
+};
+
+export const updateDriverStatus = async (driverId, status) => {
+  try {
+    // Validate the status matches the enum values from your schema
+    const validStatuses = [
+      "active",
+      "inactive",
+      "suspended",
+      "pending_approval",
+    ];
+    if (!validStatuses.includes(status)) {
+      throw new Error(
+        `Invalid status. Must be one of: ${validStatuses.join(", ")}`
+      );
+    }
+
+    const response = await fetch(
+      `http://localhost:5001/api/users/${driverId}/status`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          // Add authorization if needed
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ status }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to update driver status");
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error updating driver status:", error);
+    throw error;
+  }
+};

@@ -226,6 +226,8 @@ const updateUserStatus = async (req, res) => {
   try {
     const { status } = req.body;
 
+    console.log(status);
+
     const validStatuses = [
       "active",
       "inactive",
