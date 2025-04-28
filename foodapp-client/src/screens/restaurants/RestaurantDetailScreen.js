@@ -232,17 +232,32 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
             {item.description}
           </RNText>
 
-          <Button
-            mode="contained"
-            style={[
-              styles.addButton,
-              { backgroundColor: theme.colors.primary },
-            ]}
-            labelStyle={styles.addButtonLabel}
-            onPress={() => handleAddToCart(item)}
-          >
-            Add
-          </Button>
+          {item.isAvailable ? (
+            <Button
+              mode="contained"
+              style={[
+                styles.addButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+              labelStyle={styles.addButtonLabel}
+              onPress={() => handleAddToCart(item)}
+            >
+              Add
+            </Button>
+          ) : (
+            <View style={styles.unavailableContainer}>
+              <Ionicons
+                name="close-circle"
+                size={20}
+                color={theme.colors.error}
+              />
+              <RNText
+                style={[styles.unavailableText, { color: theme.colors.error }]}
+              >
+                Not Available
+              </RNText>
+            </View>
+          )}
         </View>
         <Image source={{ uri: item.imageUrls[0] }} style={styles.dishImage} />
       </View>
@@ -1306,6 +1321,16 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#555",
     marginBottom: 15,
+  },
+  unavailableContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  unavailableText: {
+    marginLeft: 4,
+    fontSize: 14,
+    fontWeight: "bold",
   },
 });
 

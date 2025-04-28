@@ -11,6 +11,8 @@ import {
   getFoodCategories,
   updateRestaurantVerification,
   getMyRestaurants,
+  searchRestaurants,
+  getRestaurantsByLocation,
 } from "../Controller/ResturantController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 
@@ -20,7 +22,8 @@ const router = express.Router();
 router.post("/restaurants/add", authMiddleware, addRestaurant);
 router.get("/restaurants/", getRestaurants);
 router.get("/owner/restaurants/", authMiddleware, getMyRestaurants);
-
+router.get("/restaurants/search", searchRestaurants);
+router.get("/restaurants/nearby", getRestaurantsByLocation);
 router.get("/restaurants/:id/dishes", restaurantDishes);
 router.get("/restaurants/:id", getRestaurantById);
 router.put("/restaurants/:id", authMiddleware, updateRestaurant);

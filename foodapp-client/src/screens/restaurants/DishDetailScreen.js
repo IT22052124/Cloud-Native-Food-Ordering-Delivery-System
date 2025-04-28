@@ -41,6 +41,7 @@ const DishDetailScreen = ({ route, navigation }) => {
           restaurantId
         );
         const dishData = restaurantDish.dishes.find((d) => d._id === dishId);
+        console.log(dishData);
         setDish(dishData);
       }
     } catch (error) {
@@ -201,38 +202,62 @@ const DishDetailScreen = ({ route, navigation }) => {
           { backgroundColor: theme.colors.background, ...theme.shadow.medium },
         ]}
       >
-        <View style={styles.quantityContainer}>
-          <TouchableOpacity
-            style={[
-              styles.quantityButton,
-              { borderColor: theme.colors.primary },
-            ]}
-            onPress={decreaseQuantity}
-          >
-            <Ionicons name="remove" size={20} color={theme.colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.quantityText}>{quantity}</Text>
-          <TouchableOpacity
-            style={[
-              styles.quantityButton,
-              { borderColor: theme.colors.primary },
-            ]}
-            onPress={increaseQuantity}
-          >
-            <Ionicons name="add" size={20} color={theme.colors.primary} />
-          </TouchableOpacity>
-        </View>
+        {dish.isAvailable ? (
+          <>
+            <View style={styles.quantityContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.quantityButton,
+                  { borderColor: theme.colors.primary },
+                ]}
+                onPress={decreaseQuantity}
+              >
+                <Ionicons
+                  name="remove"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+              </TouchableOpacity>
+              <Text style={styles.quantityText}>{quantity}</Text>
+              <TouchableOpacity
+                style={[
+                  styles.quantityButton,
+                  { borderColor: theme.colors.primary },
+                ]}
+                onPress={increaseQuantity}
+              >
+                <Ionicons name="add" size={20} color={theme.colors.primary} />
+              </TouchableOpacity>
+            </View>
 
-        <Button
-          mode="contained"
-          style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
-          labelStyle={styles.addButtonLabel}
-          onPress={handleAddToCart}
-          loading={cartAddingLoading}
-          disabled={cartAddingLoading}
-        >
-          Add to Cart - LKR{totalPrice.toFixed(2)}
-        </Button>
+            <Button
+              mode="contained"
+              style={[
+                styles.addButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+              labelStyle={styles.addButtonLabel}
+              onPress={handleAddToCart}
+              loading={cartAddingLoading}
+              disabled={cartAddingLoading}
+            >
+              Add to Cart - LKR{totalPrice.toFixed(2)}
+            </Button>
+          </>
+        ) : (
+          <View style={styles.unavailableContainer}>
+            <Ionicons
+              name="close-circle"
+              size={24}
+              color={theme.colors.error}
+            />
+            <Text
+              style={[styles.unavailableText, { color: theme.colors.error }]}
+            >
+              This dish is not available at the moment
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Added to cart confirmation modal */}
@@ -495,6 +520,17 @@ const styles = StyleSheet.create({
   modalButton: {
     flex: 1,
     marginHorizontal: 8,
+  },
+  unavailableContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  unavailableText: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });
 
