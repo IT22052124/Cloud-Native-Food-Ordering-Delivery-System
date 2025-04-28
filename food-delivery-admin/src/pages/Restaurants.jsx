@@ -42,11 +42,9 @@ const Restaurants = () => {
   };
 
   useEffect(() => {
-    // Get URL parameters
     const searchParams = new URLSearchParams(location.search);
     const viewRestaurantId = searchParams.get("view");
 
-    // If there's a restaurant ID in the URL, find and display that restaurant
     if (viewRestaurantId && restaurants.length > 0) {
       const restaurantToView = restaurants.find(
         (r) => r._id === viewRestaurantId
@@ -442,9 +440,6 @@ const Restaurants = () => {
               </div>
 
               <div className="flex justify-end gap-4 mt-6">
-                <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
-                  Edit Details
-                </button>
                 <button
                   onClick={() =>
                     handleStatusChange(

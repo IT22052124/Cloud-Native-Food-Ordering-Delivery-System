@@ -5,7 +5,6 @@ import axios from "axios";
  */
 const protect = async (req, res, next) => {
   try {
-    console.log(req.headers.authorization);
     // Check if authorization header exists
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
