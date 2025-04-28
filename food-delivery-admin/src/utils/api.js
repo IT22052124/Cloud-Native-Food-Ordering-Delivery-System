@@ -31,7 +31,7 @@ export const loginUser = async (email, password) => {
 export const getRestaurants = async () => {
   try {
     const token = localStorage.getItem("token");
-    const response = await axios.get("http://localhost:5006/api/restaurants", {
+    const response = await axios.get("http://localhost:3000/api/restaurants", {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -50,7 +50,7 @@ export const getRestaurants = async () => {
 export const updateRestaurantVerification = async (restaurantId, status) => {
   try {
     const response = await fetch(
-      `http://localhost:5006/api/restaurants/${restaurantId}/verfication`,
+      `http://localhost:3000/api/restaurants/${restaurantId}/verfication`,
       {
         method: "PATCH",
         headers: {
@@ -94,6 +94,87 @@ export const getDrivers = async () => {
       tokenStatus: TokenManager.getToken() ? "exists" : "missing",
       time: new Date().toISOString(),
     });
+    throw error;
+  }
+};
+
+export const getNotifications = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.get(
+      "http://localhost:5007/api/notifications",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    console.log("getNotifications: API response:", response.data);
+    return response.data.data || [];
+  } catch (error) {
+    console.error("getNotifications: Error:", error);
+    throw error;
+  }
+};
+
+// Mark a notification as read
+export const markNotificationAsRead = async (id) => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.put(
+      `http://localhost:5007/api/notifications/${id}/read`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    console.log("markNotificationAsRead: API response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("markNotificationAsRead: Error:", error);
+    throw error;
+  }
+};
+
+// Mark all notifications as read
+export const markAllNotificationsAsRead = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.put(
+      "http://localhost:5007/api/notifications/read-all",
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    console.log("markAllNotificationsAsRead: API response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("markAllNotificationsAsRead: Error:", error);
+    throw error;
+  }
+};
+
+// Delete a notification
+export const deleteNotification = async (id) => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.delete(
+      `http://localhost:5007/api/notifications/${id}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    console.log("deleteNotification: API response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("deleteNotification: Error:", error);
     throw error;
   }
 };

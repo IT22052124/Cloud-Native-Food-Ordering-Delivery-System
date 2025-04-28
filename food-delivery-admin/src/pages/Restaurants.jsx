@@ -13,6 +13,7 @@ import {
   FaShoppingBag,
 } from "react-icons/fa";
 import { getRestaurants, updateRestaurantVerification } from "../utils/api";
+import { useLocation } from "react-router-dom";
 
 const Restaurants = () => {
   const [activeTab, setActiveTab] = useState("all");
@@ -21,6 +22,7 @@ const Restaurants = () => {
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const location = useLocation();
 
   useEffect(() => {
     fetchRestaurants();
@@ -38,6 +40,22 @@ const Restaurants = () => {
       console.error("Error fetching restaurants:", err);
     }
   };
+
+  useEffect(() => {
+    // Get URL parameters
+    const searchParams = new URLSearchParams(location.search);
+    const viewRestaurantId = searchParams.get("view");
+
+    // If there's a restaurant ID in the URL, find and display that restaurant
+    if (viewRestaurantId && restaurants.length > 0) {
+      const restaurantToView = restaurants.find(
+        (r) => r._id === viewRestaurantId
+      );
+      if (restaurantToView) {
+        setSelectedRestaurant(restaurantToView);
+      }
+    }
+  }, [location, restaurants]);
 
   const handleStatusChange = async (restaurantId, newStatus) => {
     try {

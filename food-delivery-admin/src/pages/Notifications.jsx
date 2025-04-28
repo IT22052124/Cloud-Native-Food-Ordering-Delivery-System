@@ -1,19 +1,47 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import { ThemeContext } from "../context/ThemeContext";
-import { notifications as notificationsData } from "../data/notifications";
+import {
+  getNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  deleteNotification,
+} from "../utils/api";
+import { useNavigate } from "react-router-dom";
 
 function Notifications() {
   const { theme } = useContext(ThemeContext);
-  const [notifications, setNotifications] = useState(notificationsData);
+  const [notifications, setNotifications] = useState([]);
   const [activeTab, setActiveTab] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const data = await getNotifications();
+      console.log("Data from API:", data); // Log the data directly
+      setNotifications(data);
+    } catch (error) {
+      console.error("Notification fetch failed:", error);
+      if (error.response && error.response.status === 401) {
+        navigate("/login");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
 
   // Filter notifications based on active tab
   const filteredNotifications =
     activeTab === "all"
       ? notifications
       : activeTab === "unread"
-      ? notifications.filter((notif) => !notif.read)
-      : notifications.filter((notif) => notif.read);
+      ? notifications.filter((notif) => notif.status === "unread")
+      : notifications.filter((notif) => notif.status === "read");
 
   // Format date
   const formatDate = (dateString) => {
@@ -27,37 +55,72 @@ function Notifications() {
   };
 
   // Mark notification as read
-  const markAsRead = (id) => {
-    setNotifications(
-      notifications.map((notif) =>
-        notif.id === id ? { ...notif, read: true } : notif
-      )
-    );
+  const handleMarkAsRead = async (id) => {
+    try {
+      await markNotificationAsRead(id);
+      setNotifications(
+        notifications.map((notif) =>
+          notif._id === id ? { ...notif, status: "read" } : notif
+        )
+      );
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+    }
   };
 
   // Mark all as read
-  const markAllAsRead = () => {
-    setNotifications(notifications.map((notif) => ({ ...notif, read: true })));
+  const handleMarkAllAsRead = async () => {
+    try {
+      await markAllNotificationsAsRead();
+      setNotifications(
+        notifications.map((notif) => ({ ...notif, status: "read" }))
+      );
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+    }
   };
 
   // Delete notification
-  const deleteNotification = (id) => {
-    setNotifications(notifications.filter((notif) => notif.id !== id));
+  const handleDeleteNotification = async (id) => {
+    try {
+      await deleteNotification(id);
+      setNotifications(notifications.filter((notif) => notif._id !== id));
+    } catch (error) {
+      console.error("Failed to delete notification:", error);
+    }
+  };
+
+  // Navigate to restaurant details
+  const navigateToRestaurantDetails = (restaurantId) => {
+    navigate(`/restaurants?view=${restaurantId}`);
+  };
+
+  // Navigate to driver details
+  const navigateToDriverDetails = (driverId) => {
+    navigate(`/drivers?view=${driverId}`);
   };
 
   // Get icon based on notification type
   const getNotificationIcon = (type) => {
     switch (type) {
-      case "restaurant_registration":
+      case "RESTAURANT_REGISTRATION":
         return "🏪";
-      case "driver_registration":
+      case "DRIVER_REGISTRATION":
         return "🚗";
-      case "order_issue":
-        return "⚠️";
-      case "payment_issue":
-        return "💵";
-      case "system_alert":
-        return "🔔";
+      case "ORDER_ASSIGNED":
+        return "📋";
+      case "ORDER_READY":
+        return "✅";
+      case "ORDER_DELAYED":
+        return "⏱️";
+      case "ORDER_COMPLETED":
+        return "🎉";
+      case "NEW_REVIEW":
+        return "⭐";
+      case "ACCOUNT_APPROVED":
+        return "✅";
+      case "ACCOUNT_SUSPENDED":
+        return "🚫";
       default:
         return "📣";
     }
@@ -70,7 +133,7 @@ function Notifications() {
           Notifications
         </h1>
         <button
-          onClick={markAllAsRead}
+          onClick={handleMarkAllAsRead}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium focus:outline-none"
         >
           Mark all as read
@@ -115,7 +178,11 @@ function Notifications() {
 
       {/* Notifications List */}
       <div className="space-y-4">
-        {filteredNotifications.length === 0 ? (
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        ) : filteredNotifications.length === 0 ? (
           <div
             className={`rounded-lg shadow-md p-6 ${
               theme === "dark" ? "bg-gray-800" : "bg-white"
@@ -128,10 +195,14 @@ function Notifications() {
         ) : (
           filteredNotifications.map((notification) => (
             <div
-              key={notification.id}
+              key={notification._id}
               className={`rounded-lg shadow-md p-6 ${
                 theme === "dark" ? "bg-gray-800" : "bg-white"
-              } ${!notification.read ? "border-l-4 border-blue-500" : ""}`}
+              } ${
+                notification.status === "unread"
+                  ? "border-l-4 border-blue-500"
+                  : ""
+              }`}
             >
               <div className="flex items-start">
                 <div className="flex-shrink-0 pt-0.5">
@@ -145,7 +216,7 @@ function Notifications() {
                       {notification.title}
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {formatDate(notification.timestamp)}
+                      {formatDate(notification.createdAt)}
                     </p>
                   </div>
                   <p className="mt-1 text-gray-600 dark:text-gray-300">
@@ -154,26 +225,41 @@ function Notifications() {
 
                   {/* Action buttons */}
                   <div className="mt-4 flex">
-                    {!notification.read && (
+                    {notification.status === "unread" && (
                       <button
-                        onClick={() => markAsRead(notification.id)}
+                        onClick={() => handleMarkAsRead(notification._id)}
                         className="mr-4 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                       >
                         Mark as read
                       </button>
                     )}
-                    {notification.type === "restaurant_registration" && (
-                      <button className="mr-4 text-sm text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
-                        Approve Restaurant
+
+                    {notification.type === "RESTAURANT_REGISTRATION" && (
+                      <button
+                        className="mr-4 text-sm text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300"
+                        onClick={() =>
+                          navigateToRestaurantDetails(
+                            notification.relatedEntity.id
+                          )
+                        }
+                      >
+                        View Restaurant
                       </button>
                     )}
-                    {notification.type === "driver_registration" && (
-                      <button className="mr-4 text-sm text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
-                        Approve Driver
+
+                    {notification.type === "DRIVER_REGISTRATION" && (
+                      <button
+                        className="mr-4 text-sm text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300"
+                        onClick={() =>
+                          navigateToDriverDetails(notification.relatedEntity.id)
+                        }
+                      >
+                        View Driver
                       </button>
                     )}
+
                     <button
-                      onClick={() => deleteNotification(notification.id)}
+                      onClick={() => handleDeleteNotification(notification._id)}
                       className="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
                     >
                       Delete
