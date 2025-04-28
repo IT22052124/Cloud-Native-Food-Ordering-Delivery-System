@@ -4,7 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import { getDishes, deleteDish } from '../utils/api';
 import DishTable from '../components/DishTable';
 import DishSidebar from '../components/DishSidebar';
-import Navbar from '../components/Navbar';
+import Navbar from '../components/DishNavBar';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { toast } from 'react-toastify';
 

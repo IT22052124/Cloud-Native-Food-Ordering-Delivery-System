@@ -12,7 +12,7 @@ const Navbar = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/restaurant-admin/login');
+    navigate('/restaurant/admin/login');
   };
 
   const toggleMenu = () => {
@@ -24,9 +24,9 @@ const Navbar = () => {
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo/Brand */}
-          <Link to="/" className="flex items-center space-x-2 text-xl font-bold">
+          <Link to="/admin-dashboard" className="flex items-center space-x-2 text-xl font-bold">
             <FaUtensils className="text-white dark:text-orange-300" />
-            <span className="hidden sm:inline">Food Delivery Admin</span>
+            <span className="hidden sm:inline">Restaurant Management</span>
             <span className="sm:hidden">FD Admin</span>
           </Link>
 
@@ -54,14 +54,17 @@ const Navbar = () => {
             {/* User Info & Actions */}
             {user ? (
               <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2 bg-white/10 px-4 py-2 rounded-full">
+                <Link
+                  to="/restaurants/admin/profile"
+                  className="flex items-center space-x-2 bg-white/10 px-4 py-2 rounded-full hover:bg-white/20 transition duration-200"
+                >
                   <div className="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center">
                     <FaUser className="text-white" />
                   </div>
                   <span className="text-sm font-medium truncate max-w-[150px]">
                     {user.email || user.username}
                   </span>
-                </div>
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition duration-200 dark:bg-red-700 dark:hover:bg-red-800"
@@ -72,7 +75,7 @@ const Navbar = () => {
               </div>
             ) : (
               <Link
-                to="/login"
+                to="/restaurant/admin/login"
                 className="flex items-center space-x-1 bg-white text-orange-600 hover:bg-gray-100 px-4 py-2 rounded-lg transition duration-200 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
               >
                 <FaUser />
@@ -103,14 +106,17 @@ const Navbar = () => {
             <div className="flex flex-col space-y-3">
               {user ? (
                 <>
-                  <div className="flex items-center space-x-2 py-2">
+                  <Link
+                    to="/restaurant/admin/profile"
+                    className="flex items-center space-x-2 py-2 hover:bg-white/10 rounded-lg transition duration-200"
+                  >
                     <div className="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center">
                       <FaUser className="text-white" />
                     </div>
                     <span className="text-sm font-medium truncate">
                       {user.email || user.username}
                     </span>
-                  </div>
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition duration-200 dark:bg-red-700 dark:hover:bg-red-800"
@@ -121,7 +127,7 @@ const Navbar = () => {
                 </>
               ) : (
                 <Link
-                  to="/login"
+                  to="/restaurant/admin/login"
                   className="flex items-center space-x-2 bg-white text-orange-600 hover:bg-gray-100 px-4 py-2 rounded-lg transition duration-200 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
                 >
                   <FaUser />

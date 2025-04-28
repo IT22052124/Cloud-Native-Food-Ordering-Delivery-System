@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -6,7 +6,21 @@ import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import { getRestaurantById, updateRestaurantStatus, deleteRestaurant } from "../utils/api";
 import { toast } from "react-toastify";
-import { FaMapMarkerAlt, FaPhone, FaEnvelope, FaEdit, FaArrowLeft, FaTrash, FaUtensils, FaClock, FaMoneyBill, FaImage, FaTruck, FaShoppingBag } from "react-icons/fa";
+import {
+  FaMapMarkerAlt,
+  FaPhone,
+  FaEnvelope,
+  FaEdit,
+  FaArrowLeft,
+  FaTrash,
+  FaUtensils,
+  FaClock,
+  FaMoneyBill,
+  FaImage,
+  FaTruck,
+  FaShoppingBag,
+  FaUser,
+} from "react-icons/fa";
 import LoadingSpinner from "../components/LoadingSpinner";
 
 const RestaurantDetails = () => {
@@ -239,6 +253,21 @@ const RestaurantDetails = () => {
                     )}
                   </div>
                 </div>
+                <div className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Restaurant Admins</label>
+                  {restaurant.restaurantAdmin && restaurant.restaurantAdmin.length > 0 ? (
+                    <ul className="list-disc pl-5 text-gray-800 dark:text-white">
+                      {restaurant.restaurantAdmin.map((admin, index) => (
+                        <li key={index} className="flex items-center">
+                          <FaUser className="text-gray-500 dark:text-gray-400 mr-2" />
+                          {admin.username}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-gray-500 dark:text-gray-400">No admins assigned.</p>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -248,7 +277,8 @@ const RestaurantDetails = () => {
                 <span className="w-1 h-6 bg-amber-500 rounded-full mr-2"></span>
                 Service Types
               </h3>
-              {restaurant.serviceType && (restaurant.serviceType.delivery || restaurant.serviceType.pickup || restaurant.serviceType.dineIn) ? (
+              {restaurant.serviceType &&
+              (restaurant.serviceType.delivery || restaurant.serviceType.pickup || restaurant.serviceType.dineIn) ? (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {restaurant.serviceType.delivery && (
                     <div className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg flex items-center shadow-sm">
@@ -292,29 +322,39 @@ const RestaurantDetails = () => {
                 <span className="w-1 h-6 bg-amber-500 rounded-full mr-2"></span>
                 Opening Hours
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {restaurant.openingHours && restaurant.openingHours.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {restaurant.openingHours.map((hours, index) => (
+                    <div key={index} className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg">
+                      <div className="flex items-center mb-2">
+                        <FaClock className="text-purple-500 dark:text-purple-400 mr-3" />
+                        <p className="text-gray-800 dark:text-white font-medium">{hours.day}</p>
+                      </div>
+                      <div className="ml-8">
+                        {hours.isClosed ? (
+                          <p className="text-gray-600 dark:text-gray-300">Closed</p>
+                        ) : (
+                          <>
+                            <p className="text-gray-800 dark:text-white">
+                              <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Open: </span>
+                              {hours.open || "Not specified"}
+                            </p>
+                            <p className="text-gray-800 dark:text-white">
+                              <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Close: </span>
+                              {hours.close || "Not specified"}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
                 <div className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg flex items-center">
                   <FaClock className="text-purple-500 dark:text-purple-400 mr-3" />
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Open Time</label>
-                    <p className="text-gray-800 dark:text-white font-medium">{restaurant.openingHours?.open || "Not specified"}</p>
-                  </div>
+                  <p className="text-gray-500 dark:text-gray-400">No opening hours specified.</p>
                 </div>
-                <div className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg flex items-center">
-                  <FaClock className="text-purple-500 dark:text-purple-400 mr-3" />
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Close Time</label>
-                    <p className="text-gray-800 dark:text-white font-medium">{restaurant.openingHours?.close || "Not specified"}</p>
-                  </div>
-                </div>
-                <div className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg flex items-center">
-                  <FaClock className="text-purple-500 dark:text-purple-400 mr-3" />
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Closed</label>
-                    <p className="text-gray-800 dark:text-white font-medium">{restaurant.openingHours?.isClosed ? "Yes" : "No"}</p>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Estimated Prep Time */}
@@ -327,7 +367,9 @@ const RestaurantDetails = () => {
                 <FaClock className="text-pink-500 dark:text-pink-400 mr-3" />
                 <div>
                   <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Prep Time</label>
-                  <p className="text-gray-800 dark:text-white font-medium">{restaurant.estimatedPrepTime ? `${restaurant.estimatedPrepTime} minutes` : "Not specified"}</p>
+                  <p className="text-gray-800 dark:text-white font-medium">
+                    {restaurant.estimatedPrepTime ? `${restaurant.estimatedPrepTime} minutes` : "Not specified"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -371,14 +413,18 @@ const RestaurantDetails = () => {
                   <FaMapMarkerAlt className="text-orange-500 dark:text-orange-400 mr-3" />
                   <div>
                     <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Latitude</label>
-                    <p className="text-gray-800 dark:text-white font-medium">{restaurant.address?.coordinates?.lat || "Not specified"}</p>
+                    <p className="text-gray-800 dark:text-white font-medium">
+                      {restaurant.address?.coordinates?.lat || "Not specified"}
+                    </p>
                   </div>
                 </div>
                 <div className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg flex items-center">
                   <FaMapMarkerAlt className="text-orange-500 dark:text-orange-400 mr-3" />
                   <div>
                     <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Longitude</label>
-                    <p className="text-gray-800 dark:text-white font-medium">{restaurant.address?.coordinates?.lng || "Not specified"}</p>
+                    <p className="text-gray-800 dark:text-white font-medium">
+                      {restaurant.address?.coordinates?.lng || "Not specified"}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -398,7 +444,7 @@ const RestaurantDetails = () => {
                     <p className="text-gray-800 dark:text-white font-medium">{restaurant.contact?.phone || "Not specified"}</p>
                   </div>
                 </div>
-                <div className ="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg flex items-center">
+                <div className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg flex items-center">
                   <FaEnvelope className="text-teal-500 dark:text-teal-400 mr-3" />
                   <div>
                     <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Email</label>
@@ -414,7 +460,8 @@ const RestaurantDetails = () => {
                 <span className="w-1 h-6 bg-amber-500 rounded-full mr-2"></span>
                 Bank Details
               </h3>
-              {restaurant.bank && (restaurant.bank.accountNumber || restaurant.bank.accountHolderName || restaurant.bank.bankName || restaurant.bank.branch) ? (
+              {restaurant.bank &&
+              (restaurant.bank.accountNumber || restaurant.bank.accountHolderName || restaurant.bank.bankName || restaurant.bank.branch) ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg flex items-center">
                     <FaMoneyBill className="text-indigo-500 dark:text-indigo-400 mr-3" />
@@ -427,7 +474,9 @@ const RestaurantDetails = () => {
                     <FaMoneyBill className="text-indigo-500 dark:text-indigo-400 mr-3" />
                     <div>
                       <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Account Holder Name</label>
-                      <p className="text-gray-800 dark:text-white font-medium">{restaurant.bank.accountHolderName || "Not specified"}</p>
+                      <p className="text-gray-800 dark:text-white font-medium">
+                        {restaurant.bank.accountHolderName || "Not specified"}
+                      </p>
                     </div>
                   </div>
                   <div className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg flex items-center">
@@ -464,7 +513,8 @@ const RestaurantDetails = () => {
                 </h3>
                 <p className="text-gray-700 dark:text-gray-300 mb-6">
                   Are you sure you want to delete{" "}
-                  <span className="font-bold text-amber-600 dark:text-amber-400">{restaurant.name}</span>? This action cannot be undone.
+                  <span className="font-bold text-amber-600 dark:text-amber-400">{restaurant.name}</span>? This action cannot be
+                  undone.
                 </p>
                 <div className="flex justify-end space-x-4">
                   <button

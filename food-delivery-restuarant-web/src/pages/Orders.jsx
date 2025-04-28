@@ -4,7 +4,7 @@ import { AuthContext } from "../context/AuthContext";
 import { getOrders, updateOrderStatus } from "../utils/api";
 import OrderTable from "../components/OrderTable";
 import Sidebar from "../components/Sidebar";
-import Navbar from "../components/Navbar";
+import Navbar from "../components/DishNavBar";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { toast } from "react-toastify";
 

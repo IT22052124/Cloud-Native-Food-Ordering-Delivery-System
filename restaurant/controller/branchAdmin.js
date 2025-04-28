@@ -417,7 +417,9 @@ export const updateRestaurant = async (req, res) => {
     restaurant.description = description || restaurant.description;
     restaurant.address = address || restaurant.address;
     restaurant.contact = contact || restaurant.contact;
-    restaurant.openingHours = openingHours || restaurant.openingHours;
+    restaurant.openingHours = Array.isArray(openingHours)
+    ? openingHours
+    : restaurant.openingHours; // Update only if provided
     restaurant.bank = bank || restaurant.bank;
     restaurant.serviceType = serviceType || restaurant.serviceType;
     restaurant.cuisineType = cuisineType || restaurant.cuisineType;

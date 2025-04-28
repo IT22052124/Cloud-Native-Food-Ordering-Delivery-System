@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as zod from 'zod';
 import { getDish, updateDish } from '../utils/api';
 import { AuthContext } from '../context/AuthContext';
-import Navbar from '../components/Navbar';
+import Navbar from '../components/DishNavBar';
 import DishSidebar from '../components/DishSidebar';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { toast } from 'react-toastify';

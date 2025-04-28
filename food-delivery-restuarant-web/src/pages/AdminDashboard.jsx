@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { getDishes, getOrders } from '../utils/api';
 import DishSidebar from '../components/DishSidebar';
-import Navbar from '../components/Navbar';
+import Navbar from '../components/DishNavBar';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { toast } from 'react-toastify';
 

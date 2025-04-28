@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver  } from '@hookform/resolvers/zod';
 import * as zod from 'zod';
 import { getRestaurant, updateRestaurant } from '../utils/api';
 import { AuthContext } from '../context/AuthContext';
@@ -30,7 +30,7 @@ const provinces = [
 // Define Sri Lankan banks for the dropdown
 const sriLankanBanks = [
   'Bank of Ceylon',
-  'People\'s Bank',
+  "People's Bank",
   'Commercial Bank of Ceylon',
   'Hatton National Bank',
   'Sampath Bank',
@@ -43,6 +43,17 @@ const sriLankanBanks = [
 
 // Define cuisine types
 const cuisineTypes = ['Indian', 'Chinese', 'Italian', 'Mexican', 'Continental'];
+
+// Define days of the week
+const daysOfWeek = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
 
 // Zod schema
 const schema = zod.object({
@@ -62,11 +73,17 @@ const schema = zod.object({
     phone: zod.string().min(1, 'Phone is required'),
     email: zod.string().email('Invalid email').optional().or(zod.literal('')),
   }),
-  openingHours: zod.object({
-    open: zod.string().min(1, 'Open time is required'),
-    close: zod.string().min(1, 'Close time is required'),
-    isClosed: zod.boolean(),
-  }).optional(),
+  openingHours: zod
+    .array(
+      zod.object({
+        day: zod.enum(daysOfWeek),
+        open: zod.string().optional(),
+        close: zod.string().optional(),
+        isClosed: zod.boolean(),
+      })
+    )
+    .min(7, 'All days must be specified')
+    .max(7, 'Exactly 7 days must be specified'),
   isActive: zod.boolean().optional(),
   menu: zod
     .array(
@@ -79,11 +96,12 @@ const schema = zod.object({
     )
     .optional(),
   restaurantAdmin: zod
-    .object({
-      username: zod.string().min(1, 'Username is required'),
-      email: zod.string().email('Invalid email').optional(),
-    })
-    .optional(),
+    .array(
+      zod.object({
+        username: zod.string().min(1, 'Username is required'),
+      })
+    )
+    .min(1, 'At least one admin is required'),
   bank: zod.object({
     accountNumber: zod.string().optional(),
     accountHolderName: zod.string().optional(),
@@ -133,6 +151,15 @@ const EditRestaurant = () => {
     getValues,
   } = useForm({
     resolver: zodResolver(schema),
+    defaultValues: {
+      openingHours: daysOfWeek.map((day) => ({
+        day,
+        open: '',
+        close: '',
+        isClosed: false,
+      })),
+      restaurantAdmin: [{ username: '' }],
+    },
   });
 
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -148,12 +175,19 @@ const EditRestaurant = () => {
     return () => console.log('EditRestaurant unmounted');
   }, []);
 
+  // Log form errors
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      console.log('Form errors:', errors);
+    }
+  }, [errors]);
+
   // Fetch restaurant data
   useEffect(() => {
     const fetchRestaurant = async () => {
       try {
         const data = await getRestaurant(id);
-        console.log('Fetched restaurant data:', data);
+        console.log('Raw restaurant data:', JSON.stringify(data, null, 2));
         reset({
           name: data.name || '',
           description: data.description || '',
@@ -171,11 +205,15 @@ const EditRestaurant = () => {
             phone: data.contact?.phone || '',
             email: data.contact?.email || '',
           },
-          openingHours: {
-            open: data.openingHours?.open || '',
-            close: data.openingHours?.close || '',
-            isClosed: data.openingHours?.isClosed || false,
-          },
+          openingHours: daysOfWeek.map((day) => {
+            const hours = data.openingHours?.find((h) => h.day === day) || {};
+            return {
+              day,
+              open: hours.open || '',
+              close: hours.close || '',
+              isClosed: hours.isClosed || false,
+            };
+          }),
           bank: {
             accountNumber: data.bank?.accountNumber || '',
             accountHolderName: data.bank?.accountHolderName || '',
@@ -189,6 +227,7 @@ const EditRestaurant = () => {
           },
           cuisineType: data.cuisineType || 'Indian',
           estimatedPrepTime: data.estimatedPrepTime || 20,
+          restaurantAdmin: data.restaurantAdmin?.length > 0 ? data.restaurantAdmin.map(admin => ({ username: admin.username })) : [{ username: '' }],
         });
         setCoverImageUrl(data.coverImageUrl || '');
         setImageUrls(data.imageUrls || []);
@@ -496,6 +535,37 @@ const EditRestaurant = () => {
               </div>
             </div>
 
+            {/* Restaurant Admins Section */}
+            <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-orange-200 dark:border-gray-700">
+              <h3 className="text-xl font-semibold mb-6 dark:text-white flex items-center">
+                <FaUser className="mr-2 text-orange-500" />
+                Restaurant Admins
+              </h3>
+              <div className="space-y-4">
+                {getValues('restaurantAdmin')?.map((_, index) => (
+                  <div key={index} className="group">
+                    <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                      Admin Username {index + 1}*
+                    </label>
+                    <div className="relative">
+                      <FaUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                      <input
+                        {...register(`restaurantAdmin.${index}.username`)}
+                        className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                      />
+                      <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                    </div>
+                    {errors.restaurantAdmin?.[index]?.username && (
+                      <p className="text-red-600 dark:text-red-400">{errors.restaurantAdmin[index].username.message}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {errors.restaurantAdmin && (
+                <p className="text-red-600 dark:text-red-400">{errors.restaurantAdmin.message}</p>
+              )}
+            </div>
+
             {/* Images Section */}
             <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-orange-200 dark:border-gray-700">
               <h3 className="text-xl font-semibold mb-6 dark:text-white flex items-center">
@@ -781,49 +851,61 @@ const EditRestaurant = () => {
                 Opening Hours
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="group">
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
-                    Open Time*
-                  </label>
-                  <div className="relative">
-                    <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                    <input
-                      type="time"
-                      {...register('openingHours.open')}
-                      className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
-                    />
-                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                {daysOfWeek.map((day, index) => (
+                  <div key={day} className="space-y-4 border-b border-gray-200 dark:border-gray-600 pb-4">
+                    <h4 className="text-gray-700 dark:text-gray-300 font-medium">{day}</h4>
+                    <div className="flex items-center space-x-4">
+                      <input
+                        type="checkbox"
+                        {...register(`openingHours.${index}.isClosed`)}
+                        className="h-5 w-5 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
+                      />
+                      <label className="text-gray-700 dark:text-gray-300">Closed</label>
+                    </div>
+                    {!getValues(`openingHours.${index}.isClosed`) && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="group">
+                          <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                            Open Time
+                          </label>
+                          <div className="relative">
+                            <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                            <input
+                              type="time"
+                              {...register(`openingHours.${index}.open`)}
+                              className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                            />
+                            <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                          </div>
+                          {errors.openingHours?.[index]?.open && (
+                            <p className="text-red-600 dark:text-red-400">{errors.openingHours[index].open.message}</p>
+                          )}
+                        </div>
+                        <div className="group">
+                          <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                            Close Time
+                          </label>
+                          <div className="relative">
+                            <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                            <input
+                              type="time"
+                              {...register(`openingHours.${index}.close`)}
+                              className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                            />
+                            <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                          </div>
+                          {errors.openingHours?.[index]?.close && (
+                            <p className="text-red-600 dark:text-red-400">{errors.openingHours[index].close.message}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  {errors.openingHours?.open && (
-                    <p className="text-red-600 dark:text-red-400">{errors.openingHours.open.message}</p>
-                  )}
-                </div>
-                <div className="group">
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
-                    Close Time*
-                  </label>
-                  <div className="relative">
-                    <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                    <input
-                      type="time"
-                      {...register('openingHours.close')}
-                      className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
-                    />
-                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
-                  </div>
-                  {errors.openingHours?.close && (
-                    <p className="text-red-600 dark:text-red-400">{errors.openingHours.close.message}</p>
-                  )}
-                </div>
-                <div className="group">
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Closed</label>
-                  <input
-                    type="checkbox"
-                    {...register('openingHours.isClosed')}
-                    className="h-5 w-5 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
-                  />
-                </div>
+                ))}
               </div>
+              {errors.openingHours && (
+                <p className="text-red-600 dark:text-red-400">{errors.openingHours.message}</p>
+              )}
             </div>
 
             {/* Bank Details */}

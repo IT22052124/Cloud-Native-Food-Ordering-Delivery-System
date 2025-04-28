@@ -3,7 +3,7 @@
 import { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import DishSidebar from "../../components/DishSidebar";
-import DishNavbar from "../../components/DishNavbar";
+import DishNavbar from '../../components/DishNavBar';
 import {
   AdmingetRestaurantById,
   AdminupdateRestaurantStatus,
@@ -21,6 +21,7 @@ import {
   FaImage,
   FaTruck,
   FaShoppingBag,
+  FaUser,
 } from "react-icons/fa";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import { AuthContext } from "../../context/AuthContext";
@@ -31,7 +32,6 @@ const RestaurantAdminDetails = () => {
   const [loading, setLoading] = useState(true);
   const [statusLoading, setStatusLoading] = useState(false);
   const { user } = useContext(AuthContext);
-  console.log("hi", user);
 
   useEffect(() => {
     const fetchRestaurant = async () => {
@@ -65,7 +65,6 @@ const RestaurantAdminDetails = () => {
   };
 
   const handleEdit = () => {
-    console.log("Edit button clicked",user.id);
     navigate(`/restaurants/admin/edit/${user.id}`);
   };
 
@@ -204,19 +203,19 @@ const RestaurantAdminDetails = () => {
                   </p>
                 </div>
                 <div className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg">
-                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">
                     Status
                   </label>
-                  <div className="flex items-center space-x-6">
+                  <div className="flex items-center space-x-4">
                     <span
-                      className={`inline-flex items-center px-4 py-2 rounded-full text-base font-medium ${
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                         restaurant.isActive
                           ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
                           : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
                       }`}
                     >
                       <span
-                        className={`w-3 h-3 rounded-full mr-2 ${
+                        className={`w-2 h-2 rounded-full mr-1.5 ${
                           restaurant.isActive ? "bg-green-500" : "bg-red-500"
                         }`}
                       ></span>
@@ -233,11 +232,11 @@ const RestaurantAdminDetails = () => {
                           restaurant.isActive ? "inactive" : "active"
                         }`}
                       />
-                      <div className="w-14 h-8 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-amber-500 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-amber-500"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-amber-500 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
                     </label>
                     {statusLoading && (
                       <svg
-                        className="animate-spin h-6 w-6 text-amber-500"
+                        className="animate-spin h-5 w-5 text-amber-500"
                         xmlns="http://www.w3.org/2000/svg"
                         fill="none"
                         viewBox="0 0 24 24"
@@ -258,6 +257,21 @@ const RestaurantAdminDetails = () => {
                       </svg>
                     )}
                   </div>
+                </div>
+                <div className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Restaurant Admins</label>
+                  {restaurant.restaurantAdmin && restaurant.restaurantAdmin.length > 0 ? (
+                    <ul className="list-disc pl-5 text-gray-800 dark:text-white">
+                      {restaurant.restaurantAdmin.map((admin, index) => (
+                        <li key={index} className="flex items-center">
+                          <FaUser className="text-gray-500 dark:text-gray-400 mr-2" />
+                          {admin.username}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-gray-500 dark:text-gray-400">No admins assigned.</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -329,41 +343,39 @@ const RestaurantAdminDetails = () => {
                 <span className="w-1 h-6 bg-amber-500 rounded-full mr-2"></span>
                 Opening Hours
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {restaurant.openingHours && restaurant.openingHours.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {restaurant.openingHours.map((hours, index) => (
+                    <div key={index} className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg">
+                      <div className="flex items-center mb-2">
+                        <FaClock className="text-purple-500 dark:text-purple-400 mr-3" />
+                        <p className="text-gray-800 dark:text-white font-medium">{hours.day}</p>
+                      </div>
+                      <div className="ml-8">
+                        {hours.isClosed ? (
+                          <p className="text-gray-600 dark:text-gray-300">Closed</p>
+                        ) : (
+                          <>
+                            <p className="text-gray-800 dark:text-white">
+                              <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Open: </span>
+                              {hours.open || "Not specified"}
+                            </p>
+                            <p className="text-gray-800 dark:text-white">
+                              <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Close: </span>
+                              {hours.close || "Not specified"}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
                 <div className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg flex items-center">
                   <FaClock className="text-purple-500 dark:text-purple-400 mr-3" />
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Open Time
-                    </label>
-                    <p className="text-gray-800 dark:text-white font-medium">
-                      {restaurant.openingHours?.open || "Not specified"}
-                    </p>
-                  </div>
+                  <p className="text-gray-500 dark:text-gray-400">No opening hours specified.</p>
                 </div>
-                <div className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg flex items-center">
-                  <FaClock className="text-purple-500 dark:text-purple-400 mr-3" />
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Close Time
-                    </label>
-                    <p className="text-gray-800 dark:text-white font-medium">
-                      {restaurant.openingHours?.close || "Not specified"}
-                    </p>
-                  </div>
-                </div>
-                <div className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg flex items-center">
-                  <FaClock className="text-purple-500 dark:text-purple-400 mr-3" />
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Closed
-                    </label>
-                    <p className="text-gray-800 dark:text-white font-medium">
-                      {restaurant.openingHours?.isClosed ? "Yes" : "No"}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Estimated Prep Time */}
@@ -403,8 +415,7 @@ const RestaurantAdminDetails = () => {
                     <p className="text-gray-800 dark:text-white font-medium">
                       {restaurant.address?.street || "Not specified"}
                     </p>
-                  </div>
-                </div>
+                  </div>\n                </div>
                 <div className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg flex items-center">
                   <FaMapMarkerAlt className="text-orange-500 dark:text-orange-400 mr-3" />
                   <div>
