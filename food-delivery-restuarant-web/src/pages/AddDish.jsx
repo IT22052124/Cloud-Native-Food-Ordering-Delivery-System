@@ -4,7 +4,7 @@ import { addDish } from "../utils/api.js";
 import DishSidebar from "../components/DishSidebar.jsx";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import Navbar from "../components/Navbar";
+import Navbar from "../components/DishNavBar.jsx";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '../../firebase-config.js';
 

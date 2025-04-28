@@ -23,7 +23,7 @@ const Sidebar = () => {
                 className={({ isActive }) =>
                   `flex items-center p-3 rounded-xl transition-all duration-300 ease-in-out ${
                     isActive
-                      ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-md'
+                      ? 'bg-gradient-to-r from-orange-400 to-pink-500 text-white shadow-md'
                       : 'text-gray-300 hover:bg-gray-700 hover:text-white hover:scale-105 hover:shadow-lg'
                   }`
                 }

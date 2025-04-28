@@ -5,7 +5,7 @@ import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import { addRestaurant } from "../utils/api";
 import { toast } from "react-toastify";
-import { FaStore, FaMapMarkerAlt, FaPhone, FaEnvelope, FaUser, FaLock, FaInfoCircle, FaClock, FaMoneyBill, FaUtensils, FaImage, FaTruck, FaShoppingBag, FaBuilding, FaCheckCircle, FaArrowLeft, FaPlus } from "react-icons/fa";
+import { FaStore, FaMapMarkerAlt, FaPhone, FaEnvelope, FaUser, FaLock, FaInfoCircle, FaClock, FaMoneyBill, FaUtensils, FaImage, FaTruck, FaShoppingBag, FaBuilding, FaCheckCircle, FaArrowLeft, FaPlus, FaEye, FaEyeSlash, FaTrash } from "react-icons/fa";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '../../firebase-config';
 
@@ -36,12 +36,18 @@ const AddRestaurant = () => {
     lng: 79.8612,
     phone: "",
     email: "",
-    username: "",
-    password: "",
+    credentials: [{ username: "", password: "", showPassword: false }],
     coverImageUrl: "",
     imageUrls: [],
-    open: "",
-    close: "",
+    openingHours: [
+      { day: "Monday", open: "09:00", close: "18:00", isClosed: false },
+      { day: "Tuesday", open: "09:00", close: "18:00", isClosed: false },
+      { day: "Wednesday", open: "09:00", close: "18:00", isClosed: false },
+      { day: "Thursday", open: "09:00", close: "18:00", isClosed: false },
+      { day: "Friday", open: "09:00", close: "17:00", isClosed: false },
+      { day: "Saturday", open: "10:00", close: "14:00", isClosed: false },
+      { day: "Sunday", open: null, close: null, isClosed: true },
+    ],
     accountNumber: "",
     accountHolderName: "",
     bankName: "",
@@ -137,6 +143,35 @@ const AddRestaurant = () => {
         ...prev,
         termsAccepted: checked,
       }));
+    } else if (name.startsWith("openingHours.")) {
+      const [_, day, field] = name.split(".");
+      setFormData((prev) => ({
+        ...prev,
+        openingHours: prev.openingHours.map((entry) =>
+          entry.day === day
+            ? {
+                ...entry,
+                [field]: field === "isClosed" ? checked : value || null,
+                ...(field === "isClosed" && checked
+                  ? { open: null, close: null }
+                  : {}),
+                ...(field === "isClosed" && !checked
+                  ? { open: "09:00", close: "18:00" }
+                  : {}),
+              }
+            : entry
+        ),
+      }));
+    } else if (name.startsWith("credentials.")) {
+      const [_, index, field] = name.split(".");
+      setFormData((prev) => ({
+        ...prev,
+        credentials: prev.credentials.map((cred, i) =>
+          parseInt(index) === i
+            ? { ...cred, [field]: field === "showPassword" ? checked : value }
+            : cred
+        ),
+      }));
     } else {
       setFormData((prev) => ({
         ...prev,
@@ -157,11 +192,24 @@ const AddRestaurant = () => {
     if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
     if (!formData.email.trim()) newErrors.email = "Email is required";
     else if (!/^\S+@\S+\.\S+$/.test(formData.email)) newErrors.email = "Invalid email format";
-    if (!formData.username.trim()) newErrors.username = "Username is required";
-    if (!formData.password) newErrors.password = "Password is required";
-    else if (formData.password.length < 6) newErrors.password = "Password must be at least 6 characters";
-    if (!formData.open.trim()) newErrors.open = "Opening time is required";
-    if (!formData.close.trim()) newErrors.close = "Closing time is required";
+    if (!formData.credentials.length || formData.credentials.some(cred => !cred.username.trim())) {
+      newErrors.credentials = "At least one username is required";
+    }
+    if (formData.credentials.some(cred => !cred.password)) {
+      newErrors.credentials = "Password is required for all credentials";
+    } else if (formData.credentials.some(cred => cred.password.length < 6)) {
+      newErrors.credentials = "All passwords must be at least 6 characters";
+    }
+    if (
+      formData.openingHours.length !== 7 ||
+      !formData.openingHours.every(
+        (entry) =>
+          entry.day &&
+          (entry.isClosed || (entry.open && entry.close))
+      )
+    ) {
+      newErrors.openingHours = "Complete opening hours are required for all days";
+    }
     if (!formData.termsAccepted) newErrors.termsAccepted = "You must accept the terms and conditions";
     return newErrors;
   };
@@ -244,7 +292,7 @@ const AddRestaurant = () => {
     } catch (error) {
       console.error("Error uploading images: ", error);
       setUploadError((prev) => ({ ...prev, images: "Failed to upload one or more images. Please try again." }));
-      setUploading((prev) => ({ ... prev, images: false }));
+      setUploading((prev) => ({ ...prev, images: false }));
       setUploadProgress((prev) => ({ ...prev, images: 0 }));
     }
   };
@@ -287,12 +335,13 @@ const AddRestaurant = () => {
         lng: formData.lng,
         phone: formData.phone.trim(),
         email: formData.email.trim(),
-        username: formData.username.trim(),
-        password: formData.password,
+        credentials: formData.credentials.map(({ username, password }) => ({
+          username: username.trim(),
+          password,
+        })),
         coverImageUrl: formData.coverImageUrl,
         imageUrls: formData.imageUrls,
-        open: formData.open,
-        close: formData.close,
+        openingHours: formData.openingHours,
         accountNumber: formData.accountNumber.trim(),
         accountHolderName: formData.accountHolderName.trim(),
         bankName: formData.bankName.trim(),
@@ -335,6 +384,25 @@ const AddRestaurant = () => {
     } else {
       toast.error("Geolocation is not supported by this browser");
     }
+  };
+
+  const addCredential = () => {
+    setFormData((prev) => ({
+      ...prev,
+      credentials: [...prev.credentials, { username: "", password: "", showPassword: false }],
+    }));
+  };
+
+  const removeCredential = (index) => {
+    if (formData.credentials.length === 1) {
+      toast.error("At least one credential pair is required");
+      return;
+    }
+    setFormData((prev) => ({
+      ...prev,
+      credentials: prev.credentials.filter((_, i) => i !== index),
+    }));
+    setErrors((prev) => ({ ...prev, credentials: "" }));
   };
 
   const provinces = [
@@ -838,53 +906,75 @@ const AddRestaurant = () => {
                 <span className="w-1 h-6 bg-amber-500 rounded-full mr-2"></span>
                 Opening Hours
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="group">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 group-focus-within:text-amber-500 transition-colors duration-200" htmlFor="open">
-                    Opening Time
-                  </label>
-                  <div className="relative">
-                    <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-500 dark:text-purple-400" />
-                    <input
-                      type="time"
-                      id="open"
-                      name="open"
-                      value={formData.open}
-                      onChange={handleChange}
-                      className={`w-full pl-10 p-4 border border-amber-200 dark:border-gray-700 rounded-lg bg-amber-50 dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200 shadow-sm ${
-                        errors.open ? "border-red-500" : ""
-                      }`}
-                      aria-invalid={!!errors.open}
-                      aria-describedby={errors.open ? "open-error" : undefined}
-                    />
+              <div className="space-y-4">
+                {formData.openingHours.map((entry, index) => (
+                  <div key={entry.day} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                    <div className="font-medium text-gray-700 dark:text-gray-300">{entry.day}</div>
+                    <div className="group">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 group-focus-within:text-amber-500 transition-colors duration-200" htmlFor={`openingHours.${entry.day}.open`}>
+                        Opening Time
+                      </label>
+                      <div className="relative">
+                        <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-500 dark:text-purple-400" />
+                        <input
+                          type="time"
+                          id={`openingHours.${entry.day}.open`}
+                          name={`openingHours.${entry.day}.open`}
+                          value={entry.open || ""}
+                          onChange={handleChange}
+                          disabled={entry.isClosed}
+                          className={`w-full pl-10 p-4 border border-amber-200 dark:border-gray-700 rounded-lg bg-amber-50 dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200 shadow-sm ${
+                            errors.openingHours && !entry.isClosed && !entry.open ? "border-red-500" : ""
+                          }`}
+                          aria-invalid={!!errors.openingHours && !entry.isClosed && !entry.open}
+                          aria-describedby={errors.openingHours && !entry.isClosed && !entry.open ? `open-error-${entry.day}` : undefined}
+                        />
+                      </div>
+                    </div>
+                    <div className="group">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 group-focus-within:text-amber-500 transition-colors duration-200" htmlFor={`openingHours.${entry.day}.close`}>
+                        Closing Time
+                      </label>
+                      <div className="relative">
+                        <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-500 dark:text-purple-400" />
+                        <input
+                          type="time"
+                          id={`openingHours.${entry.day}.close`}
+                          name={`openingHours.${entry.day}.close`}
+                          value={entry.close || ""}
+                          onChange={handleChange}
+                          disabled={entry.isClosed}
+                          className={`w-full pl-10 p-4 border border-amber-200 dark:border-gray-700 rounded-lg bg-amber-50 dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200 shadow-sm ${
+                            errors.openingHours && !entry.isClosed && !entry.close ? "border-red-500" : ""
+                          }`}
+                          aria-invalid={!!errors.openingHours && !entry.isClosed && !entry.close}
+                          aria-describedby={errors.openingHours && !entry.isClosed && !entry.close ? `close-error-${entry.day}` : undefined}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id={`openingHours.${entry.day}.isClosed`}
+                        name={`openingHours.${entry.day}.isClosed`}
+                        checked={entry.isClosed}
+                        onChange={handleChange}
+                        className="h-5 w-5 text-amber-500 focus:ring-amber-500 border-amber-200 dark:border-gray-700 rounded"
+                      />
+                      <label htmlFor={`openingHours.${entry.day}.isClosed`} className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                        Closed
+                      </label>
+                    </div>
+                    {errors.openingHours && !entry.isClosed && (!entry.open || !entry.close) && (
+                      <p id={`open-error-${entry.day}`} className="text-red-500 text-sm mt-1 col-span-4">
+                        {`Opening and closing times are required for ${entry.day} when not closed`}
+                      </p>
+                    )}
                   </div>
-                  {errors.open && (
-                    <p id="open-error" className="text-red-500 text-sm mt-1">{errors.open}</p>
-                  )}
-                </div>
-                <div className="group">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 group-focus-within:text-amber-500 transition-colors duration-200" htmlFor="close">
-                    Closing Time
-                  </label>
-                  <div className="relative">
-                    <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-500 dark:text-purple-400" />
-                    <input
-                      type="time"
-                      id="close"
-                      name="close"
-                      value={formData.close}
-                      onChange={handleChange}
-                      className={`w-full pl-10 p-4 border border-amber-200 dark:border-gray-700 rounded-lg bg-amber-50 dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200 shadow-sm ${
-                        errors.close ? "border-red-500" : ""
-                      }`}
-                      aria-invalid={!!errors.close}
-                      aria-describedby={errors.close ? "close-error" : undefined}
-                    />
-                  </div>
-                  {errors.close && (
-                    <p id="close-error" className="text-red-500 text-sm mt-1">{errors.close}</p>
-                  )}
-                </div>
+                ))}
+                {errors.openingHours && (
+                  <p id="openingHours-error" className="text-red-500 text-sm mt-1">{errors.openingHours}</p>
+                )}
               </div>
             </div>
 
@@ -1023,54 +1113,100 @@ const AddRestaurant = () => {
                 <span className="w-1 h-6 bg-amber-500 rounded-full mr-2"></span>
                 Login Credentials
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="group">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 group-focus-within:text-amber-500 transition-colors duration-200" htmlFor="username">
-                    Username
-                  </label>
-                  <div className="relative">
-                    <FaUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-pink-500 dark:text-pink-400" />
-                    <input
-                      type="text"
-                      id="username"
-                      name="username"
-                      value={formData.username}
-                      onChange={handleChange}
-                      placeholder="Enter username"
-                      className={`w-full pl-10 p-4 border border-amber-200 dark:border-gray-700 rounded-lg bg-amber-50 dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200 shadow-sm ${
-                        errors.username ? "border-red-500" : ""
-                      }`}
-                      aria-invalid={!!errors.username}
-                      aria-describedby={errors.username ? "username-error" : undefined}
-                    />
+              <div className="space-y-6">
+                {formData.credentials.map((cred, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+                    <div className="group">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 group-focus-within:text-amber-500 transition-colors duration-200" htmlFor={`credentials.${index}.username`}>
+                        Username
+                      </label>
+                      <div className="relative">
+                        <FaUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-pink-500 dark:text-pink-400" />
+                        <input
+                          type="text"
+                          id={`credentials.${index}.username`}
+                          name={`credentials.${index}.username`}
+                          value={cred.username}
+                          onChange={handleChange}
+                          placeholder="Enter username"
+                          className={`w-full pl-10 p-4 border border-amber-200 dark:border-gray-700 rounded-lg bg-amber-50 dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200 shadow-sm ${
+                            errors.credentials && !cred.username.trim() ? "border-red-500" : ""
+                          }`}
+                          aria-invalid={!!errors.credentials && !cred.username.trim()}
+                          aria-describedby={errors.credentials && !cred.username.trim() ? `username-error-${index}` : undefined}
+                        />
+                      </div>
+                      {errors.credentials && !cred.username.trim() && (
+                        <p id={`username-error-${index}`} className="text-red-500 text-sm mt-1">Username is required</p>
+                      )}
+                    </div>
+                    <div className="group">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 group-focus-within:text-amber-500 transition-colors duration-200" htmlFor={`credentials.${index}.password`}>
+                        Password
+                      </label>
+                      <div className="relative">
+                        <FaLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-pink-500 dark:text-pink-400" />
+                        <input
+                          type={cred.showPassword ? "text" : "password"}
+                          id={`credentials.${index}.password`}
+                          name={`credentials.${index}.password`}
+                          value={cred.password}
+                          onChange={handleChange}
+                          placeholder="Enter password"
+                          className={`w-full pl-10 pr-10 p-4 border border-amber-200 dark:border-gray-700 rounded-lg bg-amber-50 dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200 shadow-sm ${
+                            errors.credentials && (!cred.password || cred.password.length < 6) ? "border-red-500" : ""
+                          }`}
+                          aria-invalid={!!errors.credentials && (!cred.password || cred.password.length < 6)}
+                          aria-describedby={errors.credentials && (!cred.password || cred.password.length < 6) ? `password-error-${index}` : undefined}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleChange({
+                              target: {
+                                name: `credentials.${index}.showPassword`,
+                                type: "checkbox",
+                                checked: !cred.showPassword,
+                              },
+                            })
+                          }
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-amber-500 dark:hover:text-amber-400"
+                          aria-label={cred.showPassword ? "Hide password" : "Show password"}
+                        >
+                          {cred.showPassword ? <FaEyeSlash /> : <FaEye />}
+                        </button>
+                      </div>
+                      {errors.credentials && !cred.password && (
+                        <p id={`password-error-${index}`} className="text-red-500 text-sm mt-1">Password is required</p>
+                      )}
+                      {errors.credentials && cred.password && cred.password.length < 6 && (
+                        <p id={`password-error-${index}`} className="text-red-500 text-sm mt-1">Password must be at least 6 characters</p>
+                      )}
+                    </div>
+                    {formData.credentials.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeCredential(index)}
+                        className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all duration-200"
+                        aria-label="Remove credential"
+                      >
+                        <FaTrash />
+                      </button>
+                    )}
                   </div>
-                  {errors.username && (
-                    <p id="username-error" className="text-red-500 text-sm mt-1">{errors.username}</p>
-                  )}
-                </div>
-                <div className="group">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 group-focus-within:text-amber-500 transition-colors duration-200" htmlFor="password">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <FaLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-pink-500 dark:text-pink-400" />
-                    <input
-                      type="password"
-                      id="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      placeholder="Enter password"
-                      className={`w-full pl-10 p-4 border border-amber-200 dark:border-gray-700 rounded-lg bg-amber-50 dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200 shadow-sm ${
-                        errors.password ? "border-red-500" : ""
-                      }`}
-                      aria-invalid={!!errors.password}
-                      aria-describedby={errors.password ? "password-error" : undefined}
-                    />
-                  </div>
-                  {errors.password && (
-                    <p id="password-error" className="text-red-500 text-sm mt-1">{errors.password}</p>
-                  )}
+                ))}
+                {errors.credentials && (
+                  <p id="credentials-error" className="text-red-500 text-sm mt-1">{errors.credentials}</p>
+                )}
+                <div>
+                  <button
+                    type="button"
+                    onClick={addCredential}
+                    className="px-4 py-2 bg-amber-100 dark:bg-gray-700 text-amber-700 dark:text-amber-400 rounded-lg hover:bg-amber-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all duration-200 shadow-sm flex items-center"
+                  >
+                    <FaPlus className="mr-2 text-amber-500 dark:text-amber-400" />
+                    Add Another Credential
+                  </button>
                 </div>
               </div>
             </div>

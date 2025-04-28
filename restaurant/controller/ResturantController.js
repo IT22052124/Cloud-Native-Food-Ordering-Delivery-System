@@ -20,12 +20,10 @@ export const addRestaurant = async (req, res) => {
       lng,
       phone,
       email,
-      username,
-      password,
+      credentials, // Expect an array of { username, password }
       imageUrls,
       coverImageUrl,
-      open,
-      close,
+      openingHours, // Updated to expect an array
       accountNumber,
       accountHolderName,
       bankName,
@@ -34,16 +32,24 @@ export const addRestaurant = async (req, res) => {
       cuisineType,
       estimatedPrepTime,
     } = req.body;
-
-    // First check if username already exists in any restaurant
-    const existingAdmin = await Restaurant.findOne({
-      "restaurantAdmin.username": username,
+// Validate credentials array
+if (!Array.isArray(credentials) || credentials.length === 0) {
+  return res.status(400).json({
+    message: 'At least one credential pair is required',
+  });
+}
+   // Check for duplicate usernames across all restaurants
+   const existingUsernames = await Restaurant.find({
+    'restaurantAdmin.username': { $in: credentials.map(cred => cred.username) },
+  });
+  if (existingUsernames.length > 0) {
+    const duplicateUsernames = existingUsernames
+      .flatMap(rest => rest.restaurantAdmin.map(admin => admin.username))
+      .filter(username => credentials.some(cred => cred.username === username));
+    return res.status(400).json({
+      message: `Usernames already exist: ${duplicateUsernames.join(', ')}`,
     });
-    if (existingAdmin) {
-      return res.status(400).json({
-        message: "Username already exists. Please choose a different one.",
-      });
-    }
+  }
 
     const exist = await Restaurant.findOne({
       "address.street": street,
@@ -55,8 +61,30 @@ export const addRestaurant = async (req, res) => {
       });
     }
 
-    // Hash restaurant admin password
-    const hashedPassword = await bcrypt.hash(password, 10);
+   // Hash all passwords in the credentials array
+   const hashedCredentials = await Promise.all(
+    credentials.map(async (cred) => {
+      if (!cred.username || !cred.password) {
+        throw new Error('Username and password are required for all credentials');
+      }
+      const hashedPassword = await bcrypt.hash(cred.password, 10);
+      return {
+        username: cred.username,
+        password: hashedPassword,
+      };
+    })
+  );
+
+    // Default opening hours if none provided
+    const defaultOpeningHours = [
+      { day: "Monday", open: "09:00", close: "18:00", isClosed: false },
+      { day: "Tuesday", open: "09:00", close: "18:00", isClosed: false },
+      { day: "Wednesday", open: "09:00", close: "18:00", isClosed: false },
+      { day: "Thursday", open: "09:00", close: "18:00", isClosed: false },
+      { day: "Friday", open: "09:00", close: "17:00", isClosed: false },
+      { day: "Saturday", open: "10:00", close: "14:00", isClosed: false },
+      { day: "Sunday", open: null, close: null, isClosed: true },
+    ];
 
     const restaurant = {
       ownerId: ownerId, // Owner ID from JWT
@@ -76,10 +104,7 @@ export const addRestaurant = async (req, res) => {
         phone: phone,
         email: email,
       },
-      restaurantAdmin: {
-        username: username,
-        password: hashedPassword,
-      },
+    restaurantAdmin: hashedCredentials, // Store array of credentials
       imageUrls: Array.isArray(imageUrls) ? imageUrls : [],
       coverImageUrl: coverImageUrl || " ",
       isVerified: "pending",
@@ -95,11 +120,10 @@ export const addRestaurant = async (req, res) => {
         branch: branch,
       },
       serviceType: serviceType,
-      openingHours: {
-        open: open,
-        close: close,
-        isClosed: false,
-      },
+     openingHours: Array.isArray(openingHours)
+        ? openingHours
+        : defaultOpeningHours, // Use provided hours or default
+      estimatedPrepTime: estimatedPrepTime,
       estimatedPrepTime: estimatedPrepTime,
     };
 
@@ -123,11 +147,9 @@ export const addRestaurant = async (req, res) => {
       },
     };
 
-    await sendKafkaNotification("restaurant-registrations", kafkaMessage).catch(
-      (err) => {
-        console.error("Kafka notification failed, saving for retry:", err);
-      }
-    );
+    await sendKafkaNotification(kafkaMessage)
+      .then(() => console.log("✅ Kafka message sent successfully"))
+      .catch((err) => console.error("❌ Kafka send failed:", err));
 
     res
       .status(201)
@@ -195,8 +217,8 @@ export const updateRestaurant = async (req, res) => {
       restaurantAdmin,
       imageUrls: newImageUrls,
       coverImageUrl,
-      openingHours,
-      bank,
+      openingHours, // Updated to expect an array 
+           bank,
       serviceType,
       cuisineType,
       estimatedPrepTime,
@@ -256,8 +278,10 @@ export const updateRestaurant = async (req, res) => {
     restaurant.description = description || restaurant.description;
     restaurant.address = address || restaurant.address;
     restaurant.contact = contact || restaurant.contact;
-    restaurant.openingHours = openingHours || restaurant.openingHours;
-    restaurant.bank = bank || restaurant.bank;
+    restaurant.openingHours = Array.isArray(openingHours)
+    ? openingHours
+    : restaurant.openingHours; // Update only if provided
+      restaurant.bank = bank || restaurant.bank;
     restaurant.serviceType = serviceType || restaurant.serviceType;
     restaurant.cuisineType = cuisineType || restaurant.cuisineType;
     restaurant.estimatedPrepTime =

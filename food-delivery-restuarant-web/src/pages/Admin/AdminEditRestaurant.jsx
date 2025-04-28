@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as zod from 'zod';
 import { AdmingetRestaurantById, AdminupdateRestaurant } from '../../utils/api';
 import { AuthContext } from '../../context/AuthContext';
-import DishNavbar from '../../components/DishNavbar';
+import DishNavbar from '../../components/DishNavBar';
 import DishSidebar from '../../components/DishSidebar';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { toast } from 'react-toastify';
@@ -14,37 +14,28 @@ import { storage } from '../../../firebase-config';
 import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 import { FaStore, FaUtensils, FaClock, FaMoneyBill, FaUser, FaPhone, FaMapMarkerAlt, FaImage } from 'react-icons/fa';
 
-// Define Sri Lankan provinces for the dropdown
+// Sri Lankan provinces
 const provinces = [
-  'Central',
-  'Eastern',
-  'Northern',
-  'North Central',
-  'North Western',
-  'Sabaragamuwa',
-  'Southern',
-  'Uva',
-  'Western',
+  'Central', 'Eastern', 'Northern', 'North Central', 'North Western',
+  'Sabaragamuwa', 'Southern', 'Uva', 'Western',
 ];
 
-// Define Sri Lankan banks for the dropdown
+// Sri Lankan banks
 const sriLankanBanks = [
-  'Bank of Ceylon',
-  'People\'s Bank',
-  'Commercial Bank of Ceylon',
-  'Hatton National Bank',
-  'Sampath Bank',
-  'Nations Trust Bank',
-  'Seylan Bank',
-  'DFCC Bank',
-  'NDB Bank',
-  'Union Bank of Colombo',
+  'Bank of Ceylon', "People's Bank", 'Commercial Bank of Ceylon',
+  'Hatton National Bank', 'Sampath Bank', 'Nations Trust Bank',
+  'Seylan Bank', 'DFCC Bank', 'NDB Bank', 'Union Bank of Colombo',
 ];
 
-// Define cuisine types
+// Cuisine types
 const cuisineTypes = ['Indian', 'Chinese', 'Italian', 'Mexican', 'Continental'];
 
-// Zod schema
+// Days of the week
+const daysOfWeek = [
+  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+];
+
+// Zod schema for form validation
 const schema = zod.object({
   name: zod.string().min(1, 'Name is required'),
   description: zod.string().optional(),
@@ -62,11 +53,17 @@ const schema = zod.object({
     phone: zod.string().min(1, 'Phone is required'),
     email: zod.string().email('Invalid email').optional().or(zod.literal('')),
   }),
-  openingHours: zod.object({
-    open: zod.string().min(1, 'Open time is required'),
-    close: zod.string().min(1, 'Close time is required'),
-    isClosed: zod.boolean(),
-  }).optional(),
+  openingHours: zod
+    .array(
+      zod.object({
+        day: zod.enum(daysOfWeek),
+        open: zod.string().optional(),
+        close: zod.string().optional(),
+        isClosed: zod.boolean(),
+      })
+    )
+    .min(7, 'All days must be specified')
+    .max(7, 'Exactly 7 days must be specified'),
   isActive: zod.boolean().optional(),
   menu: zod
     .array(
@@ -79,11 +76,12 @@ const schema = zod.object({
     )
     .optional(),
   restaurantAdmin: zod
-    .object({
-      username: zod.string().min(1, 'Username is required'),
-      email: zod.string().email('Invalid email').optional(),
-    })
-    .optional(),
+ .array(
+       zod.object({
+         username: zod.string().min(1, 'Username is required'),
+       })
+     )
+     .min(1, 'At least one admin is required').optional(),
   bank: zod.object({
     accountNumber: zod.string().optional(),
     accountHolderName: zod.string().optional(),
@@ -131,29 +129,29 @@ const AdminEditRestaurant = () => {
     reset,
     setValue,
     getValues,
+    watch,
   } = useForm({
     resolver: zodResolver(schema),
+    defaultValues: {
+      openingHours: daysOfWeek.map((day) => ({
+        day,
+        open: '',
+        close: '',
+        isClosed: false,
+      })),
+    },
   });
 
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-  // Log form values on render
-  useEffect(() => {
-    console.log('Form values on render:', getValues());
-  }, [getValues]);
-
-  // Log component mount
-  useEffect(() => {
-    console.log('EditRestaurant mounted');
-    return () => console.log('EditRestaurant unmounted');
-  }, []);
+  // Watch openingHours for conditional rendering
+  const openingHours = watch('openingHours');
 
   // Fetch restaurant data
   useEffect(() => {
     const fetchRestaurant = async () => {
       try {
         const data = await AdmingetRestaurantById(id);
-        console.log('Fetched restaurant data:', data);
         reset({
           name: data.name || '',
           description: data.description || '',
@@ -171,11 +169,15 @@ const AdminEditRestaurant = () => {
             phone: data.contact?.phone || '',
             email: data.contact?.email || '',
           },
-          openingHours: {
-            open: data.openingHours?.open || '',
-            close: data.openingHours?.close || '',
-            isClosed: data.openingHours?.isClosed || false,
-          },
+          openingHours: daysOfWeek.map((day) => {
+            const hours = data.openingHours?.find((h) => h.day === day) || {};
+            return {
+              day,
+              open: hours.open || '',
+              close: hours.close || '',
+              isClosed: hours.isClosed || false,
+            };
+          }),
           bank: {
             accountNumber: data.bank?.accountNumber || '',
             accountHolderName: data.bank?.accountHolderName || '',
@@ -189,6 +191,7 @@ const AdminEditRestaurant = () => {
           },
           cuisineType: data.cuisineType || 'Indian',
           estimatedPrepTime: data.estimatedPrepTime || 20,
+          restaurantAdmin: data.restaurantAdmin?.length > 0 ? data.restaurantAdmin.map(admin => ({ username: admin.username })) : [{ username: '' }],
         });
         setCoverImageUrl(data.coverImageUrl || '');
         setImageUrls(data.imageUrls || []);
@@ -197,7 +200,6 @@ const AdminEditRestaurant = () => {
           lng: data.address?.coordinates?.lng || defaultCenter.lng,
         });
       } catch (error) {
-        console.error('Fetch error:', error);
         toast.error('Failed to fetch restaurant');
         navigate('/restaurants/admin');
       }
@@ -215,18 +217,11 @@ const AdminEditRestaurant = () => {
       setValue('address.coordinates.lat', newLat, { shouldValidate: true });
       setValue('address.coordinates.lng', newLng, { shouldValidate: true });
 
-      if (!apiKey) {
-        toast.error('Google Maps API key is missing. Please contact support.');
-        return;
-      }
-
-      // Reverse geocode to autofill address
       fetch(
         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${newLat},${newLng}&key=${apiKey}`
       )
         .then((response) => response.json())
         .then((data) => {
-          console.log('Geocoding response:', data);
           if (data.results && data.results[0]) {
             const addressComponents = data.results[0].address_components;
             let street = '';
@@ -237,29 +232,22 @@ const AdminEditRestaurant = () => {
             addressComponents.forEach((component) => {
               if (component.types.includes('route')) street = component.long_name;
               if (component.types.includes('locality')) city = component.long_name;
-              if (component.types.includes('administrative_area_level_1'))
-                province = component.long_name;
+              if (component.types.includes('administrative_area_level_1')) province = component.long_name;
               if (component.types.includes('postal_code')) postalCode = component.long_name;
             });
 
-            setValue('address.street', street || getValues('address.street'), {
-              shouldValidate: true,
-            });
+            setValue('address.street', street || getValues('address.street'), { shouldValidate: true });
             setValue('address.city', city || getValues('address.city'), { shouldValidate: true });
             setValue('address.province', provinces.includes(province) ? province : getValues('address.province'), {
               shouldValidate: true,
             });
-            setValue('address.postalCode', postalCode || getValues('address.postalCode'), {
-              shouldValidate: true,
-            });
+            setValue('address.postalCode', postalCode || getValues('address.postalCode'), { shouldValidate: true });
             toast.info('Address auto-filled from selected location');
           } else {
-            console.error('No geocoding results:', data);
             toast.error('No address details found');
           }
         })
         .catch((error) => {
-          console.error('Error reverse geocoding:', error);
           toast.error('Failed to fetch address details');
         });
     },
@@ -299,7 +287,6 @@ const AdminEditRestaurant = () => {
       setUploading((prev) => ({ ...prev, cover: false }));
       setUploadProgress((prev) => ({ ...prev, cover: 100 }));
     } catch (error) {
-      console.error('Error uploading cover image:', error);
       setUploadError((prev) => ({ ...prev, cover: 'Failed to upload cover image.' }));
       setUploading((prev) => ({ ...prev, cover: false }));
       setUploadProgress((prev) => ({ ...prev, cover: 0 }));
@@ -316,7 +303,6 @@ const AdminEditRestaurant = () => {
       setCoverImageUrl('');
       setUploadError((prev) => ({ ...prev, cover: '' }));
     } catch (error) {
-      console.error('Error deleting cover image:', error);
       setUploadError((prev) => ({ ...prev, cover: 'Failed to delete cover image.' }));
     }
   };
@@ -331,10 +317,7 @@ const AdminEditRestaurant = () => {
 
     const maxImages = 5;
     if (files.length + imageUrls.length > maxImages) {
-      setUploadError((prev) => ({
-        ...prev,
-        images: `You can upload a maximum of ${maxImages} images.`,
-      }));
+      setUploadError((prev) => ({ ...prev, images: `You can upload a maximum of ${maxImages} images.` }));
       return;
     }
 
@@ -354,7 +337,6 @@ const AdminEditRestaurant = () => {
       setUploading((prev) => ({ ...prev, images: false }));
       setUploadProgress((prev) => ({ ...prev, images: 100 }));
     } catch (error) {
-      console.error('Error uploading images:', error);
       setUploadError((prev) => ({ ...prev, images: 'Failed to upload one or more images.' }));
       setUploading((prev) => ({ ...prev, images: false }));
       setUploadProgress((prev) => ({ ...prev, images: 0 }));
@@ -366,25 +348,15 @@ const AdminEditRestaurant = () => {
     try {
       const imageRef = ref(storage, imageUrl);
       await deleteObject(imageRef);
-      const updatedImageUrls = imageUrls.filter((url) => url !== imageUrl);
-      setImageUrls(updatedImageUrls);
+      setImageUrls(imageUrls.filter((url) => url !== imageUrl));
       setUploadError((prev) => ({ ...prev, images: '' }));
-      console.log('Updated imageUrls:', updatedImageUrls);
     } catch (error) {
-      console.error('Error deleting image:', error);
       setUploadError((prev) => ({ ...prev, images: 'Failed to delete image.' }));
     }
   };
 
   // Handle form submission
-  const onSubmit = async (data, event) => {
-    console.log('onSubmit called with:', { data, event });
-    if (!data) {
-      console.error('Form data is undefined');
-      toast.error('Please fill out the form');
-      return;
-    }
-    console.log('Submitting data:', JSON.stringify(data, null, 2));
+  const onSubmit = async (data) => {
     try {
       await AdminupdateRestaurant(id, {
         ...data,
@@ -394,14 +366,13 @@ const AdminEditRestaurant = () => {
       toast.success('Restaurant updated successfully');
       navigate('/restaurants/admin');
     } catch (error) {
-      console.error('Update error:', error.response?.data);
       toast.error(error.response?.data?.message || 'Failed to update restaurant');
     }
   };
 
   if (loading) return <LoadingSpinner />;
   if (!apiKey) {
-    toast.error('Google Maps API key is missing. Please contact support.');
+    toast.error('Google Maps API key is missing.');
     return <div className="text-red-600 p-6 dark:text-red-400">Error: Google Maps API key is missing.</div>;
   }
 
@@ -415,11 +386,7 @@ const AdminEditRestaurant = () => {
             <FaStore className="mr-3 text-orange-500" />
             Edit Restaurant
           </h2>
-          <form
-            onSubmit={handleSubmit(onSubmit)}
-            className="space-y-8"
-            onSubmitCapture={() => console.log('Form submitted')}
-          >
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
             {/* Restaurant Details Section */}
             <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-orange-200 dark:border-gray-700">
               <h3 className="text-xl font-semibold mb-6 dark:text-white flex items-center">
@@ -503,7 +470,6 @@ const AdminEditRestaurant = () => {
                 Images
               </h3>
               <div className="space-y-6">
-                {/* Cover Image */}
                 <div>
                   <label className="block text-gray-700 mb-2 dark:text-gray-300">Cover Image</label>
                   <div className="space-y-4">
@@ -541,7 +507,6 @@ const AdminEditRestaurant = () => {
                     {uploadError.cover && <p className="text-red-600 dark:text-red-400">{uploadError.cover}</p>}
                   </div>
                 </div>
-                {/* Other Images */}
                 <div>
                   <label className="block text-gray-700 mb-2 dark:text-gray-300">Other Images</label>
                   <div className="space-y-4">
@@ -666,12 +631,8 @@ const AdminEditRestaurant = () => {
                   <div style={{ width: '100%', height: '400px' }}>
                     <LoadScript
                       googleMapsApiKey={apiKey}
-                      onLoad={() => {
-                        console.log('Google Maps API loaded successfully');
-                        setIsMapLoaded(true);
-                      }}
-                      onError={(error) => {
-                        console.error('Error loading Google Maps API:', error);
+                      onLoad={() => setIsMapLoaded(true)}
+                      onError={() => {
                         toast.error('Failed to load Google Maps API');
                         setIsMapLoaded(false);
                       }}
@@ -780,50 +741,67 @@ const AdminEditRestaurant = () => {
                 <FaClock className="mr-2 text-orange-500" />
                 Opening Hours
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="group">
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
-                    Open Time*
-                  </label>
-                  <div className="relative">
-                    <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                    <input
-                      type="time"
-                      {...register('openingHours.open')}
-                      className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
-                    />
-                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Specify the opening and closing times for each day, or mark a day as closed.
+              </p>
+              <div className="space-y-6">
+                {daysOfWeek.map((day, index) => (
+                  <div key={day} className="border-b border-gray-200 dark:border-gray-600 pb-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300">{day}</h4>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          {...register(`openingHours.${index}.isClosed`)}
+                          className="h-5 w-5 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
+                        />
+                        <label className="text-gray-700 dark:text-gray-300">Closed</label>
+                      </div>
+                    </div>
+                    {!openingHours[index]?.isClosed && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="group">
+                          <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                            Opening Time
+                          </label>
+                          <div className="relative">
+                            <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                            <input
+                              type="time"
+                              {...register(`openingHours.${index}.open`)}
+                              className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                            />
+                            <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                          </div>
+                          {errors.openingHours?.[index]?.open && (
+                            <p className="text-red-600 dark:text-red-400">{errors.openingHours[index].open.message}</p>
+                          )}
+                        </div>
+                        <div className="group">
+                          <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
+                            Closing Time
+                          </label>
+                          <div className="relative">
+                            <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                            <input
+                              type="time"
+                              {...register(`openingHours.${index}.close`)}
+                              className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
+                            />
+                            <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
+                          </div>
+                          {errors.openingHours?.[index]?.close && (
+                            <p className="text-red-600 dark:text-red-400">{errors.openingHours[index].close.message}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  {errors.openingHours?.open && (
-                    <p className="text-red-600 dark:text-red-400">{errors.openingHours.open.message}</p>
-                  )}
-                </div>
-                <div className="group">
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300 group-focus-within:text-orange-500 transition-colors duration-200">
-                    Close Time*
-                  </label>
-                  <div className="relative">
-                    <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                    <input
-                      type="time"
-                      {...register('openingHours.close')}
-                      className="w-full pl-10 p-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
-                    />
-                    <div className="absolute inset-y-0 left-0 w-1 bg-orange-500 rounded-l-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-200"></div>
-                  </div>
-                  {errors.openingHours?.close && (
-                    <p className="text-red-600 dark:text-red-400">{errors.openingHours.close.message}</p>
-                  )}
-                </div>
-                <div className="group">
-                  <label className="block text-gray-700 mb-2 dark:text-gray-300">Closed</label>
-                  <input
-                    type="checkbox"
-                    {...register('openingHours.isClosed')}
-                    className="h-5 w-5 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
-                  />
-                </div>
+                ))}
               </div>
+              {errors.openingHours && (
+                <p className="text-red-600 dark:text-red-400 mt-2">{errors.openingHours.message}</p>
+              )}
             </div>
 
             {/* Bank Details */}
@@ -954,7 +932,7 @@ const AdminEditRestaurant = () => {
             <div className="flex justify-end space-x-4">
               <button
                 type="button"
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/restaurants/admin')}
                 className="px-6 py-3 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white rounded-xl hover:bg-gray-400 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-all duration-200 shadow-sm"
               >
                 Cancel

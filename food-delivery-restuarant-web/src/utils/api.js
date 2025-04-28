@@ -224,7 +224,7 @@ export const updateProfile = async (token, updates) => {
   try {
     const token = localStorage.getItem('ownerToken');
     if (!token) throw new Error('No owner token found');
-    const response = await axios.put('http://localhost:5001/api/users/me', updates, {
+    const response = await axios.patch('http://localhost:5001/api/users/me', updates, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return response.data;

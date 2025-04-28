@@ -13,6 +13,7 @@ import {
   FaShoppingBag,
 } from "react-icons/fa";
 import { getRestaurants, updateRestaurantVerification } from "../utils/api";
+import { useLocation } from "react-router-dom";
 
 const Restaurants = () => {
   const [activeTab, setActiveTab] = useState("all");
@@ -21,6 +22,7 @@ const Restaurants = () => {
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const location = useLocation();
 
   useEffect(() => {
     fetchRestaurants();
@@ -38,6 +40,20 @@ const Restaurants = () => {
       console.error("Error fetching restaurants:", err);
     }
   };
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const viewRestaurantId = searchParams.get("view");
+
+    if (viewRestaurantId && restaurants.length > 0) {
+      const restaurantToView = restaurants.find(
+        (r) => r._id === viewRestaurantId
+      );
+      if (restaurantToView) {
+        setSelectedRestaurant(restaurantToView);
+      }
+    }
+  }, [location, restaurants]);
 
   const handleStatusChange = async (restaurantId, newStatus) => {
     try {
@@ -424,9 +440,6 @@ const Restaurants = () => {
               </div>
 
               <div className="flex justify-end gap-4 mt-6">
-                <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
-                  Edit Details
-                </button>
                 <button
                   onClick={() =>
                     handleStatusChange(

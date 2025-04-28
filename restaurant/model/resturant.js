@@ -21,12 +21,38 @@ const RestaurantSchema = new mongoose.Schema(
       phone: String,
       email: String,
     },
-    openingHours: {
-      open: String,
-      close: String,
-      isClosed: Boolean,
-    },
-
+    
+openingHours: [
+      {
+        day: {
+          type: String,
+          enum: [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+          ],
+          required: true,
+        },
+        open: {
+          type: String,
+          match: /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, // Validates HH:MM format
+          default: null,
+        },
+        close: {
+          type: String,
+          match: /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, // Validates HH:MM format
+          default: null,
+        },
+        isClosed: {
+          type: Boolean,
+          default: false,
+        },
+      },
+    ],
     isActive: { type: Boolean, default: true },
 
     restaurantAdmin: [

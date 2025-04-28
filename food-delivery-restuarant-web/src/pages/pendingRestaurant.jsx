@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { getRestaurants } from '../utils/api';
 import Sidebar from '../components/Sidebar';
-import Navbar from '../components/Navbar';
+import Navbar from '../components/DishNavBar';
 import PendingRestaurantTable from '../components/pendingRestaurantTable';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { toast } from 'react-toastify';
