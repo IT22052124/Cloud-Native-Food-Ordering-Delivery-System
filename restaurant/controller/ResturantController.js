@@ -123,11 +123,9 @@ export const addRestaurant = async (req, res) => {
       },
     };
 
-    await sendKafkaNotification("restaurant-registrations", kafkaMessage).catch(
-      (err) => {
-        console.error("Kafka notification failed, saving for retry:", err);
-      }
-    );
+    await sendKafkaNotification(kafkaMessage)
+      .then(() => console.log("✅ Kafka message sent successfully"))
+      .catch((err) => console.error("❌ Kafka send failed:", err));
 
     res
       .status(201)

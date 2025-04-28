@@ -7,7 +7,10 @@ const consumer = kafka.consumer({ groupId: "registration-notifications" });
 const TOPICS = ["restaurant-registrations", "driver-registrations"];
 
 export const startRegistrationConsumer = async () => {
-  await consumer.connect();
+  await consumer
+    .connect()
+    .then(() => console.log("✅ Connected to Kafka"))
+    .catch((err) => console.error("❌ Kafka connection failed:", err));
 
   // Subscribe to all topics
   await Promise.all(
