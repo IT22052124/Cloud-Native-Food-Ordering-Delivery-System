@@ -9,6 +9,7 @@ import {
   FaSpinner,
   FaHistory,
   FaDollarSign,
+  FaTruck ,
 } from "react-icons/fa";
 import { AuthContext } from "../context/AuthContext";
 import { getOrders } from "../utils/api";
@@ -191,7 +192,7 @@ const DishSidebar = () => {
               }`
             }
           >
-            <FaClipboardList className="flex-shrink-0" />
+            <FaTruck className="flex-shrink-0" />
             <span className="font-medium">Ready to Pickup</span>
             <div className="ml-auto min-w-[24px] flex items-center justify-end">
               {loading ? (

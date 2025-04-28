@@ -10,7 +10,7 @@ import {
   updateRestaurantStatus,
   getFoodCategories,
   updateRestaurantVerification,
-  getMyRestaurants,
+  getMyRestaurants,getMypendingRestaurants
 } from "../Controller/ResturantController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 
@@ -20,6 +20,8 @@ const router = express.Router();
 router.post("/restaurants/add", authMiddleware, addRestaurant);
 router.get("/restaurants/", getRestaurants);
 router.get("/owner/restaurants/", authMiddleware, getMyRestaurants);
+router.get("/owner/restaurants/pending", authMiddleware, getMypendingRestaurants);
+
 
 router.get("/restaurants/:id/dishes", restaurantDishes);
 router.get("/restaurants/:id", getRestaurantById);

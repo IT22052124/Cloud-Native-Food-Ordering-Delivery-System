@@ -24,7 +24,7 @@ const Orders = () => {
         const data = await getOrders();
         setOrders(data);
       } catch (error) {
-        toast.error("Failed to fetch orders");
+        console.error("Failed to fetch orders");
       }
       setLoading(false);
     };

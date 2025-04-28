@@ -78,13 +78,13 @@ const RestaurantTable = ({ restaurants = [] }) => {
           <div className="flex space-x-2">
             <button
               onClick={() => setViewMode("table")}
-              className={`p-3 rounded-xl ${viewMode === "table" ? "bg-orange-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"} hover:bg-orange-600 hover:text-white transition-all duration-200`}
+              className={`p-3 rounded-xl ${viewMode === "table" ? "bg-green-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"} hover:bg-orange-600 hover:text-white transition-all duration-200`}
             >
               <FaThList />
             </button>
             <button
               onClick={() => setViewMode("card")}
-              className={`p-3 rounded-xl ${viewMode === "card" ? "bg-orange-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"} hover:bg-orange-600 hover:text-white transition-all duration-200`}
+              className={`p-3 rounded-xl ${viewMode === "card" ? "bg-green-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"} hover:bg-orange-600 hover:text-white transition-all duration-200`}
             >
               <FaTh />
             </button>
@@ -226,56 +226,59 @@ const RestaurantTable = ({ restaurants = [] }) => {
           {filteredRestaurants.map((restaurant) => (
             <div
               key={restaurant._id}
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-200 hover:shadow-xl hover:scale-105"
+              className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden transition-all duration-300 hover:shadow-[0_10px_20px_rgba(0,0,0,0.2)] hover:-translate-y-2"
             >
-              <div className="relative h-48">
+              <div className="relative h-56 group">
                 {restaurant.imageUrls && restaurant.imageUrls.length > 0 ? (
                   <img
                     src={restaurant.imageUrls[0]}
                     alt={restaurant.name}
-                    className="w Teensy-weensy-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
                 ) : (
                   <img
                     src="https://via.placeholder.com/300x200?text=No+Image"
                     alt="No Image"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
                 )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <span
-                  className={`absolute top-4 right-4 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                  className={`absolute top-4 right-4 inline-flex items-center px-3.5 py-1.5 rounded-full text-sm font-semibold ${
                     restaurant.isActive
-                      ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200"
-                      : "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200"
-                  }`}
+                      ? "bg-green-500/90 text-white dark:bg-green-600/90"
+                      : "bg-red-500/90 text-white dark:bg-red-600/90"
+                  } shadow-md backdrop-blur-sm`}
                 >
                   <span
-                    className={`w-2 h-2 rounded-full mr-1.5 ${
+                    className={`w-2.5 h-2.5 rounded-full mr-2 ${
                       restaurant.isActive
-                        ? "bg-green-500 dark:bg-green-400 animate-pulse"
-                        : "bg-red-500 dark:bg-red-400"
+                        ? "bg-white animate-pulse"
+                        : "bg-white"
                     }`}
                   ></span>
                   {restaurant.isActive ? "Active" : "Inactive"}
                 </span>
               </div>
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{restaurant.name}</h3>
-                <div className="flex items-center text-sm text-gray-700 dark:text-gray-300 mb-4">
+              <div className="p-6 relative">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3 bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-pink-600">
+                  {restaurant.name}
+                </h3>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-300 mb-5">
                   <FaMapMarkerAlt className="text-orange-500 mr-2 flex-shrink-0" />
-                  <span>{`${restaurant?.address?.street}, ${restaurant?.address?.city}`}</span>
+                  <span className="line-clamp-2">{`${restaurant?.address?.street}, ${restaurant?.address?.city}`}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-3">
                   <Link
                     to={`/restaurants/${restaurant._id}`}
-                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-sm hover:shadow"
+                    className="flex-1 inline-flex justify-center items-center px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 text-sm font-medium"
                   >
                     <FaEye className="mr-2" />
                     View
                   </Link>
                   <Link
                     to={`/restaurants/edit/${restaurant._id}`}
-                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-sm hover:shadow"
+                    className="flex-1 inline-flex justify-center items-center px-4 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 text-sm font-medium"
                   >
                     <FaEdit className="mr-2" />
                     Edit

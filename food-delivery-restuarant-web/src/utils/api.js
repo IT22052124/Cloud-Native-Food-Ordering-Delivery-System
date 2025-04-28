@@ -52,6 +52,22 @@ export const getRestaurants = async () => {
     throw error;
   }
 };
+export const getPendingRestaurants = async () => {
+  try {
+    const token = localStorage.getItem('ownerToken');
+    const response = await axios.get('http://localhost:3000/api/owner/restaurants/pending', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    console.log('getRestaurants: API response:', response.data);
+    // Extract the restaurants array, fallback to empty array
+    return Array.isArray(response.data.restaurants) ? response.data.restaurants : [];
+  } catch (error) {
+    console.error('getRestaurants: Error:', error);
+    throw error;
+  }
+};
 
 
 export const getRestaurant = async (id) => {

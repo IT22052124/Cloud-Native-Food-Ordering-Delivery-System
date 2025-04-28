@@ -5,8 +5,13 @@ import DishSidebar from "../components/DishSidebar.jsx";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Navbar from "../components/DishNavBar.jsx";
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { storage } from '../../firebase-config.js';
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+} from "firebase/storage";
+import { storage } from "../../firebase-config.js";
 
 function AddDish() {
   const [formData, setFormData] = useState({
@@ -97,8 +102,10 @@ function AddDish() {
   };
 
   const addPortion = () => {
-    const usedSizes = formData.portions.map(p => p.size);
-    const availableSizes = portionSizes.filter(size => !usedSizes.includes(size));
+    const usedSizes = formData.portions.map((p) => p.size);
+    const availableSizes = portionSizes.filter(
+      (size) => !usedSizes.includes(size)
+    );
     if (availableSizes.length === 0) {
       setError("All portion sizes are already added.");
       return;
@@ -113,7 +120,10 @@ function AddDish() {
     const updatedPortions = formData.portions.filter((_, i) => i !== index);
     setFormData({
       ...formData,
-      portions: updatedPortions.length > 0 ? updatedPortions : [{ size: "regular", price: "" }],
+      portions:
+        updatedPortions.length > 0
+          ? updatedPortions
+          : [{ size: "regular", price: "" }],
     });
     setSuggestedPrice("");
   };
@@ -131,7 +141,10 @@ function AddDish() {
       setUploadProgress(0);
 
       const uploadPromises = files.map(async (file, index) => {
-        const storageRef = ref(storage, `images/${file.name}-${Date.now()}-${index}`);
+        const storageRef = ref(
+          storage,
+          `images/${file.name}-${Date.now()}-${index}`
+        );
         await uploadBytes(storageRef, file);
         const url = await getDownloadURL(storageRef);
         return url;
@@ -173,11 +186,17 @@ function AddDish() {
     try {
       const submitData = {
         ...formData,
-        price: formData.pricingType === "single" && formData.price ? parseFloat(formData.price) : null,
-        portions: formData.pricingType === "portion" ? formData.portions.map(p => ({
-          size: p.size,
-          price: parseFloat(p.price)
-        })) : null,
+        price:
+          formData.pricingType === "single" && formData.price
+            ? parseFloat(formData.price)
+            : null,
+        portions:
+          formData.pricingType === "portion"
+            ? formData.portions.map((p) => ({
+                size: p.size,
+                price: parseFloat(p.price),
+              }))
+            : null,
       };
       await addDish(submitData);
       toast.success("Dish added successfully!");
@@ -192,7 +211,15 @@ function AddDish() {
       <DishSidebar />
       <div className="flex-1 ml-64">
         <Navbar />
-        <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick pauseOnHover draggable />
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          pauseOnHover
+          draggable
+        />
 
         <div className="p-6 max-w-3xl mx-auto">
           <div className="mb-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border-l-4 border-l-orange-500 border border-orange-100 dark:border-gray-700">
@@ -295,7 +322,7 @@ function AddDish() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="group">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 group-focus-within:text-orange-500 transition-colors duration-200">
-                  Pricing Type
+                  Pricing Type (add 20% margin from base price) 
                 </label>
                 <div className="relative">
                   <select
@@ -320,7 +347,9 @@ function AddDish() {
 
               <div className="group">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 group-focus-within:text-orange-500 transition-colors duration-200">
-                  {formData.pricingType === "single" ? "Base Price (LKR)" : "Portion Prices (LKR)"}
+                  {formData.pricingType === "single"
+                    ? "Base Price (LKR)"
+                    : "Portion Prices (LKR)"}
                 </label>
                 {formData.pricingType === "single" ? (
                   <div className="relative">
@@ -356,7 +385,14 @@ function AddDish() {
                           className="w-1/3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
                         >
                           {portionSizes.map((size) => (
-                            <option key={size} value={size} disabled={formData.portions.some(p => p.size === size && p.size !== portion.size)}>
+                            <option
+                              key={size}
+                              value={size}
+                              disabled={formData.portions.some(
+                                (p) =>
+                                  p.size === size && p.size !== portion.size
+                              )}
+                            >
                               {size.charAt(0).toUpperCase() + size.slice(1)}
                             </option>
                           ))}
@@ -511,14 +547,20 @@ function AddDish() {
             <div className="pt-4">
               <button
                 type="submit"
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white py-4 rounded-lg font-semibold transition-colors duration-200 shadow-md hover:shadow-lg flex items-center justify-center"
+                className={`w-full bg-gradient-to-r from-orange-500 to-pink-600 text-white py-4 rounded-lg font-semibold transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center
+    ${
+      !uploading
+        ? "hover:bg-gradient-to-r hover:from-green-500 hover:to-green-600"
+        : "opacity-50 cursor-not-allowed"
+    }`}
                 disabled={uploading}
               >
                 <span className="mr-2">🍽️</span>
                 Add Dish to Menu
               </button>
               <p className="text-center text-gray-500 dark:text-gray-400 text-sm mt-4">
-                This dish will be immediately available on your restaurant menu once added.
+                This dish will be immediately available on your restaurant menu
+                once added.
               </p>
             </div>
           </form>

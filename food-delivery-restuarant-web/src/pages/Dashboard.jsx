@@ -29,7 +29,6 @@ const Dashboard = () => {
         setRestaurants(Array.isArray(data) ? data : [])
       } catch (error) {
         setError("Failed to fetch restaurants")
-        toast.error("Failed to fetch restaurants")
         setRestaurants([])
       } finally {
         setLoading(false)
@@ -92,7 +91,7 @@ const Dashboard = () => {
             </h2>
             <button
               onClick={handleAddRestaurant}
-              className="px-6 py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl hover:from-orange-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center"
+              className="px-6 py-3 bg-green-600 text-white rounded-xl hover:from-orange-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center"
               aria-label="Add new restaurant"
             >
               <FaPlusCircle className="mr-2" />
@@ -262,7 +261,7 @@ const Dashboard = () => {
       e.stopPropagation()
       handleView(restaurant._id)
     }}
-    className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-lg hover:from-orange-600 hover:to-pink-600 transition-all duration-300 flex items-center shadow-md hover:shadow-lg transform hover:scale-105 font-medium"
+    className="px-6 py-2.5 bg-green-600 text-white rounded-lg hover:from-orange-600 hover:to-pink-600 transition-all duration-300 flex items-center shadow-md hover:shadow-lg transform hover:scale-105 font-medium"
     aria-label={`View details for ${restaurant.name}`}
   >
     <FaEye className="mr-2" />

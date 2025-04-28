@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { getRestaurants } from '../utils/api';
+import { getPendingRestaurants } from '../utils/api';
 import Sidebar from '../components/Sidebar';
 import Navbar from '../components/DishNavBar';
 import PendingRestaurantTable from '../components/pendingRestaurantTable';
@@ -21,11 +21,11 @@ const Resturant = () => {
     }
     const fetchRestaurants = async () => {
       try {
-        const data = await getRestaurants();
+        const data = await getPendingRestaurants();
         setRestaurants(Array.isArray(data) ? data : []);
         console.log('Fetched Restaurants:', data);
       } catch (error) {
-        toast.error('Failed to fetch restaurants');
+        console.error('Failed to fetch restaurants');
         setRestaurants([]);
       }
       setLoading(false);
