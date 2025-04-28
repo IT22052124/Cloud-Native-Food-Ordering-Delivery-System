@@ -42,11 +42,9 @@ const Restaurants = () => {
   };
 
   useEffect(() => {
-    // Get URL parameters
     const searchParams = new URLSearchParams(location.search);
     const viewRestaurantId = searchParams.get("view");
 
-    // If there's a restaurant ID in the URL, find and display that restaurant
     if (viewRestaurantId && restaurants.length > 0) {
       const restaurantToView = restaurants.find(
         (r) => r._id === viewRestaurantId
