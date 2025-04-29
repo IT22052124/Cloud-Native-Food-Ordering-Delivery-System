@@ -30,11 +30,9 @@ const UserProfile = () => {
             setError('');
           } else {
             setError(response.message || 'Failed to fetch user data');
-            toast.error(response.message || 'Failed to fetch user data');
           }
         } catch (err) {
           setError(err.message || 'Failed to fetch user data');
-          toast.error(err.message || 'Failed to fetch user data');
         }
       };
       fetchUserData();

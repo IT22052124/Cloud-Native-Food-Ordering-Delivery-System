@@ -6,7 +6,6 @@ import Sidebar from '../components/Sidebar';
 import Navbar from '../components/Navbar';
 import RestaurantTable from '../components/RestaurantTable';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { toast } from 'react-toastify';
 
 const Resturant = () => {
   const [restaurants, setRestaurants] = useState([]);
@@ -23,7 +22,6 @@ const Resturant = () => {
       try {
         const data = await getRestaurants();
         setRestaurants(Array.isArray(data) ? data : []);
-        console.log('Fetched Restaurants:', data);
       } catch (error) {
         setRestaurants([]);
       }

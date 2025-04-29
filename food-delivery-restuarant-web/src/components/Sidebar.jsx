@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { FaHome, FaPlusCircle, FaUsers, FaUtensils } from 'react-icons/fa';
+import { FaHome, FaPlusCircle, FaUsers, FaUtensils,FaInbox } from 'react-icons/fa';
 
 const Sidebar = () => {
   return (
@@ -75,7 +75,7 @@ const Sidebar = () => {
                   }`
                 }
               >
-                <FaPlusCircle className="mr-3 text-lg" />
+                <FaInbox className="mr-3 text-lg" />
                 <span className="font-medium">Pending </span>
               </NavLink>
             </li>

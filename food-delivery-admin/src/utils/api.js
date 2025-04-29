@@ -237,3 +237,44 @@ export const updateDriverStatus = async (driverId, status) => {
     throw error;
   }
 };
+
+export const getAllOrders = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.get(
+      "http://localhost:5002/api/orders/admin/all",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    console.log("getAllOrders: API response:", response.data);
+    return response.data.orders || [];
+  } catch (error) {
+    console.error("getAllOrders: Error:", error);
+    return [];
+    throw error;
+  }
+};
+
+// api.js
+export const getAllUsers = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.get("http://localhost:5001/api/users", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    // Ensure we always return an array, even if the API returns an object
+    return Array.isArray(response.data)
+      ? response.data
+      : Array.isArray(response.data.users)
+      ? response.data.users
+      : [];
+  } catch (error) {
+    console.error("getAllUsers: Error:", error);
+    return []; // Return empty array on error
+  }
+};

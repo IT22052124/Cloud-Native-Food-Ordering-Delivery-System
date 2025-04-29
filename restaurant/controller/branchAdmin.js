@@ -23,7 +23,7 @@ export const restaurantAdminLogin = async (req, res) => {
 
     if (!restaurant) {
       return res.status(401).json({
-        message: "Invalid credentials",
+        message: "User not found",
       });
     }
 
@@ -36,7 +36,7 @@ export const restaurantAdminLogin = async (req, res) => {
       console.error(`Admin or password missing for: ${username}`);
       return res.status(401).json({
         success: false,
-        message: "Invalid credentials",
+        message: "Invalid password",
       });
     }
 
@@ -45,6 +45,16 @@ export const restaurantAdminLogin = async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({
         message: "Invalid password",
+      });
+    }
+
+    const isverfied = restaurant.isVerified;
+
+    console.log("isverfied", isverfied);
+    if (isverfied === "pending") {
+      
+      return res.status(401).json({
+        message: "Restaurant is not verified yet",
       });
     }
 

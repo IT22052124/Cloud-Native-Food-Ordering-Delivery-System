@@ -317,7 +317,7 @@ const AddRestaurant = () => {
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
-      toast.error("Please fix the form errors");
+      toast.error("Please fill the required fields");
       return;
     }
 
@@ -1237,15 +1237,15 @@ const AddRestaurant = () => {
               <button
                 type="button"
                 onClick={handleCancel}
-                className="px-6 py-2 bg-amber-100 dark:bg-gray-700 text-amber-700 dark:text-amber-400 rounded-lg hover:bg-amber-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all duration-200 shadow-sm flex items-center"
+                className="px-6 py-2 bg-blue-500 dark:bg-gray-600 text-white  rounded-lg hover:bg-blue-600 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all duration-200 shadow-sm flex items-center"
               >
-                <FaArrowLeft className="mr-2 text-amber-500 dark:text-amber-400" />
+                <FaArrowLeft className="mr-2 text-white-500 dark:text-white-400" />
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading || uploading.cover || uploading.images}
-                className="px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:from-amber-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center shadow-sm"
+                className="px-6 py-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-lg hover:from-green-500 hover:to-green-600 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center shadow-sm"
               >
                 {loading ? (
                   <>

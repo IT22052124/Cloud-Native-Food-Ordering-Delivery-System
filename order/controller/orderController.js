@@ -1203,6 +1203,94 @@ const updateOrderPaymentStatus = async (req, res) => {
   }
 };
 
+const queryOrders = async (req, res) => {
+  try {
+    const { startDate, endDate, status, paymentStatus } = req.query;
+
+    // Validate required parameters
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: "startDate and endDate are required parameters",
+      });
+    }
+
+    // Construct the query
+    const query = {
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      },
+    };
+
+    // Add optional filters if provided
+    if (status) {
+      query["restaurantOrder.status"] = status;
+    }
+
+    if (paymentStatus) {
+      query.paymentStatus = paymentStatus;
+    }
+
+    // Execute the query
+    const orders = await Order.find(query)
+      .select("-__v")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: orders.length,
+      orders,
+    });
+  } catch (error) {
+    console.error("Error querying orders:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to query orders",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Fetch multiple orders by ID
+ * This endpoint is used by the payment service to get detailed order information
+ */
+const getOrdersByIds = async (req, res) => {
+  try {
+    const { orderIds } = req.body;
+
+    if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid orderIds array is required",
+      });
+    }
+
+    const orders = await Order.find({
+      orderId: { $in: orderIds },
+    }).select("-__v");
+
+    // Check if any orders were not found
+    const foundIds = orders.map((order) => order.orderId);
+    const missingIds = orderIds.filter((id) => !foundIds.includes(id));
+
+    res.json({
+      success: true,
+      count: orders.length,
+      orders,
+      missingIds: missingIds.length > 0 ? missingIds : undefined,
+    });
+  } catch (error) {
+    console.error("Error fetching orders by IDs:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch orders by IDs",
+      error: error.message,
+    });
+  }
+};
+
 export {
   createOrder,
   getOrderById,
@@ -1216,4 +1304,6 @@ export {
   getOrderTracking,
   updateOrderPayment,
   updateOrderPaymentStatus,
+  getOrdersByIds,
+  queryOrders,
 };

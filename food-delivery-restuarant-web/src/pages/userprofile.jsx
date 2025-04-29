@@ -1,13 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
-import { getRestaurants } from '../utils/api';
+
 import Sidebar from '../components/Sidebar';
 import Navbar from '../components/Navbar';
 import UserProfile from '../components/User';
-import RestaurantTable from '../components/RestaurantTable';
-import LoadingSpinner from '../components/LoadingSpinner';
-import { toast } from 'react-toastify';
+
 
 const user = () => {
 
