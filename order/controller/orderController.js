@@ -757,7 +757,6 @@ const updateOrderStatus = async (req, res) => {
  * @access Private - Admin
  */
 const getAllOrders = async (req, res) => {
-
   try {
     const {
       status,
@@ -789,7 +788,6 @@ const getAllOrders = async (req, res) => {
       .skip(skip)
       .limit(limit);
 
-
     const total = await Order.countDocuments(query);
 
     // Process orders to include summary information
@@ -797,12 +795,13 @@ const getAllOrders = async (req, res) => {
       orderId: order.orderId,
       createdAt: order.createdAt,
       customerName: order.customerName,
-      restaurant: order.restaurantOrder.restaurantName,
-      restaurantImage: order.restaurantOrder.imageUrls[0],
-      itemCount: order.restaurantOrder.items.reduce(
-        (total, item) => total + item.quantity,
-        0
-      ),
+      restaurant: order.restaurantOrder?.restaurantName || "Unknown Restaurant",
+      restaurantImage: order.restaurantOrder?.imageUrls?.[0] || null, // Safe access
+      itemCount:
+        order.restaurantOrder?.items?.reduce(
+          (total, item) => total + (item?.quantity || 0),
+          0
+        ) || 0,
       totalAmount: order.totalAmount,
       type: order.type,
       paymentStatus: order.paymentStatus,
