@@ -1,7 +1,18 @@
 FROM node:18-alpine
+
 WORKDIR /app
+
+# Copy package files
 COPY package*.json ./
-RUN npm install
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy application code
 COPY . .
-EXPOSE 5003
-CMD ["npm", "run", "start"]
+
+# Expose the port the app runs on
+EXPOSE 5007
+
+# Command to run the application
+CMD ["node", "index.js"]

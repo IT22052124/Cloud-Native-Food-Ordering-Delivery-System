@@ -7,7 +7,15 @@ import {
   Image,
   ActivityIndicator,
 } from "react-native";
-import { Text, Card, Chip, Title, Divider } from "react-native-paper";
+import {
+  Text,
+  Card,
+  Chip,
+  Title,
+  Divider,
+  Portal,
+  Modal,
+} from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
 import dataService, { ORDER_STATUS } from "../../services/dataService";
@@ -34,11 +42,13 @@ const OrdersScreen = ({ navigation }) => {
       setLoading(true);
       const ordersData = await dataService.getOrders();
       setOrders(ordersData.orders);
-      console.log(ordersData.orders)
+      console.log(ordersData.orders);
     } catch (error) {
       console.error("Error loading orders:", error);
     } finally {
-      setLoading(false);
+      setTimeout(() => {
+        setLoading(false);
+      }, 600); // Add a small delay to ensure the animation is visible
     }
   };
 
@@ -114,8 +124,8 @@ const OrdersScreen = ({ navigation }) => {
           <View style={styles.restaurantInfo}>
             <Image
               source={
-                item.restaurantImage  
-                  ? { uri: item.restaurantImage } 
+                item.restaurantImage
+                  ? { uri: item.restaurantImage }
                   : require("../../assets/no-image-restaurant.png")
               }
               style={styles.restaurantImage}
@@ -173,18 +183,20 @@ const OrdersScreen = ({ navigation }) => {
     </View>
   );
 
-  // if (loading) {
-  //   return (
-  //     <View
-  //       style={[
-  //         styles.loadingContainer,
-  //         { backgroundColor: theme.colors.background },
-  //       ]}
-  //     >
-  //       <ActivityIndicator size="large" color={theme.colors.primary} />
-  //     </View>
-  //   );
-  // }
+  const renderLoadingModal = () => (
+    <Portal>
+      <Modal
+        visible={loading}
+        dismissable={false}
+        contentContainerStyle={styles.loaderModalContainer}
+      >
+        <View style={styles.loaderContent}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loaderText}>Loading orders...</Text>
+        </View>
+      </Modal>
+    </Portal>
+  );
 
   const filteredOrders = getFilteredOrders();
 
@@ -192,6 +204,8 @@ const OrdersScreen = ({ navigation }) => {
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
+      {renderLoadingModal()}
+
       <View style={styles.header}>
         <Title style={styles.headerTitle}>My Orders</Title>
       </View>
@@ -397,6 +411,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "center",
     color: "#666",
+  },
+  loaderModalContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    margin: 30,
+    backgroundColor: "transparent",
+  },
+  loaderContent: {
+    backgroundColor: "white",
+    borderRadius: 16,
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 180,
+    minHeight: 120,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  loaderText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontFamily: "Poppins-Medium",
   },
 });
 

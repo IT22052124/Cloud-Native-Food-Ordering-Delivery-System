@@ -79,18 +79,33 @@ const HomeScreen = ({ navigation }) => {
 
   useEffect(() => {
     if (selectedAddress) {
-      fetchRestaurantsByLocation();
+      fetchRestaurantsByLocation().catch(() => {
+        // Silently catch any errors to prevent them from showing in the console
+        setLocationError(true);
+        setLoading(false);
+      });
     } else {
-      fetchData();
+      fetchData().catch(() => {
+        // Silently catch any errors
+        setLoading(false);
+      });
     }
   }, [selectedAddress]);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     if (selectedAddress) {
-      fetchRestaurantsByLocation().finally(() => setRefreshing(false));
+      fetchRestaurantsByLocation()
+        .catch(() => {
+          // Silently handle errors when refreshing
+        })
+        .finally(() => setRefreshing(false));
     } else {
-      fetchData().finally(() => setRefreshing(false));
+      fetchData()
+        .catch(() => {
+          // Silently handle errors when refreshing
+        })
+        .finally(() => setRefreshing(false));
     }
   }, [selectedAddress]);
 
@@ -103,6 +118,7 @@ const HomeScreen = ({ navigation }) => {
       ]);
 
       setCategories(categoriesData.categories);
+      console.log("categoriesData", categoriesData);
       setRestaurants(restaurantsData.restaurants);
 
       // Set featured restaurants (restaurants with highest ratings)
@@ -123,7 +139,66 @@ const HomeScreen = ({ navigation }) => {
         .slice(0, 3);
       setFeaturedRestaurants(featured);
 
-      // Set popular items - mock data for now
+      // Fetch dishes from the restaurants for Near You section
+      await fetchNearbyDishes(restaurantsData.restaurants);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // New function to fetch nearby dishes
+  const fetchNearbyDishes = async (restaurantsList) => {
+    try {
+      // Get dishes from the first 3 restaurants
+      const dishPromises = restaurantsList.slice(0, 3).map((restaurant) =>
+        dataService.getRestaurantDishes(restaurant._id).then((response) => {
+          // Map dishes to include the restaurant information
+          if (response && response.dishes) {
+            return response.dishes.map((dish) => ({
+              ...dish,
+              id: dish._id, // Ensure unique ID
+              restaurantId: restaurant._id,
+              restaurantName: restaurant.name,
+            }));
+          }
+          return [];
+        })
+      );
+
+      // Wait for all dish requests to complete
+      const dishesArrays = await Promise.all(dishPromises);
+
+      // Flatten the arrays and take top 4-6 dishes
+      const allDishes = dishesArrays.flat();
+
+      // Sort dishes by popularity or rating if available
+      const sortedDishes = allDishes
+        .filter((dish) => dish.isAvailable !== false) // Filter out unavailable dishes
+        .sort((a, b) => (b.popular === true) - (a.popular === true)); // Sort by popularity
+
+      // Take top dishes
+      const nearbyDishes = sortedDishes.slice(0, 6);
+
+      if (nearbyDishes.length > 0) {
+        setPopularItems(nearbyDishes);
+      } else {
+        // Fallback to default if no dishes found
+        setPopularItems([
+          {
+            id: "1",
+            name: "Double Cheeseburger",
+            price: 12.99,
+            category: "Burgers",
+            imageUrl:
+              "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+          },
+          // ... other default items
+        ]);
+      }
+    } catch (error) {
+      // Fallback to default popular items on error
       setPopularItems([
         {
           id: "1",
@@ -133,35 +208,8 @@ const HomeScreen = ({ navigation }) => {
           imageUrl:
             "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
         },
-        {
-          id: "2",
-          name: "Margherita Pizza",
-          price: 14.99,
-          category: "Pizza",
-          imageUrl:
-            "https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-        },
-        {
-          id: "3",
-          name: "Chicken Caesar Salad",
-          price: 9.99,
-          category: "Salads",
-          imageUrl:
-            "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-        },
-        {
-          id: "4",
-          name: "Spicy Ramen Bowl",
-          price: 11.99,
-          category: "Asian",
-          imageUrl:
-            "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-        },
+        // ... other default items
       ]);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -172,26 +220,41 @@ const HomeScreen = ({ navigation }) => {
       setLoading(true);
       setLocationError(false); // Reset error state
 
-      const [categoriesData, restaurantsData] = await Promise.all([
-        dataService.getCategories(),
-        dataService.getRestaurantsByLocation(
+      // Get categories
+      let categoriesData;
+      try {
+        categoriesData = await dataService.getCategories();
+        if (
+          categoriesData &&
+          categoriesData.success &&
+          categoriesData.categories
+        ) {
+          setCategories(categoriesData.categories);
+        }
+      } catch {
+        // Silently handle categories error
+      }
+
+      // Get restaurants - wrap in try/catch to silence API errors
+      let restaurantsData;
+      try {
+        restaurantsData = await dataService.getRestaurantsByLocation(
           selectedAddress.latitude,
           selectedAddress.longitude,
           100 // Default delivery range set to 5km
-        ),
-      ]);
-
-      if (
-        categoriesData &&
-        categoriesData.success &&
-        categoriesData.categories
-      ) {
-        setCategories(categoriesData.categories);
-      } else {
-        console.warn("No categories returned from API");
+        );
+      } catch {
+        // Handle 404 or other errors silently
+        setLocationError(true);
+        setRestaurants([]);
+        setFeaturedRestaurants([]);
+        setPopularItems([]);
+        setLoading(false);
+        return; // Exit early
       }
 
       if (
+        restaurantsData &&
         restaurantsData.success &&
         restaurantsData.restaurants &&
         restaurantsData.restaurants.length > 0
@@ -251,20 +314,26 @@ const HomeScreen = ({ navigation }) => {
           .slice(0, 3);
         setFeaturedRestaurants(featured);
 
-        // Also update popular items based on restaurant data
-        updatePopularItems(processedRestaurants);
+        // Fetch dishes from nearby restaurants for the "Dishes Near You" section
+        try {
+          await fetchNearbyDishes(processedRestaurants);
+        } catch {
+          // Silently handle dish fetch errors
+          setPopularItems([]);
+        }
       } else {
         // If no nearby restaurants are found, set error state
-        console.log("No nearby restaurants found");
         setLocationError(true);
         setRestaurants([]);
         setFeaturedRestaurants([]);
+        setPopularItems([]);
       }
     } catch (error) {
-      console.error("Error fetching data by location:", error);
+      // Handle all other errors silently
       setLocationError(true);
       setRestaurants([]);
       setFeaturedRestaurants([]);
+      setPopularItems([]);
     } finally {
       setLoading(false);
     }
@@ -301,84 +370,6 @@ const HomeScreen = ({ navigation }) => {
     return (baseFee + additionalFee).toFixed(2);
   };
 
-  // Update popular items based on restaurant data
-  const updatePopularItems = (restaurantList) => {
-    try {
-      // Collect dishes marked as popular from restaurants
-      let allPopularDishes = [];
-
-      restaurantList.forEach((restaurant) => {
-        if (restaurant.dishes && Array.isArray(restaurant.dishes)) {
-          // If dishes data is already available
-          const popularDishes = restaurant.dishes
-            .filter((dish) => dish.popular)
-            .map((dish) => ({
-              ...dish,
-              restaurantId: restaurant.id || restaurant._id,
-              restaurantName: restaurant.name,
-            }));
-
-          allPopularDishes = [...allPopularDishes, ...popularDishes];
-        }
-      });
-
-      // If we have enough popular dishes from the API
-      if (allPopularDishes.length >= 4) {
-        setPopularItems(allPopularDishes.slice(0, 4));
-      } else {
-        // Fallback to default popular items if not enough data
-        setPopularItems([
-          {
-            id: "1",
-            name: "Double Cheeseburger",
-            price: 12.99,
-            category: "Burgers",
-            imageUrl:
-              "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-          },
-          {
-            id: "2",
-            name: "Margherita Pizza",
-            price: 14.99,
-            category: "Pizza",
-            imageUrl:
-              "https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-          },
-          {
-            id: "3",
-            name: "Chicken Caesar Salad",
-            price: 9.99,
-            category: "Salads",
-            imageUrl:
-              "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-          },
-          {
-            id: "4",
-            name: "Spicy Ramen Bowl",
-            price: 11.99,
-            category: "Asian",
-            imageUrl:
-              "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-          },
-        ]);
-      }
-    } catch (error) {
-      console.error("Error updating popular items:", error);
-      // Fallback to default popular items on error
-      setPopularItems([
-        {
-          id: "1",
-          name: "Double Cheeseburger",
-          price: 12.99,
-          category: "Burgers",
-          imageUrl:
-            "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-        },
-        // ... other default items
-      ]);
-    }
-  };
-
   const loadSavedAddresses = async () => {
     try {
       const response = await dataService.getUserAddresses();
@@ -386,7 +377,7 @@ const HomeScreen = ({ navigation }) => {
         setSavedAddresses(response.addresses);
       }
     } catch (error) {
-      console.error("Error loading saved addresses:", error);
+      // Error handling for saved addresses
     }
   };
 
@@ -432,7 +423,6 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const handleAddressSelect = (address) => {
-    console.log(address);
     if (address.isCurrentLocation) {
       setSelectedAddress(address);
     } else {
@@ -478,14 +468,27 @@ const HomeScreen = ({ navigation }) => {
 
   const renderPopularItem = ({ item }) => (
     <FoodCard
-      item={item}
+      item={{
+        ...item,
+        price:
+          item.price ||
+          (item.portions && item.portions.length > 0
+            ? item.portions[0].price
+            : 0),
+        imageUrl:
+          item.imageUrls && item.imageUrls.length > 0
+            ? item.imageUrls[0]
+            : item.imageUrl,
+        category: item.category || item.categoryName,
+      }}
       onPress={() => {
-        /* Navigate to food detail */
+        // Navigate to dish detail screen
+        navigation.navigate("RestaurantDetail", {
+          restaurantId: item.restaurantId,
+          dishId: item.id || item._id,
+        });
       }}
-      onAddToCart={() => {
-        /* Add to cart functionality */
-      }}
-      isTrending={item.id === "1"}
+      isTrending={item.popular === true}
     />
   );
 
@@ -552,7 +555,7 @@ const HomeScreen = ({ navigation }) => {
           title={featuredRestaurants[0].name}
           subtitle={`${featuredRestaurants[0].cuisineType} • ${
             featuredRestaurants[0].distance
-              ? `${featuredRestaurants[0].distance} km`
+              ? `${featuredRestaurants[0].distance}`
               : "Delivery Available"
           }`}
           onPress={() =>
@@ -563,19 +566,22 @@ const HomeScreen = ({ navigation }) => {
         />
       )}
 
-      {/* Categories section */}
-      <View style={styles.sectionContainer}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            Categories
-          </Text>
-          <TouchableOpacity onPress={() => navigation.navigate("Search")}>
-            <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>
-              See All
+      {!locationError && (
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Categories
             </Text>
-          </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate("Search")}>
+              <Text
+                style={[styles.seeAllText, { color: theme.colors.primary }]}
+              >
+                See All
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      )}
     </>
   );
 
@@ -583,7 +589,7 @@ const HomeScreen = ({ navigation }) => {
     <View style={styles.sectionContainer}>
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-          Popular Items
+          Dishes Near You
         </Text>
         <TouchableOpacity onPress={() => navigation.navigate("Search")}>
           <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>
@@ -594,7 +600,7 @@ const HomeScreen = ({ navigation }) => {
       <FlatList
         data={popularItems}
         renderItem={renderPopularItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id || item._id || Math.random().toString()}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.popularItemsList}
@@ -653,18 +659,44 @@ const HomeScreen = ({ navigation }) => {
       >
         {renderHeader()}
 
-        {/* Categories Horizontal List */}
-        <FlatList
-          data={categories}
-          renderItem={renderCategory}
-          keyExtractor={(item) => item._id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesList}
-        />
+        {/* No Restaurant Error Message */}
+        {locationError && (
+          <View style={styles.errorContainer}>
+            <MaterialIcons
+              name="location-off"
+              size={48}
+              color={theme.colors.error}
+            />
+            <Text style={[styles.errorTitle, { color: theme.colors.text }]}>
+              There are no restaurants nearby
+            </Text>
+            <Text style={[styles.errorMessage, { color: theme.colors.gray }]}>
+              Try to change your location or increase the delivery range
+            </Text>
+            <GradientButton
+              title="Change Location"
+              onPress={() => setLocationModalVisible(true)}
+              style={styles.errorButton}
+            />
+          </View>
+        )}
 
-        {renderPopularItemsSection()}
-        {renderRestaurantsSection()}
+        {!locationError && (
+          <>
+            {/* Categories Horizontal List */}
+            <FlatList
+              data={categories}
+              renderItem={renderCategory}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesList}
+            />
+
+            {renderPopularItemsSection()}
+            {renderRestaurantsSection()}
+          </>
+        )}
 
         {/* Extra space at bottom for the tab bar */}
         <View style={styles.bottomPadding} />
@@ -827,7 +859,7 @@ const HomeScreen = ({ navigation }) => {
                   </View>
                   {savedAddresses.map((address, index) => (
                     <TouchableOpacity
-                      key={address._id || index}
+                      key={index}
                       style={[
                         styles.locationItem,
                         selectedAddress?._id === address._id &&
@@ -1105,6 +1137,29 @@ const styles = StyleSheet.create({
   SearchBar: {
     marginLeft: 20,
     marginRight: 20,
+  },
+  errorContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    marginTop: 32,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontFamily: "Poppins-Bold",
+    marginTop: 16,
+    textAlign: "center",
+  },
+  errorMessage: {
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
+    marginTop: 8,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  errorButton: {
+    marginTop: 16,
+    width: "80%",
   },
 });
 

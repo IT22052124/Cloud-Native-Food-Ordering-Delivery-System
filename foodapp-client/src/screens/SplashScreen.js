@@ -17,7 +17,7 @@ const SplashScreen = () => {
         resizeMode="contain"
       />
       <Text style={[styles.title, { color: theme.colors.primary }]}>
-        Truffle Go
+        FoodDash
       </Text>
 
       <LottieView

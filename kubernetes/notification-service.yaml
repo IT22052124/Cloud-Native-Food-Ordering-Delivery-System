@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: food-delivery
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: ${DOCKER_REGISTRY}/notification-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5008
+          env:
+            - name: PORT
+              value: "5008"
+            - name: NODE_ENV
+              value: "production"
+            - name: MONGOURL
+              value: "mongodb://mongodb:27017/food-notification"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
+            - name: KAFKA_BROKERS
+              value: "kafka:9092"
+            - name: EMAIL_SERVICE
+              value: "smtp"
+            - name: EMAIL_HOST
+              value: "smtp.example.com"
+            - name: EMAIL_PORT
+              value: "587"
+            - name: EMAIL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: EMAIL_USER
+            - name: EMAIL_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: EMAIL_PASS
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 5008
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: food-delivery
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - port: 5008
+      targetPort: 5008
+  type: ClusterIP

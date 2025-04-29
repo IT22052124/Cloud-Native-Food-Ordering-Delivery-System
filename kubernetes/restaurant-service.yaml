@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: restaurant-service
+  namespace: food-delivery
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: restaurant-service
+  template:
+    metadata:
+      labels:
+        app: restaurant-service
+    spec:
+      containers:
+        - name: restaurant-service
+          image: ${DOCKER_REGISTRY}/restaurant-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5006
+          env:
+            - name: PORT
+              value: "5006"
+            - name: NODE_ENV
+              value: "production"
+            - name: MONGOURL
+              value: "mongodb://mongodb:27017/food-restaurant"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
+            - name: ORDERS_SERVICE_URL
+              value: "http://order-service:5005"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 5006
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: restaurant-service
+  namespace: food-delivery
+spec:
+  selector:
+    app: restaurant-service
+  ports:
+    - port: 5006
+      targetPort: 5006
+  type: ClusterIP

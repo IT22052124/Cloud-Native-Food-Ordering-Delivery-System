@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: food-delivery-server
+  namespace: food-delivery
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: food-delivery-server
+  template:
+    metadata:
+      labels:
+        app: food-delivery-server
+    spec:
+      containers:
+        - name: food-delivery-server
+          image: ${DOCKER_REGISTRY}/food-delivery-server:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5004
+          env:
+            - name: PORT
+              value: "5004"
+            - name: NODE_ENV
+              value: "production"
+            - name: MONGOURL
+              value: "mongodb://mongodb:27017/food-delivery"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
+            - name: KAFKA_BROKERS
+              value: "kafka:9092"
+            - name: ORDER_SERVICE_URL
+              value: "http://order-service:5005"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 5004
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: food-delivery-server
+  namespace: food-delivery
+spec:
+  selector:
+    app: food-delivery-server
+  ports:
+    - port: 5004
+      targetPort: 5004
+  type: ClusterIP

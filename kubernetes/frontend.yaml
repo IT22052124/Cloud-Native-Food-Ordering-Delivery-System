@@ -1,0 +1,125 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foodapp-client
+  namespace: food-delivery
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: foodapp-client
+  template:
+    metadata:
+      labels:
+        app: foodapp-client
+    spec:
+      containers:
+        - name: foodapp-client
+          image: ${DOCKER_REGISTRY}/foodapp-client:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: foodapp-client
+  namespace: food-delivery
+spec:
+  selector:
+    app: foodapp-client
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: restaurant-dashboard
+  namespace: food-delivery
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: restaurant-dashboard
+  template:
+    metadata:
+      labels:
+        app: restaurant-dashboard
+    spec:
+      containers:
+        - name: restaurant-dashboard
+          image: ${DOCKER_REGISTRY}/restaurant-dashboard:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: restaurant-dashboard
+  namespace: food-delivery
+spec:
+  selector:
+    app: restaurant-dashboard
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin-dashboard
+  namespace: food-delivery
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: admin-dashboard
+  template:
+    metadata:
+      labels:
+        app: admin-dashboard
+    spec:
+      containers:
+        - name: admin-dashboard
+          image: ${DOCKER_REGISTRY}/admin-dashboard:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin-dashboard
+  namespace: food-delivery
+spec:
+  selector:
+    app: admin-dashboard
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP

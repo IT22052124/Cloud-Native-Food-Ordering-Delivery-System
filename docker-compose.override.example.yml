@@ -1,0 +1,123 @@
+version: "3.8"
+
+services:
+  # Auth Service
+  auth-service:
+    build:
+      context: ./auth
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./auth:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # Restaurant Service
+  restaurant-service:
+    build:
+      context: ./restaurant
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./restaurant:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # Order Service
+  order-service:
+    build:
+      context: ./order
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./order:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # Payment Service
+  payment-service:
+    build:
+      context: ./payment-service
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./payment-service:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # Notification Service
+  notification-service:
+    build:
+      context: ./notification-service
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./notification-service:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # Delivery Server
+  food-delivery-server:
+    build:
+      context: ./food-delivery-server
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./food-delivery-server:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # Client App
+  foodapp-client:
+    build:
+      context: ./foodapp-client
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./foodapp-client:/app
+      - /app/node_modules
+    command: npm start
+
+  # Restaurant Dashboard
+  restaurant-dashboard:
+    build:
+      context: ./food-delivery-restuarant-web
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./food-delivery-restuarant-web:/app
+      - /app/node_modules
+    command: npm start
+
+  # Admin Dashboard
+  admin-dashboard:
+    build:
+      context: ./food-delivery-admin
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./food-delivery-admin:/app
+      - /app/node_modules
+    command: npm start
+
+  # Client Delivery App
+  client-delivery-app:
+    build:
+      context: ./client-delivery-app
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./client-delivery-app:/app
+      - /app/node_modules
+    command: npm start
+
+  # Admin Service
+  admin-service:
+    build:
+      context: ./admin-service
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./admin-service:/app
+      - /app/node_modules
+    command: npm run dev

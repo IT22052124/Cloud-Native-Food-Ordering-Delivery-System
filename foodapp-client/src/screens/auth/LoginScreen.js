@@ -76,7 +76,7 @@ const LoginScreen = ({ navigation }) => {
               style={styles.logo}
             />
             <Text style={[styles.appName, { color: theme.colors.primary }]}>
-              Truffle Go
+              FoodDash
             </Text>
           </View>
 

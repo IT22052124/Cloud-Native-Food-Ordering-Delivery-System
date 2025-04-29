@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: food-delivery
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: ${DOCKER_REGISTRY}/payment-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5007
+          env:
+            - name: PORT
+              value: "5007"
+            - name: NODE_ENV
+              value: "production"
+            - name: MONGOURL
+              value: "mongodb://mongodb:27017/food-payment"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
+            - name: KAFKA_BROKERS
+              value: "kafka:9092"
+            - name: ORDER_SERVICE_URL
+              value: "http://order-service:5005"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 5007
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: food-delivery
+spec:
+  selector:
+    app: payment-service
+  ports:
+    - port: 5007
+      targetPort: 5007
+  type: ClusterIP

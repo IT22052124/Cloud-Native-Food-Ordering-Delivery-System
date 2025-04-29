@@ -44,6 +44,7 @@ const CartScreen = ({ navigation }) => {
   const [orderDetails, setOrderDetails] = useState(null);
   const [checkoutConfirmVisible, setCheckoutConfirmVisible] = useState(false);
   const [quantityUpdateLoading, setQuantityUpdateLoading] = useState(false);
+  const [updatingItemId, setUpdatingItemId] = useState(null);
 
   const handleCheckoutRequest = () => {
     if (!items.length || !restaurant) {
@@ -69,12 +70,16 @@ const CartScreen = ({ navigation }) => {
     }
 
     setQuantityUpdateLoading(true);
+    setUpdatingItemId(itemId);
     try {
       await updateQuantity(cartId, itemId, newQuantity);
     } catch (error) {
       console.error("Error updating quantity:", error);
     } finally {
-      setQuantityUpdateLoading(false);
+      setTimeout(() => {
+        setQuantityUpdateLoading(false);
+        setUpdatingItemId(null);
+      }, 600); // Add a small delay to ensure the animation is visible
     }
   };
 
@@ -443,18 +448,33 @@ const CartScreen = ({ navigation }) => {
     );
   };
 
-  if (loading) {
-    return (
-      <View
-        style={[
-          styles.loadingContainer,
-          { backgroundColor: theme.colors.background },
-        ]}
+  const renderQuantityUpdateLoader = () => (
+    <Portal>
+      <Modal
+        visible={quantityUpdateLoading}
+        dismissable={false}
+        contentContainerStyle={styles.loaderModalContainer}
       >
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
+        <View style={styles.loaderContent}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loaderText}>Updating cart...</Text>
+        </View>
+      </Modal>
+    </Portal>
+  );
+
+  // if (loading) {
+  //   return (
+  //     <View
+  //       style={[
+  //         styles.loadingContainer,
+  //         { backgroundColor: theme.colors.background },
+  //       ]}
+  //     >
+  //       <ActivityIndicator size="large" color={theme.colors.primary} />
+  //     </View>
+  //   );
+  // }
 
   return (
     <SafeAreaView
@@ -513,6 +533,7 @@ const CartScreen = ({ navigation }) => {
 
       {renderCheckoutConfirmDialog()}
       {renderEmptyCartModal()}
+      {renderQuantityUpdateLoader()}
     </SafeAreaView>
   );
 };
@@ -533,7 +554,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
-  
+
   headerTitle: {
     fontSize: 24,
     fontFamily: "Poppins-Bold",
@@ -771,6 +792,34 @@ const styles = StyleSheet.create({
   okButton: {
     marginTop: 8,
     paddingHorizontal: 32,
+  },
+  loaderModalContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    margin: 30,
+    backgroundColor: "transparent",
+  },
+  loaderContent: {
+    backgroundColor: "white",
+    borderRadius: 16,
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 180,
+    minHeight: 120,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  loaderText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontFamily: "Poppins-Medium",
   },
 });
 

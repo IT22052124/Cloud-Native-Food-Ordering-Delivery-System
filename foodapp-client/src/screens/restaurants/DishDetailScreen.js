@@ -44,6 +44,7 @@ const DishDetailScreen = ({ route, navigation }) => {
   const [portionModalVisible, setPortionModalVisible] = useState(false);
   const [modalQuantity, setModalQuantity] = useState(1);
   const [qrModalVisible, setQrModalVisible] = useState(false);
+  const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
 
   useEffect(() => {
     loadDishDetails();
@@ -54,6 +55,10 @@ const DishDetailScreen = ({ route, navigation }) => {
       setLoading(true);
       const restaurantData = await dataService.getRestaurantById(restaurantId);
       setRestaurant(restaurantData);
+
+      // Check if restaurant is open
+      const isOpen = !isRestaurantClosed(restaurantData);
+      setIsRestaurantOpen(isOpen);
 
       if (restaurantData && restaurantData.dishes) {
         const restaurantDish = await dataService.getRestaurantDishes(
@@ -73,6 +78,50 @@ const DishDetailScreen = ({ route, navigation }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const isRestaurantClosed = (restaurant) => {
+    console.log("123 ", restaurant.openingHours);
+    if (!restaurant.openingHours || restaurant.openingHours.length === 0)
+      return false;
+
+    // Get current day of the week (0 = Sunday, 1 = Monday, etc.)
+    const now = new Date();
+    const currentDay = now.getDay();
+    // Convert to match our array structure (where 0 = Monday, 6 = Sunday)
+    const dayIndex = currentDay === 0 ? 6 : currentDay - 1;
+
+    // Get the opening hours for today
+    const todayHours = restaurant.openingHours[dayIndex];
+    console.log(todayHours);
+    if (!todayHours) return true;
+
+    // If the restaurant is explicitly marked as closed for today
+    if (todayHours.isClosed) return true;
+
+    // Check if current time is outside opening hours
+    if (todayHours.open && todayHours.close) {
+      const currentTime = now.getHours() * 60 + now.getMinutes(); // current time in minutes
+
+      // Convert opening hours to minutes for comparison
+      const [openHour, openMinute] = todayHours.open.split(":").map(Number);
+      const [closeHour, closeMinute] = todayHours.close.split(":").map(Number);
+
+      const openTime = openHour * 60 + openMinute;
+      const closeTime = closeHour * 60 + closeMinute;
+
+      // Handle overnight opening hours (close time is less than open time)
+      if (closeTime < openTime) {
+        // Restaurant is open overnight
+        return currentTime < openTime && currentTime > closeTime;
+      } else {
+        // Regular hours
+        return currentTime < openTime || currentTime > closeTime;
+      }
+    }
+
+    // If open/close times aren't properly set, consider it closed
+    return todayHours.open === "" || todayHours.close === "";
   };
 
   const increaseQuantity = () => {
@@ -112,8 +161,8 @@ const DishDetailScreen = ({ route, navigation }) => {
   };
 
   const handleAddToCart = async () => {
-    if (!dish.isAvailable) {
-      return; // Don't allow adding if not available
+    if (!dish.isAvailable || !isRestaurantOpen) {
+      return; // Don't allow adding if dish not available or restaurant closed
     }
 
     if (dish.portions && dish.portions.length > 0 && !selectedPortion) {
@@ -143,6 +192,11 @@ const DishDetailScreen = ({ route, navigation }) => {
   };
 
   const handlePortionAdd = async () => {
+    if (!isRestaurantOpen) {
+      setPortionModalVisible(false);
+      return;
+    }
+
     setPortionModalVisible(false);
     setCartAddingLoading(true);
     if (
@@ -165,6 +219,8 @@ const DishDetailScreen = ({ route, navigation }) => {
   };
 
   const handleClearCartAndAdd = () => {
+    if (!isRestaurantOpen) return;
+
     clearCart();
     const dishWithQuantity = {
       ...dish,
@@ -241,6 +297,13 @@ const DishDetailScreen = ({ route, navigation }) => {
                 </Text>
               </View>
             )}
+            {!isRestaurantOpen && dish.isAvailable && (
+              <View style={styles.unavailableOverlay}>
+                <Text style={styles.restaurantClosedText}>
+                  Restaurant Closed
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.contentContainer}>
@@ -251,10 +314,13 @@ const DishDetailScreen = ({ route, navigation }) => {
               <TouchableOpacity
                 style={[
                   styles.quantityButton,
-                  !dish.isAvailable && styles.disabledButton,
+                  (!dish.isAvailable || !isRestaurantOpen) &&
+                    styles.disabledButton,
                 ]}
                 onPress={decreaseQuantity}
-                disabled={quantity <= 1 || !dish.isAvailable}
+                disabled={
+                  quantity <= 1 || !dish.isAvailable || !isRestaurantOpen
+                }
               >
                 <Text style={styles.quantityButtonText}>−</Text>
               </TouchableOpacity>
@@ -262,10 +328,11 @@ const DishDetailScreen = ({ route, navigation }) => {
               <TouchableOpacity
                 style={[
                   styles.quantityButton,
-                  !dish.isAvailable && styles.disabledButton,
+                  (!dish.isAvailable || !isRestaurantOpen) &&
+                    styles.disabledButton,
                 ]}
                 onPress={increaseQuantity}
-                disabled={!dish.isAvailable}
+                disabled={!dish.isAvailable || !isRestaurantOpen}
               >
                 <Text style={styles.quantityButtonText}>+</Text>
               </TouchableOpacity>
@@ -284,7 +351,8 @@ const DishDetailScreen = ({ route, navigation }) => {
                       key={index}
                       style={[
                         styles.portionCard,
-                        !dish.isAvailable && styles.disabledPortionCard,
+                        (!dish.isAvailable || !isRestaurantOpen) &&
+                          styles.disabledPortionCard,
                         selectedPortion && selectedPortion.size === portion.size
                           ? {
                               borderColor: "#FF5722",
@@ -295,15 +363,18 @@ const DishDetailScreen = ({ route, navigation }) => {
                             },
                       ]}
                       onPress={() =>
-                        dish.isAvailable && setSelectedPortion(portion)
+                        dish.isAvailable &&
+                        isRestaurantOpen &&
+                        setSelectedPortion(portion)
                       }
-                      disabled={!dish.isAvailable}
+                      disabled={!dish.isAvailable || !isRestaurantOpen}
                     >
                       <View style={styles.portionNameContainer}>
                         <Text
                           style={[
                             styles.portionName,
-                            !dish.isAvailable && styles.disabledText,
+                            (!dish.isAvailable || !isRestaurantOpen) &&
+                              styles.disabledText,
                             selectedPortion &&
                               selectedPortion.size === portion.size && {
                                 color: "#FF5722",
@@ -318,7 +389,8 @@ const DishDetailScreen = ({ route, navigation }) => {
                         <Text
                           style={[
                             styles.portionPrice,
-                            !dish.isAvailable && styles.disabledText,
+                            (!dish.isAvailable || !isRestaurantOpen) &&
+                              styles.disabledText,
                           ]}
                         >
                           LKR {portion.price.toFixed(2)}
@@ -347,7 +419,6 @@ const DishDetailScreen = ({ route, navigation }) => {
                     restaurantId: restaurant._id,
                   })
                 }
-                disabled={!dish.isAvailable}
               >
                 <Image
                   source={{ uri: restaurant.imageUrls[0] }}
@@ -360,6 +431,21 @@ const DishDetailScreen = ({ route, navigation }) => {
                   <Text style={styles.restaurantCuisine}>
                     {restaurant.cuisineType}
                   </Text>
+                  <View style={styles.statusIndicator}>
+                    <View
+                      style={[
+                        styles.statusDot,
+                        isRestaurantOpen ? styles.openDot : styles.closedDot,
+                      ]}
+                    />
+                    <Text
+                      style={
+                        isRestaurantOpen ? styles.openText : styles.closedText
+                      }
+                    >
+                      {isRestaurantOpen ? "Open Now" : "Closed"}
+                    </Text>
+                  </View>
                 </View>
                 <Ionicons name="chevron-forward" size={24} color="#999" />
               </TouchableOpacity>
@@ -369,10 +455,13 @@ const DishDetailScreen = ({ route, navigation }) => {
               <TouchableOpacity
                 style={[
                   styles.addButton,
-                  !dish.isAvailable && styles.disabledAddButton,
+                  (!dish.isAvailable || !isRestaurantOpen) &&
+                    styles.disabledAddButton,
                 ]}
                 onPress={handleAddToCart}
-                disabled={cartAddingLoading || !dish.isAvailable}
+                disabled={
+                  cartAddingLoading || !dish.isAvailable || !isRestaurantOpen
+                }
               >
                 {cartAddingLoading ? (
                   <ActivityIndicator color="#FFFFFF" />
@@ -386,6 +475,13 @@ const DishDetailScreen = ({ route, navigation }) => {
               <Text style={styles.unavailableNote}>
                 This item is currently unavailable. Please check back later or
                 explore other options.
+              </Text>
+            )}
+
+            {!isRestaurantOpen && dish.isAvailable && (
+              <Text style={styles.unavailableNote}>
+                This restaurant is currently closed. You can't add items to your
+                cart until the restaurant opens.
               </Text>
             )}
           </View>
@@ -462,7 +558,7 @@ const DishDetailScreen = ({ route, navigation }) => {
               style={[styles.addButtonModal, { backgroundColor: "#FF5722" }]}
               labelStyle={styles.addButtonLabel}
               onPress={handlePortionAdd}
-              disabled={!selectedPortion}
+              disabled={!selectedPortion || !isRestaurantOpen}
             >
               Add to Cart
             </Button>
@@ -663,6 +759,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 87, 34, 0.8)",
     borderRadius: 5,
   },
+  restaurantClosedText: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "bold",
+    textAlign: "center",
+    padding: 10,
+    backgroundColor: "rgba(244, 67, 54, 0.8)",
+    borderRadius: 5,
+  },
   contentContainer: {
     padding: 20,
   },
@@ -806,6 +911,33 @@ const styles = StyleSheet.create({
   restaurantCuisine: {
     fontSize: 14,
     color: "#888888",
+  },
+  statusIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  openDot: {
+    backgroundColor: "#4CAF50",
+  },
+  closedDot: {
+    backgroundColor: "#F44336",
+  },
+  openText: {
+    fontSize: 12,
+    color: "#4CAF50",
+    fontWeight: "500",
+  },
+  closedText: {
+    fontSize: 12,
+    color: "#F44336",
+    fontWeight: "500",
   },
   actionButtonsContainer: {
     flexDirection: "row",
