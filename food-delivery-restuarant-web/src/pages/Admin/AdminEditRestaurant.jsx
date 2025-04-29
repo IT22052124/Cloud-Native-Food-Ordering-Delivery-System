@@ -364,7 +364,7 @@ const AdminEditRestaurant = () => {
         imageUrls,
       });
       toast.success('Restaurant updated successfully');
-      navigate('/restaurants/admin');
+      navigate('/admin-dashboard');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to update restaurant');
     }

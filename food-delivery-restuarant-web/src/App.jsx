@@ -24,6 +24,7 @@ import UserProfile from "./pages/userprofile";
 import PendingRestaurantTable from "./pages/pendingRestaurant";
 import RestaurantAdminDetails from "./pages/Admin/resturantAdminDetails"
 import AdminEditRestaurant from "./pages/Admin/AdminEditRestaurant"
+import Credentialpage from "./pages/Admin/credentialpage"
 const App = () => {
   return (
     <Router>
@@ -41,6 +42,7 @@ const App = () => {
         <Route path="/restaurants/" element={<Resturant />} />
         <Route path="/restaurants/admin/profile" element={<RestaurantAdminDetails />} />
         <Route path="/restaurants/admin/edit/:id" element={<AdminEditRestaurant />} />
+        <Route path="/restaurants/admin/credentials/:id" element={<Credentialpage />} />
 
         <Route path="/restaurants/:id" element={<RestaurantDetails />} />
         <Route path="/restaurants/edit/:id" element={<EditRestaurant />} />
