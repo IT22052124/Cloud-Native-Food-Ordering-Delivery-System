@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import { ref, deleteObject } from "firebase/storage";
 import { sendKafkaNotification } from "shared-kafka";
+import axios from "axios";
 dotenv.config();
 
 export const addRestaurant = async (req, res) => {
@@ -32,24 +33,28 @@ export const addRestaurant = async (req, res) => {
       cuisineType,
       estimatedPrepTime,
     } = req.body;
-// Validate credentials array
-if (!Array.isArray(credentials) || credentials.length === 0) {
-  return res.status(400).json({
-    message: 'At least one credential pair is required',
-  });
-}
-   // Check for duplicate usernames across all restaurants
-   const existingUsernames = await Restaurant.find({
-    'restaurantAdmin.username': { $in: credentials.map(cred => cred.username) },
-  });
-  if (existingUsernames.length > 0) {
-    const duplicateUsernames = existingUsernames
-      .flatMap(rest => rest.restaurantAdmin.map(admin => admin.username))
-      .filter(username => credentials.some(cred => cred.username === username));
-    return res.status(400).json({
-      message: `Usernames already exist: ${duplicateUsernames.join(', ')}`,
+    // Validate credentials array
+    if (!Array.isArray(credentials) || credentials.length === 0) {
+      return res.status(400).json({
+        message: "At least one credential pair is required",
+      });
+    }
+    // Check for duplicate usernames across all restaurants
+    const existingUsernames = await Restaurant.find({
+      "restaurantAdmin.username": {
+        $in: credentials.map((cred) => cred.username),
+      },
     });
-  }
+    if (existingUsernames.length > 0) {
+      const duplicateUsernames = existingUsernames
+        .flatMap((rest) => rest.restaurantAdmin.map((admin) => admin.username))
+        .filter((username) =>
+          credentials.some((cred) => cred.username === username)
+        );
+      return res.status(400).json({
+        message: `Usernames already exist: ${duplicateUsernames.join(", ")}`,
+      });
+    }
 
     const exist = await Restaurant.findOne({
       "address.street": street,
@@ -61,19 +66,21 @@ if (!Array.isArray(credentials) || credentials.length === 0) {
       });
     }
 
-   // Hash all passwords in the credentials array
-   const hashedCredentials = await Promise.all(
-    credentials.map(async (cred) => {
-      if (!cred.username || !cred.password) {
-        throw new Error('Username and password are required for all credentials');
-      }
-      const hashedPassword = await bcrypt.hash(cred.password, 10);
-      return {
-        username: cred.username,
-        password: hashedPassword,
-      };
-    })
-  );
+    // Hash all passwords in the credentials array
+    const hashedCredentials = await Promise.all(
+      credentials.map(async (cred) => {
+        if (!cred.username || !cred.password) {
+          throw new Error(
+            "Username and password are required for all credentials"
+          );
+        }
+        const hashedPassword = await bcrypt.hash(cred.password, 10);
+        return {
+          username: cred.username,
+          password: hashedPassword,
+        };
+      })
+    );
 
     // Default opening hours if none provided
     const defaultOpeningHours = [
@@ -104,7 +111,7 @@ if (!Array.isArray(credentials) || credentials.length === 0) {
         phone: phone,
         email: email,
       },
-    restaurantAdmin: hashedCredentials, // Store array of credentials
+      restaurantAdmin: hashedCredentials, // Store array of credentials
       imageUrls: Array.isArray(imageUrls) ? imageUrls : [],
       coverImageUrl: coverImageUrl || " ",
       isVerified: "pending",
@@ -120,7 +127,7 @@ if (!Array.isArray(credentials) || credentials.length === 0) {
         branch: branch,
       },
       serviceType: serviceType,
-     openingHours: Array.isArray(openingHours)
+      openingHours: Array.isArray(openingHours)
         ? openingHours
         : defaultOpeningHours, // Use provided hours or default
       estimatedPrepTime: estimatedPrepTime,
@@ -542,8 +549,74 @@ export const updateRestaurantVerification = async (req, res) => {
     // Example: if (!req.user.isAdmin) return res.status(403).json(...);
 
     // 4. Update only the `isVerified` field
+    const previousStatus = restaurant.isVerified;
     restaurant.isVerified = isVerified;
     await restaurant.save();
+
+    // 5. Send notification email to restaurant owner about status change
+    try {
+      let subject, text, html;
+
+      switch (isVerified) {
+        case "active":
+          subject = `Your Restaurant ${restaurant.name} Has Been Approved`;
+          text = `Congratulations! Your restaurant ${restaurant.name} has been approved and is now active on our platform.`;
+          html = `
+            <h2>Restaurant Approved</h2>
+            <p>Congratulations!</p>
+            <p>Your restaurant <strong>${restaurant.name}</strong> has been approved and is now active on our platform.</p>
+            <p>You can now start receiving orders from customers.</p>
+            <p>Thank you for partnering with us!</p>
+          `;
+          break;
+
+        case "suspended":
+          subject = `Your Restaurant ${restaurant.name} Has Been Suspended`;
+          text = `Your restaurant ${restaurant.name} has been suspended from our platform. Please contact support for more information.`;
+          html = `
+            <h2>Restaurant Suspended</h2>
+            <p>We regret to inform you that your restaurant <strong>${restaurant.name}</strong> has been suspended from our platform.</p>
+            <p>Please contact our support team for more information about this action.</p>
+            <p>Previous status: ${previousStatus}</p>
+          `;
+          break;
+
+        case "pending":
+          subject = `Your Restaurant ${restaurant.name} Status Changed to Pending`;
+          text = `Your restaurant ${restaurant.name} status has been changed to pending. Our team will review your information shortly.`;
+          html = `
+            <h2>Restaurant Status Update</h2>
+            <p>Your restaurant <strong>${restaurant.name}</strong> status has been changed to pending.</p>
+            <p>Our team will review your information shortly. You'll receive another notification once the review is complete.</p>
+            <p>Previous status: ${previousStatus}</p>
+          `;
+          break;
+      }
+
+      await axios.post(
+        `${global.gConfig.notification_url}/api/notifications/email`,
+        {
+          to: restaurant.contact.email, // assuming restaurant has contactEmail field
+          subject: subject,
+          text: text,
+          html: html,
+        },
+        { headers: { Authorization: req.headers.authorization } }
+      );
+
+      // Send SMS notification to restaurant owner (commented as per example)
+      // await axios.post(
+      //   `${global.gConfig.notification_url}/api/notifications/sms`,
+      //   {
+      //     to: restaurant.contactPhone, // assuming restaurant has contactPhone field
+      //     body: text,
+      //   },
+      //   { headers: { Authorization: req.headers.authorization } }
+      // );
+    } catch (emailError) {
+      console.error("Failed to send verification status email:", emailError);
+      // Don't fail the whole request if email fails
+    }
 
     res.json({
       message: `Restaurant verification status updated to '${isVerified}'.`,
@@ -715,8 +788,9 @@ export const searchRestaurants = async (req, res) => {
 export const getMyRestaurants = async (req, res) => {
   try {
     const ownerId = req.owner; // From JWT middleware
-    const restaurants = await Restaurant.find({ ownerId ,
-      isVerified:"active"
+    const restaurants = await Restaurant.find({
+      ownerId,
+      isVerified: "active",
     });
 
     if (!restaurants || restaurants.length === 0) {
@@ -740,8 +814,9 @@ export const getMyRestaurants = async (req, res) => {
 export const getMypendingRestaurants = async (req, res) => {
   try {
     const ownerId = req.owner; // From JWT middleware
-    const restaurants = await Restaurant.find({ ownerId ,
-      isVerified:"pending"
+    const restaurants = await Restaurant.find({
+      ownerId,
+      isVerified: "pending",
     });
 
     if (!restaurants || restaurants.length === 0) {

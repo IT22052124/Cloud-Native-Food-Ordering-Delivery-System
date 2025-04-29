@@ -20,6 +20,7 @@ app.use(
 
 global.gConfig = {
   orders_url: process.env.ORDERS_SERVICE_URL || "http://localhost:5002", // Adjust port as needed
+  notification_url: process.env.NOTIFICATION_SERVICE_URL,
 };
 
 app.use(express.json());
