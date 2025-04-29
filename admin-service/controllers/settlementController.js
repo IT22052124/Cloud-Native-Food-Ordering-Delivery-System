@@ -1,4 +1,5 @@
 import Settlement from "../model/restaurantSettlement.js";
+import { bankTransfer } from "../utils/bankTransfer.js";
 
 export const addOrderToSettlement = async (req, res) => {
   try {
@@ -62,18 +63,17 @@ export const getAllSettlements = async (req, res) => {
 // controllers/settlementController.js
 export const processWeeklySettlements = async (req, res) => {
   try {
-    // 1. Get all pending settlements for the past week
-    const lastSunday = getPreviousSunday(); // Helper function
+    // 1. Get pending settlements
+    const lastSunday = getPreviousSunday();
     const pendingSettlements = await Settlement.find({
       weekEnding: lastSunday,
       status: "PENDING",
     });
 
-    // 2. Process each settlement
+    // 2. Process each settlement using the imported bankTransfer
     const results = await Promise.allSettled(
       pendingSettlements.map(async (settlement) => {
         try {
-          // 3. Initiate bank transfer (pseudo-code)
           const paymentResult = await bankTransfer(
             settlement.restaurantId,
             settlement.amountDue,
@@ -82,7 +82,6 @@ export const processWeeklySettlements = async (req, res) => {
             }`
           );
 
-          // 4. Update settlement record
           return await Settlement.findByIdAndUpdate(
             settlement._id,
             {
@@ -93,7 +92,6 @@ export const processWeeklySettlements = async (req, res) => {
             { new: true }
           );
         } catch (error) {
-          // Mark failed settlements
           await Settlement.findByIdAndUpdate(settlement._id, {
             status: "FAILED",
             failureReason: error.message,
