@@ -1,98 +1,80 @@
-"use client"
-
-import { useState, useContext } from "react"
-import { useNavigate } from "react-router-dom"
-import { AuthContext } from "../../context/AuthContext"
-import { loginOwner } from "../../utils/api"
-import { toast } from "react-toastify"
+import { useState, useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import { AuthContext } from "../../context/AuthContext";
+import { loginOwner } from "../../utils/api";
+import { toast } from "react-toastify";
+import icon from "../../assets/icon.png"; // Updated to use icon.png
 
 const Landing = () => {
-  // Keep all the original state and functions intact
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [loading, setLoading] = useState(false)
-  const { login } = useContext(AuthContext)
-  const navigate = useNavigate()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { login } = useContext(AuthContext);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
     try {
-      const response = await loginOwner({ email, password })
-      login(response.token, "owner")
-      toast.success("Login successful!")
-      console.log("Navigating to /dashboard")
-      navigate("/dashboard")
+      const response = await loginOwner({ email, password });
+      login(response.token, "owner");
+      toast.success("Login successful!");
+      console.log("Navigating to /dashboard");
+      navigate("/dashboard");
     } catch (error) {
-      toast.error(error.response?.data?.message || "Login failed")
+      toast.error(error.response?.data?.message || "Login failed");
     }
-    setLoading(false)
-  }
+    setLoading(false);
+  };
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-gray-950">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white dark:bg-gray-900 shadow-sm">
-        <div className="container mx-auto px-4 md:px-6 py-3">
+      <header className="sticky top-0 z-20 bg-white dark:bg-gray-900 shadow-lg transition-all duration-300">
+        <div className="container mx-auto px-4 md:px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-orange-500 text-white">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+            <div className="flex items-center gap-3">
+              <img src={icon} alt="FoodDash Icon" className="w-12 h-12 rounded-full object-cover" />
+              <span className="text-2xl font-extrabold text-gray-800 dark:text-white tracking-tight">FoodDash</span>
+            </div>
+
+            <nav className="hidden md:flex items-center space-x-8">
+              {["Features", "How It Works", "Testimonials", "Pricing"].map((item) => (
+                <a
+                  key={item}
+                  href={`#${item.toLowerCase().replace(" ", "-")}`}
+                  className="text-gray-600 dark:text-gray-300 text-lg font-medium hover:text-orange-500 dark:hover:text-orange-400 transition-colors duration-200"
+                  aria-label={item}
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-              </div>
-              <span className="text-xl font-bold text-gray-800 dark:text-white">FoodDash</span>
-            </div>
+                  {item}
+                </a>
+              ))}
+            </nav>
 
-            <div className="hidden md:flex items-center space-x-6">
+            <div className="flex items-center space-x-4">
               <a
-                href="#features"
-                className="text-gray-600 hover:text-orange-500 dark:text-gray-300 dark:hover:text-orange-400"
+                href="/restaurant/admin/login"
+                className="text-gray-700 dark:text-gray-300 text-lg font-medium hover:text-orange-500 dark:hover:text-orange-400 px-4 py-2 rounded-lg transition-colors duration-200"
+                aria-label="Restaurant Admin Login"
               >
-                Features
+                Restaurant Login
               </a>
-              <a
-                href="#how-it-works"
-                className="text-gray-600 hover:text-orange-500 dark:text-gray-300 dark:hover:text-orange-400"
-              >
-                How It Works
-              </a>
-              <a
-                href="#testimonials"
-                className="text-gray-600 hover:text-orange-500 dark:text-gray-300 dark:hover:text-orange-400"
-              >
-                Testimonials
-              </a>
-              <a
-                href="#pricing"
-                className="text-gray-600 hover:text-orange-500 dark:text-gray-300 dark:hover:text-orange-400"
-              >
-                Pricing
-              </a>
-            </div>
-
-            <div className="flex items-center space-x-3">
               <button
                 onClick={() => document.getElementById("login-modal").classList.toggle("hidden")}
-                className="text-gray-700 dark:text-gray-300 hover:text-orange-500 dark:hover:text-orange-400 px-4 py-2 rounded-md"
+                className="text-gray-700 dark:text-gray-300 text-lg font-medium hover:text-orange-500 dark:hover:text-orange-400 px-4 py-2 rounded-lg transition-colors duration-200"
+                aria-label="Sign In"
               >
                 Sign In
               </button>
-
               <button
-                className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md flex items-center"
+                className="bg-orange-500 hover:bg-orange-600 text-white text-lg font-semibold px-6 py-2 rounded-lg flex items-center gap-2 shadow-md transition-all duration-200"
                 onClick={() => navigate("/signup")}
+                aria-label="Get Started"
               >
                 Get Started
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 ml-2"
+                  className="h-5 w-5"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -106,23 +88,23 @@ const Landing = () => {
       </header>
 
       {/* Login Modal */}
-      <div id="login-modal" className="fixed inset-0 z-50 flex items-center justify-center hidden">
+      <div id="login-modal" className="fixed inset-0 z-50 flex items-center justify-center hidden transition-opacity duration-300">
         <div
-          className="absolute inset-0 bg-black bg-opacity-50"
+          className="absolute inset-0 bg-black bg-opacity-60 backdrop-blur-sm"
           onClick={() => document.getElementById("login-modal").classList.add("hidden")}
+          aria-hidden="true"
         ></div>
-        <div className="w-full max-w-md z-10 mx-4">
-          {/* Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
-            {/* Header */}
-            <div className="bg-orange-500 p-6 relative">
+        <div className="w-full max-w-md z-10 mx-4 transform transition-transform duration-300 scale-95">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-8 relative">
               <button
                 onClick={() => document.getElementById("login-modal").classList.add("hidden")}
-                className="absolute top-4 right-4 text-white hover:text-orange-100"
+                className="absolute top-4 right-4 text-white hover:text-orange-100 transition-colors duration-200"
+                aria-label="Close Login Modal"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
+                  className="h-7 w-7"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -130,19 +112,18 @@ const Landing = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-              <h2 className="text-2xl font-bold text-white text-center">Welcome Back</h2>
-              <p className="text-orange-100 text-center mt-1">Sign in to manage your restaurant</p>
+              <h2 className="text-3xl font-bold text-white text-center">Welcome Back</h2>
+              <p className="text-orange-100 text-center mt-2">Sign in to manage your restaurant</p>
             </div>
 
-            {/* Form */}
-            <div className="p-8">
-              <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="p-10">
+              <form onSubmit={handleSubmit} className="space-y-8">
                 <div>
-                  <label className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2" htmlFor="email">
+                  <label className="block text-gray-700 dark:text-gray-200 text-sm font-semibold mb-3" htmlFor="email">
                     Email Address
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         className="h-5 w-5 text-gray-400"
@@ -163,19 +144,20 @@ const Landing = () => {
                       id="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
                       placeholder="you@example.com"
                       required
+                      aria-required="true"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2" htmlFor="password">
+                  <label className="block text-gray-700 dark:text-gray-200 text-sm font-semibold mb-3" htmlFor="password">
                     Password
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         className="h-5 w-5 text-gray-400"
@@ -196,9 +178,10 @@ const Landing = () => {
                       id="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
                       placeholder="••••••••"
                       required
+                      aria-required="true"
                     />
                   </div>
                 </div>
@@ -210,14 +193,19 @@ const Landing = () => {
                       name="remember-me"
                       type="checkbox"
                       className="h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
+                      aria-label="Remember me"
                     />
-                    <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                    <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 dark:text-gray-200">
                       Remember me
                     </label>
                   </div>
 
                   <div className="text-sm">
-                    <a href="#" className="font-medium text-orange-500 hover:text-orange-600 dark:text-orange-400">
+                    <a
+                      href="#"
+                      className="font-medium text-orange-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors duration-200"
+                      aria-label="Forgot Password"
+                    >
                       Forgot password?
                     </a>
                   </div>
@@ -225,8 +213,9 @@ const Landing = () => {
 
                 <button
                   type="submit"
-                  className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors duration-200 disabled:bg-orange-300 dark:disabled:bg-orange-700"
+                  className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-md text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all duration-200 disabled:bg-orange-300 dark:disabled:bg-orange-700"
                   disabled={loading}
+                  aria-label={loading ? "Logging in" : "Sign In"}
                 >
                   {loading ? (
                     <>
@@ -261,7 +250,11 @@ const Landing = () => {
               <div className="mt-6 text-center">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Don't have an account?{" "}
-                  <a href="#" className="font-medium text-orange-500 hover:text-orange-600 dark:text-orange-400">
+                  <a
+                    href="#"
+                    className="font-medium text-orange-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors duration-200"
+                    aria-label="Apply to join"
+                  >
                     Apply to join
                   </a>
                 </p>
@@ -273,74 +266,82 @@ const Landing = () => {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-gray-900 dark:to-gray-800 py-16 md:py-24">
+        <section className="bg-gradient-to-br from-orange-100 to-orange-200 dark:from-gray-900 dark:to-gray-800 py-20 md:py-32">
           <div className="container mx-auto px-4 md:px-6">
             <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="space-y-6">
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white leading-tight">
-                  Grow Your Restaurant Business with <span className="text-orange-500">FoodDash</span>
+              <div className="space-y-8 animate-fade-in-up">
+                <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-gray-900 dark:text-white leading-tight tracking-tight">
+                  Grow Your Restaurant with <span className="text-orange-500">FoodDash</span>
                 </h1>
-                <p className="text-xl text-gray-600 dark:text-gray-300">
-                  The all-in-one platform that helps restaurant owners increase orders, streamline operations, and
-                  delight customers.
+                <p className="text-xl text-gray-600 dark:text-gray-300 max-w-lg">
+                  Streamline operations, boost orders, and delight customers with our all-in-one platform designed for restaurant success.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
                   <button
-                    className="bg-orange-500 hover:bg-orange-600 text-white py-3 px-6 rounded-lg text-lg"
+                    className="bg-orange-500 hover:bg-orange-600 text-white text-lg font-semibold py-3 px-8 rounded-xl shadow-lg transition-all duration-200"
                     onClick={() => navigate("/signup")}
+                    aria-label="Join Now"
                   >
                     Join Now
                   </button>
                   <button
-                    className="border border-orange-500 text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 py-3 px-6 rounded-lg text-lg"
+                    className="border-2 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white dark:hover:bg-orange-600 py-3 px-8 rounded-xl text-lg font-semibold transition-all duration-200"
                     onClick={() => (window.location.href = "#how-it-works")}
+                    aria-label="Learn More"
                   >
                     Learn More
                   </button>
                 </div>
                 <div className="flex items-center gap-4 text-gray-600 dark:text-gray-300">
-                  <div className="flex -space-x-2">
+                  <div className="flex -space-x-3">
                     {[1, 2, 3, 4].map((n) => (
                       <div
                         key={n}
-                        className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800 bg-orange-200 dark:bg-gray-700"
+                        className="w-10 h-10 rounded-full border-2 border-white dark:border-gray-800 bg-orange-200 dark:bg-gray-700"
                       ></div>
                     ))}
                   </div>
-                  <p>Trusted by 2,000+ restaurant owners</p>
+                  <p className="text-lg font-medium">Trusted by 2,000+ restaurant owners</p>
                 </div>
               </div>
-              <div className="relative">
-                <div className="aspect-video rounded-xl overflow-hidden shadow-2xl">
-                  <img
-                    src="https://placehold.co/800x500/orange/white"
-                    alt="FoodDash Restaurant Dashboard"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="absolute -bottom-6 -left-6 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-green-100 dark:bg-green-900 p-2 rounded-full">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5 text-green-600 dark:text-green-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M14 5l7 7m0 0l-7 7m7-7H3"
-                        />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-gray-800 dark:text-white font-medium">Order Growth</p>
-                      <p className="text-green-600 dark:text-green-400 font-bold">+32% this month</p>
+              <div className="space-y-8 animate-fade-in-right">
+                <div className="relative">
+                  <div className="absolute -bottom-8 -left-8 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl transform rotate-3">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-green-100 dark:bg-green-900 p-3 rounded-full">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-6 w-6 text-green-600 dark:text-green-400"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M14 5l7 7m0 0l-7 7m7-7H3"
+                          />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-gray-800 dark:text-white font-semibold text-lg">Order Growth</p>
+                        <p className="text-green-600 dark:text-green-400 font-bold text-xl">+32% this month</p>
+                      </div>
                     </div>
                   </div>
+                </div>
+                <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white leading-tight tracking-tight">
+                  Boost your restaurant's growth with <span className="text-orange-500">FoodDash</span>.
+                </h2>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <button
+                    className="bg-orange-500 hover:bg-orange-600 text-white text-lg font-semibold py-3 px-8 rounded-xl shadow-lg transition-all duration-200"
+                    onClick={() => navigate("/signup")}
+                    aria-label="Get Started"
+                  >
+                    Get Started
+                  </button>
                 </div>
               </div>
             </div>
@@ -348,15 +349,14 @@ const Landing = () => {
         </section>
 
         {/* Features Section */}
-        <section id="features" className="py-16 md:py-24 bg-white dark:bg-gray-900">
+        <section id="features" className="py-20 md:py-32 bg-white dark:bg-gray-900">
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-                Everything you need to succeed
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
+                Tools for Your Success
               </h2>
-              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-                Our platform gives restaurant owners powerful tools to grow their business and provide exceptional
-                service.
+              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+                Empower your restaurant with powerful features to streamline operations and grow your business.
               </p>
             </div>
 
@@ -364,12 +364,11 @@ const Landing = () => {
               {[
                 {
                   title: "Online Ordering",
-                  description:
-                    "Accept orders directly from your website, mobile app, and social media with zero commission fees.",
+                  description: "Accept orders from your website, app, and social media with zero commission fees.",
                   icon: (
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-10 w-10 text-orange-500"
+                      className="h-12 w-12 text-orange-500"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -385,12 +384,11 @@ const Landing = () => {
                 },
                 {
                   title: "Delivery Management",
-                  description:
-                    "Optimize routes, track deliveries in real-time, and keep customers informed automatically.",
+                  description: "Optimize routes, track deliveries in real-time, and keep customers informed.",
                   icon: (
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-10 w-10 text-orange-500"
+                      className="h-12 w-12 text-orange-500"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -406,12 +404,11 @@ const Landing = () => {
                 },
                 {
                   title: "Kitchen Display",
-                  description:
-                    "Streamline your kitchen operations with digital ticket management and preparation timers.",
+                  description: "Streamline kitchen operations with digital tickets and preparation timers.",
                   icon: (
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-10 w-10 text-orange-500"
+                      className="h-12 w-12 text-orange-500"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -427,12 +424,11 @@ const Landing = () => {
                 },
                 {
                   title: "Customer Loyalty",
-                  description:
-                    "Keep customers coming back with automated rewards, personalized offers, and feedback collection.",
+                  description: "Build loyalty with automated rewards, offers, and feedback collection.",
                   icon: (
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-10 w-10 text-orange-500"
+                      className="h-12 w-12 text-orange-500"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -448,12 +444,11 @@ const Landing = () => {
                 },
                 {
                   title: "Menu Management",
-                  description:
-                    "Update your menu in real-time, add seasonal specials, and highlight your most profitable items.",
+                  description: "Update menus in real-time and highlight profitable items.",
                   icon: (
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-10 w-10 text-orange-500"
+                      className="h-12 w-12 text-orange-500"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -469,12 +464,11 @@ const Landing = () => {
                 },
                 {
                   title: "Analytics Dashboard",
-                  description:
-                    "Get insights into sales, customer behavior, and staff performance to make data-driven decisions.",
+                  description: "Gain insights into sales, customers, and staff performance.",
                   icon: (
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-10 w-10 text-orange-500"
+                      className="h-12 w-12 text-orange-500"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -489,10 +483,13 @@ const Landing = () => {
                   ),
                 },
               ].map((feature, i) => (
-                <div key={i} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                  <div className="mb-4">{feature.icon}</div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{feature.title}</h3>
-                  <p className="text-gray-600 dark:text-gray-300">{feature.description}</p>
+                <div
+                  key={i}
+                  className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
+                >
+                  <div className="mb-6">{feature.icon}</div>
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">{feature.title}</h3>
+                  <p className="text-gray-600 dark:text-gray-300 text-lg">{feature.description}</p>
                 </div>
               ))}
             </div>
@@ -500,42 +497,41 @@ const Landing = () => {
         </section>
 
         {/* How It Works Section */}
-        <section id="how-it-works" className="py-16 md:py-24 bg-gray-50 dark:bg-gray-800">
+        <section id="how-it-works" className="py-20 md:py-32 bg-gray-50 dark:bg-gray-800">
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">How FoodDash Works</h2>
-              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-                Get up and running in minutes with our simple onboarding process.
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">How FoodDash Works</h2>
+              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+                Launch your restaurant’s delivery service in minutes with our seamless onboarding process.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            <div className="grid md:grid-cols-3 gap-12 max-w-5xl mx-auto">
               {[
                 {
                   step: "1",
                   title: "Sign Up",
-                  description: "Complete our simple application form and connect your restaurant information.",
+                  description: "Complete a quick form to connect your restaurant information.",
                 },
                 {
                   step: "2",
                   title: "Customize",
-                  description: "Set up your menu, delivery zones, business hours, and branding.",
+                  description: "Set up menus, delivery zones, hours, and branding.",
                 },
                 {
                   step: "3",
                   title: "Go Live",
-                  description: "Start accepting orders and growing your restaurant business.",
+                  description: "Start accepting orders and growing your business.",
                 },
               ].map((item, i) => (
                 <div key={i} className="relative flex flex-col items-center text-center">
-                  <div className="w-16 h-16 rounded-full bg-orange-500 text-white flex items-center justify-center text-2xl font-bold mb-4">
+                  <div className="w-20 h-20 rounded-full bg-orange-500 text-white flex items-center justify-center text-3xl font-bold mb-6 shadow-lg">
                     {item.step}
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{item.title}</h3>
-                  <p className="text-gray-600 dark:text-gray-300">{item.description}</p>
-
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">{item.title}</h3>
+                  <p className="text-gray-600 dark:text-gray-300 text-lg">{item.description}</p>
                   {i < 2 && (
-                    <div className="hidden md:block absolute top-8 left-[60%] w-[80%] h-0.5 bg-orange-200 dark:bg-orange-900"></div>
+                    <div className="hidden md:block absolute top-10 left-[60%] w-[80%] h-1 bg-orange-200 dark:bg-orange-900"></div>
                   )}
                 </div>
               ))}
@@ -543,8 +539,9 @@ const Landing = () => {
 
             <div className="mt-16 text-center">
               <button
-                className="bg-orange-500 hover:bg-orange-600 text-white py-3 px-8 rounded-lg text-lg"
+                className="bg-orange-500 hover:bg-orange-600 text-white text-lg font-semibold py-4 px-10 rounded-xl shadow-lg transition-all duration-200"
                 onClick={() => navigate("/signup")}
+                aria-label="Get Started Now"
               >
                 Get Started Now
               </button>
@@ -553,46 +550,46 @@ const Landing = () => {
         </section>
 
         {/* Testimonials Section */}
-        <section id="testimonials" className="py-16 md:py-24 bg-white dark:bg-gray-900">
+        <section id="testimonials" className="py-20 md:py-32 bg-white dark:bg-gray-900">
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
                 Loved by Restaurant Owners
               </h2>
-              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-                Don't just take our word for it. Here's what our customers have to say.
+              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+                Hear from restaurant owners who transformed their businesses with FoodDash.
               </p>
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {[
                 {
-                  quote:
-                    "Since joining FoodDash, our delivery orders have increased by 40% and our customer satisfaction has never been higher.",
+                  quote: "FoodDash increased our delivery orders by 40% and boosted customer satisfaction.",
                   name: "Sarah Johnson",
                   role: "Owner, Taste of Italy",
                 },
                 {
-                  quote:
-                    "The platform is so easy to use. I can manage everything from my phone, and the customer support team is always there when I need them.",
+                  quote: "Managing everything from my phone is a game-changer. The support team is fantastic!",
                   name: "Michael Chen",
                   role: "Manager, Spice House",
                 },
                 {
-                  quote:
-                    "We've been able to reduce our delivery times by 15 minutes on average, leading to better reviews and more repeat customers.",
+                  quote: "We reduced delivery times by 15 minutes, leading to better reviews and loyal customers.",
                   name: "Alex Rodriguez",
                   role: "Owner, Taco Express",
                 },
               ].map((testimonial, i) => (
-                <div key={i} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <div
+                  key={i}
+                  className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 hover:shadow-2xl transition-all duration-300"
+                >
                   <div className="flex flex-col h-full">
-                    <div className="mb-4 text-orange-500 flex">
+                    <div className="mb-6 text-orange-500 flex">
                       {[...Array(5)].map((_, i) => (
                         <svg
                           key={i}
                           xmlns="http://www.w3.org/2000/svg"
-                          className="h-5 w-5"
+                          className="h-6 w-6"
                           viewBox="0 0 20 20"
                           fill="currentColor"
                         >
@@ -600,9 +597,9 @@ const Landing = () => {
                         </svg>
                       ))}
                     </div>
-                    <p className="text-gray-600 dark:text-gray-300 italic mb-6 flex-1">"{testimonial.quote}"</p>
+                    <p className="text-gray-600 dark:text-gray-300 italic text-lg mb-6 flex-1">"{testimonial.quote}"</p>
                     <div>
-                      <p className="font-bold text-gray-900 dark:text-white">{testimonial.name}</p>
+                      <p className="font-bold text-gray-900 dark:text-white text-xl">{testimonial.name}</p>
                       <p className="text-gray-500 dark:text-gray-400">{testimonial.role}</p>
                     </div>
                   </div>
@@ -613,23 +610,23 @@ const Landing = () => {
         </section>
 
         {/* Pricing Section */}
-        <section id="pricing" className="py-16 md:py-24 bg-gray-50 dark:bg-gray-800">
+        <section id="pricing" className="py-20 md:py-32 bg-gray-50 dark:bg-gray-800">
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
                 Simple, Transparent Pricing
               </h2>
-              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-                No hidden fees or commissions. Just straightforward pricing to help your business grow.
+              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+                Choose a plan that fits your restaurant’s needs with no hidden fees or commissions.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
               {[
                 {
                   name: "Starter",
                   price: "$49",
-                  description: "Perfect for new restaurants just getting started with delivery.",
+                  description: "Ideal for new restaurants starting with delivery.",
                   features: ["Online ordering system", "Menu management", "Up to 100 orders/month", "Email support"],
                   cta: "Get Started",
                   popular: false,
@@ -637,7 +634,7 @@ const Landing = () => {
                 {
                   name: "Growth",
                   price: "$99",
-                  description: "For established restaurants looking to expand their delivery business.",
+                  description: "Perfect for expanding your delivery business.",
                   features: [
                     "Everything in Starter",
                     "Unlimited orders",
@@ -651,7 +648,7 @@ const Landing = () => {
                 {
                   name: "Enterprise",
                   price: "$199",
-                  description: "For restaurants with multiple locations and complex operations.",
+                  description: "For restaurants with multiple locations and complex needs.",
                   features: [
                     "Everything in Growth",
                     "Multiple locations",
@@ -665,39 +662,40 @@ const Landing = () => {
               ].map((plan, i) => (
                 <div
                   key={i}
-                  className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden ${plan.popular ? "ring-2 ring-orange-500 relative" : ""}`}
+                  className={`bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden ${plan.popular ? "ring-4 ring-orange-500 relative" : ""} transform transition-all duration-300 hover:-translate-y-2`}
                 >
                   {plan.popular && (
-                    <div className="absolute top-0 right-0 bg-orange-500 text-white px-4 py-1 text-sm font-medium">
+                    <div className="absolute top-0 right-0 bg-orange-500 text-white px-6 py-2 text-sm font-semibold rounded-bl-lg">
                       Popular
                     </div>
                   )}
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{plan.name}</h3>
-                    <div className="mb-4">
-                      <span className="text-4xl font-bold text-gray-900 dark:text-white">{plan.price}</span>
-                      <span className="text-gray-500 dark:text-gray-400">/month</span>
+                  <div className="p-8">
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">{plan.name}</h3>
+                    <div className="mb-6">
+                      <span className="text-5xl font-extrabold text-gray-900 dark:text-white">{plan.price}</span>
+                      <span className="text-gray-500 dark:text-gray-400 text-lg">/month</span>
                     </div>
-                    <p className="text-gray-600 dark:text-gray-300 mb-6">{plan.description}</p>
-                    <ul className="space-y-3 mb-6">
+                    <p className="text-gray-600 dark:text-gray-300 mb-8 text-lg">{plan.description}</p>
+                    <ul className="space-y-4 mb-8">
                       {plan.features.map((feature, j) => (
-                        <li key={j} className="flex items-start gap-2">
+                        <li key={j} className="flex items-start gap-3">
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5 text-orange-500 shrink-0 mt-0.5"
+                            className="h-6 w-6 text-orange-500 shrink-0 mt-1"
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
                           >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
-                          <span className="text-gray-600 dark:text-gray-300">{feature}</span>
+                          <span className="text-gray-600 dark:text-gray-300 text-lg">{feature}</span>
                         </li>
                       ))}
                     </ul>
                     <button
-                      className={`w-full py-2 px-4 rounded-lg ${plan.popular ? "bg-orange-500 hover:bg-orange-600 text-white" : "bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"}`}
+                      className={`w-full py-3 px-6 rounded-xl text-lg font-semibold ${plan.popular ? "bg-orange-500 hover:bg-orange-600 text-white" : "bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-2 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"} shadow-md transition-all duration-200`}
                       onClick={() => navigate(plan.popular ? "/signup" : "/contact")}
+                      aria-label={plan.cta}
                     >
                       {plan.cta}
                     </button>
@@ -709,74 +707,86 @@ const Landing = () => {
         </section>
 
         {/* CTA Section */}
-        <section className="py-16 md:py-24 bg-orange-500">
+        <section className="py-20 md:py-32 bg-gradient-to-r from-orange-500 to-orange-600">
           <div className="container mx-auto px-4 md:px-6 text-center">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Ready to grow your restaurant business?</h2>
-            <p className="text-xl text-orange-100 max-w-2xl mx-auto mb-8">
-              Join thousands of successful restaurants using FoodDash to increase orders and delight customers.
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-8">Ready to Transform Your Restaurant?</h2>
+            <p className="text-xl text-orange-100 max-w-3xl mx-auto mb-10">
+              Join thousands of restaurants using FoodDash to boost orders and create memorable customer experiences.
             </p>
-            <form onSubmit={handleSubmit} className="max-w-md mx-auto">
+            <form onSubmit={handleSubmit} className="max-w-lg mx-auto">
               <div className="flex flex-col sm:flex-row gap-4">
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email"
-                  className="flex-1 px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
+                  className="flex-1 px-6 py-4 rounded-xl border-0 focus:ring-4 focus:ring-orange-300 dark:focus:ring-orange-700 text-lg"
                   required
+                  aria-required="true"
+                  aria-label="Email for Signup"
                 />
                 <button
-                  className="bg-white text-orange-500 hover:bg-orange-50 px-4 py-3 rounded-lg"
+                  className="bg-white text-orange-500 hover:bg-orange-50 text-lg font-semibold px-8 py-4 rounded-xl shadow-lg transition-all duration-200"
                   type="submit"
                   disabled={loading}
+                  aria-label={loading ? "Please wait" : "Get Started"}
                 >
                   {loading ? "Please wait..." : "Get Started"}
                 </button>
               </div>
             </form>
-            <p className="text-orange-100 mt-4 text-sm">No credit card required. Start your 14-day free trial today.</p>
+            <p className="text-orange-100 mt-6 text-lg">No credit card required. Start your 14-day free trial today.</p>
           </div>
         </section>
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
+      <footer className="bg-gray-900 text-white py-16">
         <div className="container mx-auto px-4 md:px-6">
-          <div className="grid md:grid-cols-4 gap-8">
+          <div className="grid md:grid-cols-4 gap-12">
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-orange-500 text-white">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                </div>
-                <span className="text-xl font-bold">FoodDash</span>
+              <div className="flex items-center gap-3 mb-6">
+                <img src={icon} alt="FoodDash Icon" className="w-12 h-12 rounded-full object-cover" />
+                <span className="text-2xl font-extrabold">FoodDash</span>
               </div>
-              <p className="text-gray-400 mb-4">
-                The all-in-one platform for restaurant owners to grow their business.
+              <p className="text-gray-400 mb-6 text-lg">
+                The ultimate platform for restaurant owners to scale their business.
               </p>
-              <div className="flex space-x-4">
-                {["twitter", "facebook", "instagram"].map((social) => (
-                  <a key={social} href={`#${social}`} className="text-gray-400 hover:text-white">
-                    <span className="sr-only">{social}</span>
-                    <div className="w-6 h-6 bg-gray-700 rounded-full"></div>
+              <div className="flex space-x-6">
+                {[
+                  { name: "Twitter", icon: "M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2-3.1.1-5.7-2.4-6.7-5.4.4.1.9.1 1.3.1-2.9-.9-5-3.8-5-7.1 1.3.7 2.8 1.2 4.3 1.2-2.7-1.8-4.5-4.8-4.5-8.4 0-1.8.6-3.5 1.8-4.9 3.3 4.1 8.2 6.7 13.7 7-1.2-5.2 2.7-9.5 7.8-9.5 2.3 0 4.4.9 5.9 2.5 1.8-.4 3.5-1.1 5-2.1-1 3.1-3.7 5.7-7 6.6 1.6-.2 3.1-.6 4.5-1.2-1.1 1.6-2.4 3-3.9 4.1z" },
+                  { name: "Facebook", icon: "M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z" },
+                  { name: "Instagram", icon: "M12 2.2c3.2 0 3.6 0 4.9.1 1.3.1 2 .3 2.4.5.6.2 1.1.5 1.6 1s.8 1 1 1.6c.2.4.4 1.1.5 2.4.1 1.3.1 1.7.1 4.9s0 3.6-.1 4.9c-.1 1.3-.3 2-.5 2.4-.2.6-.5 1.1-1 1.6s-1 .8-1.6 1c-.4.2-1.1.4-2.4.5-1.3.1-1.7.1-4.9.1s-3.6 0-4.9-.1c-1.3-.1-2-.3-2.4-.5-.6-.2-1.1-.5-1.6-1s-.8-1-1-1.6c-.2-.4-.4-1.1-.5-2.4-.1-1.3-.1-1.7-.1-4.9s0-3.6.1-4.9c.1-1.3.3-2 .5-2.4.2-.6.5-1.1 1-1.6s1-.8 1.6-1c.4-.2 1.1-.4πι2.4-.5 1.3-.1 1.7-.1 4.9-.1zm0 1.6c-3.2 0-3.6 0-4.9.1-1.2.1-1.9.3-2.3.5-.5.2-.9.4-1.3.8s-.6.8-.8 1.3c-.2.4-.4 1.1-.5 2.3-.1 1.3-.1 1.7-.1 4.9s0 3.6.1 4.9c.1 1.2.3 1.9.5 2.3.2.5.4.9.8 1.3s.8.6 1.3.8c.4.2 1.1.4 2.3.5 1.3.1 1.7.1 4.9.1s3.6 0 4.9-.1c1.2-.1 1.9-.3 2.3-.5.5-.2.9-.4 1.3-.8s.6-.8.8-1.3c.2-.4.4-1.1.5-2.3.1-1.3.1-1.7.1-4.9s0-3.6-.1-4.9c-.1-1.2-.3-1.9-.5-2.3-.2-.5-.4-.9-.8-1.3s-.8-.6-1.3-.8c-.4-.2-1.1-.4-2.3-.5-1.3-.1-1.7-.1-4.9-.1zm0 3.7a5.6 5.6 0 100 11.2 5.6 5.6 0 000-11.2zm0 9.2a3.6 3.6 0 110-7.2 3.6 3.6 0 010 7.2zm5.8-9.5a1.3 1.3 0 11-2.6 0 1.3 1.3 0 012.6 0z" },
+                ].map((social) => (
+                  <a
+                    key={social.name}
+                    href={`#${social.name.toLowerCase()}`}
+                    className="text-gray-400 hover:text-white transition-colors duration-200"
+                    aria-label={social.name}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d={social.icon} />
+                    </svg>
                   </a>
                 ))}
               </div>
             </div>
 
             <div>
-              <h3 className="font-bold text-lg mb-4">Product</h3>
-              <ul className="space-y-2">
+              <h3 className="font-bold text-xl mb-6 text-white">Product</h3>
+              <ul className="space-y-4">
                 {["Features", "Pricing", "Testimonials", "FAQ"].map((item) => (
                   <li key={item}>
-                    <a href={`#${item.toLowerCase()}`} className="text-gray-400 hover:text-white">
+                    <a
+                      href={`#${item.toLowerCase()}`}
+                      className="text-gray-400 hover:text-white text-lg transition-colors duration-200"
+                      aria-label={item}
+                    >
                       {item}
                     </a>
                   </li>
@@ -785,11 +795,15 @@ const Landing = () => {
             </div>
 
             <div>
-              <h3 className="font-bold text-lg mb-4">Company</h3>
-              <ul className="space-y-2">
+              <h3 className="font-bold text-xl mb-6 text-white">Company</h3>
+              <ul className="space-y-4">
                 {["About", "Blog", "Careers", "Contact"].map((item) => (
                   <li key={item}>
-                    <a href={`#${item.toLowerCase()}`} className="text-gray-400 hover:text-white">
+                    <a
+                      href={`#${item.toLowerCase()}`}
+                      className="text-gray-400 hover:text-white text-lg transition-colors duration-200"
+                      aria-label={item}
+                    >
                       {item}
                     </a>
                   </li>
@@ -798,11 +812,15 @@ const Landing = () => {
             </div>
 
             <div>
-              <h3 className="font-bold text-lg mb-4">Legal</h3>
-              <ul className="space-y-2">
+              <h3 className="font-bold text-xl mb-6 text-white">Legal</h3>
+              <ul className="space-y-4">
                 {["Terms", "Privacy", "Cookies"].map((item) => (
                   <li key={item}>
-                    <a href={`#${item.toLowerCase()}`} className="text-gray-400 hover:text-white">
+                    <a
+                      href={`#${item.toLowerCase()}`}
+                      className="text-gray-400 hover:text-white text-lg transition-colors duration-200"
+                      aria-label={item}
+                    >
                       {item}
                     </a>
                   </li>
@@ -812,13 +830,42 @@ const Landing = () => {
           </div>
 
           <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-400">
-            <p>&copy; {new Date().getFullYear()} FoodDash. All rights reserved.</p>
+            <p className="text-lg">© {new Date().getFullYear()} FoodDash. All rights reserved.</p>
           </div>
         </div>
       </footer>
+
+      {/* Custom CSS for Animations */}
+      <style jsx>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes fadeInRight {
+          from {
+            opacity: 0;
+            transform: translateX(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        .animate-fade-in-up {
+          animation: fadeInUp 0.6s ease-out forwards;
+        }
+        .animate-fade-in-right {
+          animation: fadeInRight 0.6s ease-out forwards;
+        }
+      `}</style>
     </div>
-  )
-}
+  );
+};
 
-export default Landing
-
+export default Landing;

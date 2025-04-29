@@ -252,18 +252,18 @@ const createOrder = async (req, res) => {
       );
 
       // Send SMS notification to customer
-      // await axios.post(
-      //   `${global.gConfig.notification_url}/api/notifications/sms`,
-      //   {
-      //     to: phone,
-      //     body: `Your order #${savedOrder.orderId} from ${
-      //       savedOrder.restaurantOrder.restaurantName
-      //     } has been placed. Total: $${savedOrder.totalAmount.toFixed(
-      //       2
-      //     )}. Track it in our app!`,
-      //   },
-      //   { headers: { Authorization: req.headers.authorization } }
-      // );
+      await axios.post(
+        `${global.gConfig.notification_url}/api/notifications/sms`,
+        {
+          to: phone,
+          body: `Your order #${savedOrder.orderId} from ${
+            savedOrder.restaurantOrder.restaurantName
+          } has been placed. Total: LKR ${savedOrder.totalAmount.toFixed(
+            2
+          )}. Track it in our app!`,
+        },
+        { headers: { Authorization: req.headers.authorization } }
+      );
 
       console.log("Order notifications sent successfully");
     } catch (notificationError) {
