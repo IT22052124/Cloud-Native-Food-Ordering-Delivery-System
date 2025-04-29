@@ -2,7 +2,7 @@ import { Restaurant } from "../model/resturant.js";
 import { Dish } from "../model/dish.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import axios from 'axios';
+import axios from "axios";
 
 export const restaurantAdminLogin = async (req, res) => {
   try {
@@ -52,7 +52,6 @@ export const restaurantAdminLogin = async (req, res) => {
 
     console.log("isverfied", isverfied);
     if (isverfied === "pending") {
-      
       return res.status(401).json({
         message: "Restaurant is not verified yet",
       });
@@ -78,7 +77,7 @@ export const restaurantAdminLogin = async (req, res) => {
         resturantId: restaurant._id,
         name: restaurant.name,
         ownerId: restaurant.ownerId,
-        
+
         // Include other fields you need, but avoid sensitive data
       },
     });
@@ -94,7 +93,15 @@ export const restaurantAdminLogin = async (req, res) => {
 
 export const createDish = async (req, res) => {
   try {
-    const { name, description, price, portions, food_type, category ,imageUrls} = req.body;
+    const {
+      name,
+      description,
+      price,
+      portions,
+      food_type,
+      category,
+      imageUrls,
+    } = req.body;
 
     const restaurantId = req.resturantId;
     if (!restaurantId) {
@@ -108,12 +115,22 @@ export const createDish = async (req, res) => {
 
     // Validate price and portions
     const hasPrice = price !== null && price !== undefined;
-    const hasPortions = portions && Array.isArray(portions) && portions.length > 0;
+    const hasPortions =
+      portions && Array.isArray(portions) && portions.length > 0;
     if (hasPrice && hasPortions) {
-      return res.status(400).json({ message: "A dish cannot have both a single price and portions" });
+      return res
+        .status(400)
+        .json({
+          message: "A dish cannot have both a single price and portions",
+        });
     }
     if (!hasPrice && !hasPortions) {
-      return res.status(400).json({ message: "A dish must have either a single price or at least one portion" });
+      return res
+        .status(400)
+        .json({
+          message:
+            "A dish must have either a single price or at least one portion",
+        });
     }
 
     const dish = {
@@ -139,7 +156,7 @@ export const createDish = async (req, res) => {
     return res
       .status(201)
       .json({ message: "Dish created successfully", dish: newDish });
-  } catch(error) {
+  } catch (error) {
     console.log("Error in creating dish", error);
     res.status(500).json({ message: "Server error", error });
   }
@@ -178,7 +195,7 @@ export const updateDishById = async (req, res) => {
       food_type,
       category,
       isAvailable,
-      imageUrls:newImageUrls ,
+      imageUrls: newImageUrls,
     } = req.body;
 
     const restaurantId = req.resturantId;
@@ -192,21 +209,37 @@ export const updateDishById = async (req, res) => {
       return res.status(404).json({ message: "Dish not found" });
     }
 
-   
     // Validate price and portions
     const hasPrice = price !== null && price !== undefined;
-    const hasPortions = portions && Array.isArray(portions) && portions.length > 0;
+    const hasPortions =
+      portions && Array.isArray(portions) && portions.length > 0;
     if (hasPrice && hasPortions) {
-      return res.status(400).json({ message: "A dish cannot have both a single price and portions" });
+      return res
+        .status(400)
+        .json({
+          message: "A dish cannot have both a single price and portions",
+        });
     }
-    if (!hasPrice && !hasPortions && dish.price === null && (!dish.portions || dish.portions.length === 0)) {
-      return res.status(400).json({ message: "A dish must have either a single price or at least one portion" });
+    if (
+      !hasPrice &&
+      !hasPortions &&
+      dish.price === null &&
+      (!dish.portions || dish.portions.length === 0)
+    ) {
+      return res
+        .status(400)
+        .json({
+          message:
+            "A dish must have either a single price or at least one portion",
+        });
     }
 
-// Handle image deletion
-     if (Array.isArray(newImageUrls)) {
-      const imagesToDelete = dish.imageUrls.filter(url => !newImageUrls.includes(url));
-      
+    // Handle image deletion
+    if (Array.isArray(newImageUrls)) {
+      const imagesToDelete = dish.imageUrls.filter(
+        (url) => !newImageUrls.includes(url)
+      );
+
       for (const oldImageUrl of imagesToDelete) {
         try {
           const imageRef = ref(storage, oldImageUrl);
@@ -221,11 +254,10 @@ export const updateDishById = async (req, res) => {
 
     dish.name = name ?? dish.name;
     dish.description = description ?? dish.description;
-    dish.price = hasPrice ? price : (hasPortions ? null : dish.price);
-    dish.portions = hasPortions ? portions : (hasPrice ? null : dish.portions);
+    dish.price = hasPrice ? price : hasPortions ? null : dish.price;
+    dish.portions = hasPortions ? portions : hasPrice ? null : dish.portions;
     dish.food_type = food_type ?? dish.food_type;
     dish.category = category ?? dish.category;
-
 
     // 🔥 This fixes the problem!
     if (typeof isAvailable !== "undefined") dish.isAvailable = isAvailable;
@@ -240,7 +272,6 @@ export const updateDishById = async (req, res) => {
     return res.status(500).json({ message: "Server error", error });
   }
 };
-
 
 // controller to deleteDishById
 
@@ -299,11 +330,11 @@ export const getDishById = async (req, res) => {
   try {
     const dishId = req.params.id;
 
-    const dish =  await Dish.findOne({_id:dishId});
-    if(!dish){
-      return res.status(404).json({message:"Dish not found"});
+    const dish = await Dish.findOne({ _id: dishId });
+    if (!dish) {
+      return res.status(404).json({ message: "Dish not found" });
     }
-   
+
     return res.status(200).json({ dish });
   } catch (error) {
     console.log("error in getDishbyId", error);
@@ -314,7 +345,7 @@ export const getDishById = async (req, res) => {
 // Existing getOrdersForRestaurant controller (from previous context)
 export const getOrdersForRestaurant = async (req, res) => {
   try {
-    const restaurantId =  req.restaurantId;
+    const restaurantId = req.restaurantId;
     const { status, page = 1, limit = 10 } = req.query;
     const ordersServiceUrl = `${global.gConfig.orders_url}/api/orders/restaurant`;
     const params = { page, limit };
@@ -339,21 +370,22 @@ export const getOrdersForRestaurant = async (req, res) => {
   } catch (error) {
     console.log("error in getOrdersForRestaurant", error);
 
-    console.error('Error fetching orders from orders microservice:', error);
+    console.error("Error fetching orders from orders microservice:", error);
     if (error.response) {
       return res.status(error.response.status).json({
         status: error.response.status,
-        message: error.response.data.message || 'Failed to fetch orders',
+        message: error.response.data.message || "Failed to fetch orders",
       });
     }
     console.log("error in getOrdersForRestaurant", error);
     res.status(500).json({
       status: 500,
-      message: 'Failed to fetch orders from orders microservice',
+      message: "Failed to fetch orders from orders microservice",
     });
   }
 };
 
+// controller function to get all restaurants for a specific owner
 export const updateRestaurant = async (req, res) => {
   try {
     // Check if req.body exists
@@ -377,8 +409,7 @@ export const updateRestaurant = async (req, res) => {
 
     const restaurant = await Restaurant.findById(req.params.id);
 
-    
-
+    // Check if the restaurant exists
     if (restaurantAdmin?.password) {
       const hashedPassword = await bcrypt.hash(restaurantAdmin.password, 10);
       restaurant.restaurantAdmin.password = hashedPassword;
@@ -428,8 +459,8 @@ export const updateRestaurant = async (req, res) => {
     restaurant.address = address || restaurant.address;
     restaurant.contact = contact || restaurant.contact;
     restaurant.openingHours = Array.isArray(openingHours)
-    ? openingHours
-    : restaurant.openingHours; // Update only if provided
+      ? openingHours
+      : restaurant.openingHours; // Update only if provided
     restaurant.bank = bank || restaurant.bank;
     restaurant.serviceType = serviceType || restaurant.serviceType;
     restaurant.cuisineType = cuisineType || restaurant.cuisineType;
@@ -453,6 +484,8 @@ export const updateRestaurant = async (req, res) => {
     res.status(500).json({ message: "Server error", error });
   }
 };
+
+// controller function to get all restaurants for a specific owner
 export const getRestaurantById = async (req, res) => {
   try {
     const restaurant = await Restaurant.findById(req.params.id);
@@ -467,7 +500,7 @@ export const getRestaurantById = async (req, res) => {
   }
 };
 
-
+// controller function to get all restaurants for a specific owner
 export const updateRestaurantStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -502,5 +535,133 @@ export const updateRestaurantStatus = async (req, res) => {
   } catch (error) {
     console.log("Error in updating restaurant status", error);
     res.status(500).json({ message: "Server error", error });
+  }
+};
+
+export const getAdminCredentials = async (req, res) => {
+  try {
+    // Validate req.username and req.resturantId
+    if (!req.username || !req.resturantId) {
+      console.log("Missing username or restaurant ID:", {
+        username: req.username,
+        resturantId: req.resturantId,
+      });
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized: User not authenticated",
+      });
+    }
+
+    // Ensure the restaurant ID matches the user's restaurant
+    if (req.params.id !== req.resturantId) {
+      console.log("Restaurant ID mismatch:", {
+        requestedId: req.params.id,
+        userResturantId: req.resturantId,
+      });
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: Access to this restaurant is denied",
+      });
+    }
+
+    const restaurant = await Restaurant.findById(req.params.id).select(
+      "restaurantAdmin.username"
+    );
+
+    if (!restaurant) {
+      return res.status(404).json({ message: "Restaurant not found!" });
+    }
+
+    // Get all usernames from restaurantAdmin
+    const usernames = restaurant.restaurantAdmin.map((admin) => admin.username);
+
+    return res.status(200).json({
+      success: true,
+      usernames: usernames,
+    });
+  } catch (error) {
+    console.log("Error in getting admin credentials:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Update username and/or password for the logged-in restaurant admin
+ * @route   PATCH /api/branch/credentials
+ * @access  Private (Restaurant Admin)
+ */
+export const updateAdminCredentials = async (req, res) => {
+  try {
+    const { currentUsername, newUsername, newPassword } = req.body;
+    const restaurant = await Restaurant.findById(req.params.id);
+
+    if (!restaurant) {
+      return res.status(404).json({ message: "Restaurant not found!" });
+    }
+
+    // Validate input
+    if (!currentUsername) {
+      return res.status(400).json({
+        message: "Current username is required",
+      });
+    }
+
+    if (!newUsername && !newPassword) {
+      return res.status(400).json({
+        message: "At least one of newUsername or newPassword must be provided",
+      });
+    }
+
+    // Find the admin credential to update
+    const adminIndex = restaurant.restaurantAdmin.findIndex(
+      (admin) => admin.username === currentUsername
+    );
+
+    if (adminIndex === -1) {
+      return res.status(404).json({
+        message: "Username not found",
+      });
+    }
+
+    // Check for duplicate username if newUsername is provided
+    if (newUsername) {
+      const existingUsername = await Restaurant.findOne({
+        "restaurantAdmin.username": newUsername,
+        _id: { $ne: restaurant._id }, // Exclude current restaurant
+      });
+
+      if (existingUsername) {
+        return res.status(400).json({
+          message: `Username '${newUsername}' already exists`,
+        });
+      }
+
+      restaurant.restaurantAdmin[adminIndex].username = newUsername;
+    }
+
+    // Update password if provided
+    if (newPassword) {
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      restaurant.restaurantAdmin[adminIndex].password = hashedPassword;
+    }
+
+    await restaurant.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Credentials updated successfully",
+      updatedUsername: restaurant.restaurantAdmin[adminIndex].username,
+    });
+  } catch (error) {
+    console.log("Error in updating admin credentials", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };

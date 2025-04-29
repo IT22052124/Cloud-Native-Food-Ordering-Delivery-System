@@ -31,7 +31,7 @@ export const loginUser = async (email, password) => {
 export const getRestaurants = async () => {
   try {
     const token = localStorage.getItem("token");
-    const response = await axios.get("http://localhost:3000/api/restaurants", {
+    const response = await axios.get("http://localhost:5006/api/restaurants", {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -50,7 +50,7 @@ export const getRestaurants = async () => {
 export const updateRestaurantVerification = async (restaurantId, status) => {
   try {
     const response = await fetch(
-      `http://localhost:3000/api/restaurants/${restaurantId}/verfication`,
+      `http://localhost:5006/api/restaurants/${restaurantId}/verfication`,
       {
         method: "PATCH",
         headers: {
@@ -276,5 +276,39 @@ export const getAllUsers = async () => {
   } catch (error) {
     console.error("getAllUsers: Error:", error);
     return []; // Return empty array on error
+  }
+};
+
+export const getAllRestaurantSettlements = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.get("http://localhost:5008/api/settlements", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    console.log("getAllRestaurantSettlements: API response:", response.data);
+    return response.data.settlements || [];
+  } catch (error) {
+    console.error("getAllRestaurantSettlements: Error:", error);
+    return [];
+  }
+};
+
+export const processWeeklySettlements = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.post(
+      "http://localhost:5008/api/settlements/process-weekly",
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Settlement processing failed:",
+      error.response?.data || error
+    );
+    throw error;
   }
 };

@@ -1,9 +1,16 @@
 import Settlement from "../model/restaurantSettlement.js";
+import { bankTransfer } from "../utils/bankTransfer.js";
 
 export const addOrderToSettlement = async (req, res) => {
   try {
-    const { restaurantId, orderId, subtotal, platformFee, weekEnding } =
-      req.body;
+    const {
+      restaurantId,
+      restaurantName,
+      orderId,
+      subtotal,
+      platformFee,
+      weekEnding,
+    } = req.body;
 
     // Find or create settlement record for this week
     let settlement = await Settlement.findOneAndUpdate(
@@ -13,6 +20,7 @@ export const addOrderToSettlement = async (req, res) => {
         status: "PENDING",
       },
       {
+        $set: { restaurantName },
         $inc: {
           totalOrders: 1,
           orderSubtotal: subtotal,
@@ -32,3 +40,93 @@ export const addOrderToSettlement = async (req, res) => {
     res.status(500).json({ error: "Failed to update settlement" });
   }
 };
+
+export const getAllSettlements = async (req, res) => {
+  try {
+    const settlements = await Settlement.find({})
+      .sort({ weekEnding: -1 }) // Newest first
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      settlements,
+    });
+  } catch (error) {
+    console.error("Error fetching settlements:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch settlements",
+    });
+  }
+};
+
+// controllers/settlementController.js
+export const processWeeklySettlements = async (req, res) => {
+  try {
+    // 1. Get pending settlements
+    const lastSunday = getPreviousSunday();
+    const pendingSettlements = await Settlement.find({
+      weekEnding: lastSunday,
+      status: "PENDING",
+    });
+
+    // 2. Process each settlement using the imported bankTransfer
+    const results = await Promise.allSettled(
+      pendingSettlements.map(async (settlement) => {
+        try {
+          const paymentResult = await bankTransfer(
+            settlement.restaurantId,
+            settlement.amountDue,
+            `Weekly settlement ${
+              settlement.weekEnding.toISOString().split("T")[0]
+            }`
+          );
+
+          return await Settlement.findByIdAndUpdate(
+            settlement._id,
+            {
+              status: "PAID",
+              paymentDate: new Date(),
+              transactionId: paymentResult.reference,
+            },
+            { new: true }
+          );
+        } catch (error) {
+          await Settlement.findByIdAndUpdate(settlement._id, {
+            status: "FAILED",
+            failureReason: error.message,
+          });
+          throw error;
+        }
+      })
+    );
+
+    // 5. Generate report
+    const successful = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.filter((r) => r.status === "rejected").length;
+
+    res.status(200).json({
+      success: true,
+      processed: pendingSettlements.length,
+      successful,
+      failed,
+      settlements: results.map((r) =>
+        r.status === "fulfilled" ? r.value : null
+      ),
+    });
+  } catch (error) {
+    console.error("Weekly settlement processing failed:", error);
+    res.status(500).json({
+      success: false,
+      error: "Batch processing failed",
+      details: error.message,
+    });
+  }
+};
+
+// Helpers
+function getPreviousSunday() {
+  const date = new Date();
+  date.setDate(date.getDate() - ((date.getDay() + 7) % 7)); // Previous Sunday
+  return date;
+}

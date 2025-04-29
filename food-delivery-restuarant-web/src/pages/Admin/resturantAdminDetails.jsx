@@ -1,4 +1,4 @@
-"use client";
+
 
 import { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
@@ -22,6 +22,7 @@ import {
   FaTruck,
   FaShoppingBag,
   FaUser,
+  FaKey,
 } from "react-icons/fa";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import { AuthContext } from "../../context/AuthContext";
@@ -106,10 +107,17 @@ const RestaurantAdminDetails = () => {
             <div className="flex space-x-4">
               <button
                 onClick={handleEdit}
-                className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:from-amber-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all duration-200 flex items-center shadow-sm"
+                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all duration-200 flex items-center shadow-sm"
               >
                 <FaEdit className="mr-2" />
                 Edit Restaurant
+              </button>
+              <button
+                onClick={() => navigate(`/restaurants/admin/credentials/${user.id}`)}
+                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all duration-200 flex items-center shadow-sm"
+              >
+                <FaKey className="mr-2" />
+                Manage Credentials
               </button>
             </div>
           </div>
@@ -415,7 +423,8 @@ const RestaurantAdminDetails = () => {
                     <p className="text-gray-800 dark:text-white font-medium">
                       {restaurant.address?.street || "Not specified"}
                     </p>
-                  </div>\n                </div>
+                  </div>
+                </div>
                 <div className="bg-amber-50 dark:bg-gray-700 p-4 rounded-lg flex items-center">
                   <FaMapMarkerAlt className="text-orange-500 dark:text-orange-400 mr-3" />
                   <div>

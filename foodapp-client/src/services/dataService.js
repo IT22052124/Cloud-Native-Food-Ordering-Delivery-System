@@ -3,14 +3,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 
 // API Base URLs
-const AUTH_API_URL = `http://192.168.1.6:5001/api`;
-const ORDER_API_URL = `http://192.168.1.6:5002/api/orders`;
-const CART_API_URL = `http://192.168.1.6:5002/api/cart`;
-const RESTAURANT_API_URL = `http://192.168.1.6:5006/api`;
-const PAYMENT_API_URL = `http://192.168.1.6:5004/api/payment`;
+const AUTH_API_URL = `http://192.168.8.196:5001/api`;
+const ORDER_API_URL = `http://192.168.8.196:5002/api/orders`;
+const CART_API_URL = `http://192.168.8.196:5002/api/cart`;
+const RESTAURANT_API_URL = `http://192.168.8.196:5006/api`;
+const PAYMENT_API_URL = `http://192.168.8.196:5004/api/payment`;
 
-
-// Sample categories
 
 // Sample payment methods
 const samplePaymentMethods = [
@@ -43,7 +41,6 @@ export const ORDER_STATUS = {
   DELIVERED: "DELIVERED",
   CANCELLED: "CANCELLED",
 };
-
 
 // API client with error handling
 const apiClient = {

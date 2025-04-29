@@ -37,7 +37,7 @@ const initiatePayment = async (req, res) => {
 
     // 2. Create Stripe Payment Intent
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Convert to cents
+      amount: amount, // Convert to cents
       currency: currency.toLowerCase(),
       metadata: { orderId, userId },
       automatic_payment_methods: { enabled: true },
@@ -47,7 +47,7 @@ const initiatePayment = async (req, res) => {
     const payment = new Payment({
       orderId,
       userId,
-      amount: amount,
+      amount: amount / 100,
       currency: currency.toUpperCase(),
       paymentMethod: "CARD",
       status: "PENDING",

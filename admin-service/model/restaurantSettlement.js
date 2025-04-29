@@ -8,6 +8,7 @@ const restaurantSettlementSchema = new Schema(
       required: true,
       index: true,
     },
+    restaurantName: { type: String, required: true },
     weekEnding: {
       type: Date, // Sunday of the week being settled
       required: true,

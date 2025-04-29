@@ -24,6 +24,9 @@ import UserProfile from "./pages/userprofile";
 import PendingRestaurantTable from "./pages/pendingRestaurant";
 import RestaurantAdminDetails from "./pages/Admin/resturantAdminDetails"
 import AdminEditRestaurant from "./pages/Admin/AdminEditRestaurant"
+import Credentialpage from "./pages/Admin/credentialpage"
+import Signup from "./pages/Login/SignUp";
+import SignupConfirmation from "./pages/Login/signupConfirmationpage";
 const App = () => {
   return (
     <Router>
@@ -35,12 +38,17 @@ const App = () => {
           element={<RestaurantAdminLogin />}
         />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/signup/confirmation" element={<SignupConfirmation />} />
+
+
         <Route path="/admin-dashboard" element={<AdminDashboard />} />{" "}
         {/* New */}
         <Route path="/restaurants/add" element={<AddRestaurant />} />
         <Route path="/restaurants/" element={<Resturant />} />
         <Route path="/restaurants/admin/profile" element={<RestaurantAdminDetails />} />
         <Route path="/restaurants/admin/edit/:id" element={<AdminEditRestaurant />} />
+        <Route path="/restaurants/admin/credentials/:id" element={<Credentialpage />} />
 
         <Route path="/restaurants/:id" element={<RestaurantDetails />} />
         <Route path="/restaurants/edit/:id" element={<EditRestaurant />} />
