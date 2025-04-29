@@ -34,6 +34,7 @@ const OrdersScreen = ({ navigation }) => {
       setLoading(true);
       const ordersData = await dataService.getOrders();
       setOrders(ordersData.orders);
+      console.log(ordersData.orders)
     } catch (error) {
       console.error("Error loading orders:", error);
     } finally {
@@ -112,7 +113,11 @@ const OrdersScreen = ({ navigation }) => {
         <View style={styles.orderHeader}>
           <View style={styles.restaurantInfo}>
             <Image
-              source={require("../../assets/no-image-restaurant.png")}
+              source={
+                item.restaurantImage  
+                  ? { uri: item.restaurantImage } 
+                  : require("../../assets/no-image-restaurant.png")
+              }
               style={styles.restaurantImage}
             />
             <View style={styles.restaurantTextContainer}>
@@ -273,11 +278,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   header: {
-    padding: 16,
+    padding: 15,
     paddingBottom: 8,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 23,
     fontWeight: "700",
   },
   filterContainer: {

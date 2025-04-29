@@ -3,292 +3,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 
 // API Base URLs
-const AUTH_API_URL = `http://192.168.1.7:5001/api`;
-const ORDER_API_URL = `http://192.168.1.7:5002/api/orders`;
-const CART_API_URL = `http://192.168.1.7:5002/api/cart`;
-const RESTAURANT_API_URL = `http://192.168.1.7:5006/api`;
-const PAYMENT_API_URL = `http://192.168.1.7:5004/api/payment`;
+const AUTH_API_URL = `http://192.168.1.6:5001/api`;
+const ORDER_API_URL = `http://192.168.1.6:5002/api/orders`;
+const CART_API_URL = `http://192.168.1.6:5002/api/cart`;
+const RESTAURANT_API_URL = `http://192.168.1.6:5006/api`;
+const PAYMENT_API_URL = `http://192.168.1.6:5004/api/payment`;
 
-// Sample data for the app
-const sampleRestaurants = [
-  {
-    id: "1",
-    name: "Pizza Paradise",
-    rating: 4.8,
-    deliveryTime: "25-35 min",
-    deliveryFee: "2.99",
-    minOrder: 15,
-    cuisineType: "Italian",
-    address: "123 Main St, Anytown",
-    image:
-      "https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-    coverImage:
-      "https://images.unsplash.com/photo-1579751626657-72bc17010498?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=870&q=80",
-    description:
-      "The finest pizzas made with the freshest ingredients. Our dough is made fresh daily and we use only the highest quality toppings.",
-    dishes: [
-      {
-        id: "101",
-        name: "Margherita Pizza",
-        description: "Classic pizza with tomato sauce, mozzarella, and basil",
-        price: 12.99,
-        image:
-          "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-        category: "Pizza",
-        popular: true,
-      },
-      {
-        id: "102",
-        name: "Pepperoni Pizza",
-        description:
-          "Classic pizza with tomato sauce, mozzarella, and pepperoni",
-        price: 14.99,
-        image:
-          "https://images.unsplash.com/photo-1628840042765-356cda07504e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-        category: "Pizza",
-        popular: true,
-      },
-      {
-        id: "103",
-        name: "Garlic Bread",
-        description: "Toasted bread with garlic butter and herbs",
-        price: 5.99,
-        image:
-          "https://images.unsplash.com/photo-1573140247632-f8fd74997d5c?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-        category: "Sides",
-        popular: false,
-      },
-      {
-        id: "104",
-        name: "Caesar Salad",
-        description:
-          "Fresh romaine lettuce with Caesar dressing, croutons, and parmesan",
-        price: 7.99,
-        image:
-          "https://images.unsplash.com/photo-1550304943-4f24f54ddde9?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-        category: "Salads",
-        popular: false,
-      },
-    ],
-  },
-  {
-    id: "2",
-    name: "Burger Barn",
-    rating: 4.5,
-    deliveryTime: "15-25 min",
-    deliveryFee: "1.99",
-    minOrder: 10,
-    cuisineType: "American",
-    address: "456 Oak Ave, Anytown",
-    image:
-      "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-    coverImage:
-      "https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=870&q=80",
-    description:
-      "Juicy burgers made from 100% premium beef. All our burgers are flame-grilled to perfection and served with our signature sauce.",
-    dishes: [
-      {
-        id: "201",
-        name: "Classic Burger",
-        description: "Beef patty with lettuce, tomato, and house sauce",
-        price: 9.99,
-        image:
-          "https://images.unsplash.com/photo-1572802419224-296b0aeee0d9?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-        category: "Burgers",
-        popular: true,
-      },
-      {
-        id: "202",
-        name: "Cheese Burger",
-        description:
-          "Beef patty with american cheese, lettuce, tomato, and house sauce",
-        price: 10.99,
-        image:
-          "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-        category: "Burgers",
-        popular: true,
-      },
-      {
-        id: "203",
-        name: "French Fries",
-        description: "Crispy golden fries with sea salt",
-        price: 3.99,
-        image:
-          "https://images.unsplash.com/photo-1585109649139-366815a0d713?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-        category: "Sides",
-        popular: false,
-      },
-      {
-        id: "204",
-        name: "Vanilla Milkshake",
-        description: "Creamy vanilla milkshake with whipped cream",
-        price: 4.99,
-        image:
-          "https://images.unsplash.com/photo-1559598467-f8b76c8155d0?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-        category: "Drinks",
-        popular: false,
-      },
-    ],
-  },
-  {
-    id: "3",
-    name: "Sushi Express",
-    rating: 4.7,
-    deliveryTime: "30-40 min",
-    deliveryFee: "3.99",
-    minOrder: 20,
-    cuisineType: "Japanese",
-    address: "789 Maple Dr, Anytown",
-    image:
-      "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-    coverImage:
-      "https://images.unsplash.com/photo-1611143669185-af224c5e3252?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=870&q=80",
-    description:
-      "Authentic Japanese sushi made with the freshest fish. Our sushi chefs have over 10 years of experience and use traditional techniques.",
-    dishes: [
-      {
-        id: "301",
-        name: "California Roll",
-        description: "Crab, avocado, and cucumber roll",
-        price: 8.99,
-        image:
-          "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-        category: "Rolls",
-        popular: true,
-      },
-      {
-        id: "302",
-        name: "Salmon Nigiri",
-        description: "Fresh salmon over seasoned rice",
-        price: 6.99,
-        image:
-          "https://images.unsplash.com/photo-1583623025817-d180a2fe075e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-        category: "Nigiri",
-        popular: true,
-      },
-      {
-        id: "303",
-        name: "Miso Soup",
-        description: "Traditional Japanese soup with tofu and seaweed",
-        price: 3.99,
-        image:
-          "https://images.unsplash.com/photo-1607301406259-dfb186e15de8?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-        category: "Soups",
-        popular: false,
-      },
-      {
-        id: "304",
-        name: "Edamame",
-        description: "Steamed soybean pods with sea salt",
-        price: 4.99,
-        image:
-          "https://images.unsplash.com/photo-1603133872878-684f208fb84b?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-        category: "Appetizers",
-        popular: false,
-      },
-    ],
-  },
-  {
-    id: "4",
-    name: "Taco Town",
-    rating: 4.3,
-    deliveryTime: "20-30 min",
-    deliveryFee: "2.49",
-    minOrder: 12,
-    cuisineType: "Mexican",
-    address: "101 Pine St, Anytown",
-    image:
-      "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-    coverImage:
-      "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=870&q=80",
-    description:
-      "Authentic Mexican tacos and burritos. We use traditional recipes passed down through generations and make our tortillas fresh daily.",
-    dishes: [
-      {
-        id: "401",
-        name: "Beef Taco",
-        description:
-          "Seasoned ground beef with lettuce, cheese, and salsa in a corn tortilla",
-        price: 3.99,
-        image:
-          "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-        category: "Tacos",
-        popular: true,
-      },
-      {
-        id: "402",
-        name: "Chicken Burrito",
-        description:
-          "Grilled chicken with rice, beans, cheese, and salsa in a flour tortilla",
-        price: 8.99,
-        image:
-          "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-        category: "Burritos",
-        popular: true,
-      },
-      {
-        id: "403",
-        name: "Chips & Guacamole",
-        description: "Tortilla chips with freshly made guacamole",
-        price: 5.99,
-        image:
-          "https://images.unsplash.com/photo-1615870216519-2f9fa575fa5c?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-        category: "Sides",
-        popular: false,
-      },
-      {
-        id: "404",
-        name: "Horchata",
-        description: "Traditional Mexican rice drink with cinnamon",
-        price: 2.99,
-        image:
-          "https://images.unsplash.com/photo-1562707666-d172d575e15b?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-        category: "Drinks",
-        popular: false,
-      },
-    ],
-  },
-];
 
 // Sample categories
-const sampleCategories = [
-  {
-    id: "1",
-    name: "Pizza",
-    image:
-      "https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-  },
-  {
-    id: "2",
-    name: "Burgers",
-    image:
-      "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-  },
-  {
-    id: "3",
-    name: "Sushi",
-    image:
-      "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-  },
-  {
-    id: "4",
-    name: "Mexican",
-    image:
-      "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-  },
-  {
-    id: "5",
-    name: "Chinese",
-    image:
-      "https://images.unsplash.com/photo-1563245372-f21724e3856d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-  },
-  {
-    id: "6",
-    name: "Indian",
-    image:
-      "https://images.unsplash.com/photo-1585937421612-70a008356c36?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-  },
-];
 
 // Sample payment methods
 const samplePaymentMethods = [
@@ -322,179 +44,6 @@ export const ORDER_STATUS = {
   CANCELLED: "CANCELLED",
 };
 
-// Sample orders
-const sampleOrders = [
-  {
-    id: "1001",
-    orderNumber: "12345",
-    restaurantId: "1",
-    restaurantName: "Pizza Paradise",
-    restaurantImage:
-      "https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-    items: [
-      {
-        id: "101",
-        name: "Margherita Pizza",
-        price: 12.99,
-        quantity: 1,
-      },
-      {
-        id: "103",
-        name: "Garlic Bread",
-        price: 5.99,
-        quantity: 1,
-      },
-    ],
-    subtotal: 18.98,
-    deliveryFee: 2.99,
-    total: 21.97,
-    status: ORDER_STATUS.DELIVERED,
-    paymentMethod: "Credit Card",
-    createdAt: "2023-04-20T14:30:00Z",
-    deliveredAt: "2023-04-20T15:05:00Z",
-    address: "123 Home St, Anytown",
-    deliveryAddress: {
-      latitude: 37.7749,
-      longitude: -122.4194,
-    },
-    restaurantPhone: "+14155551234",
-    statusUpdates: {
-      placed: "Apr 20, 2:30 PM",
-      confirmed: "Apr 20, 2:35 PM",
-      preparing: "Apr 20, 2:45 PM",
-      outForDelivery: "Apr 20, 3:15 PM",
-      delivered: "Apr 20, 3:35 PM",
-    },
-    driver: {
-      name: "John Driver",
-      rating: 4.8,
-      phoneNumber: "+14155557890",
-      profileImage: "https://randomuser.me/api/portraits/men/32.jpg",
-    },
-  },
-  {
-    id: "1002",
-    orderNumber: "12346",
-    restaurantId: "2",
-    restaurantName: "Burger Barn",
-    restaurantImage:
-      "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-    items: [
-      {
-        id: "202",
-        name: "Cheese Burger",
-        price: 10.99,
-        quantity: 2,
-      },
-      {
-        id: "203",
-        name: "French Fries",
-        price: 3.99,
-        quantity: 1,
-      },
-    ],
-    subtotal: 25.97,
-    deliveryFee: 1.99,
-    total: 27.96,
-    status: ORDER_STATUS.OUT_FOR_DELIVERY,
-    paymentMethod: "Credit Card",
-    createdAt: "2023-04-21T12:15:00Z",
-    address: "123 Home St, Anytown",
-    deliveryAddress: {
-      latitude: 37.7749,
-      longitude: -122.4194,
-    },
-    restaurantPhone: "+14155552345",
-    statusUpdates: {
-      placed: "Apr 21, 12:15 PM",
-      confirmed: "Apr 21, 12:20 PM",
-      preparing: "Apr 21, 12:30 PM",
-      outForDelivery: "Apr 21, 12:50 PM",
-    },
-    driver: {
-      name: "Sarah Driver",
-      rating: 4.9,
-      phoneNumber: "+14155556789",
-      profileImage: "https://randomuser.me/api/portraits/women/44.jpg",
-    },
-  },
-  {
-    id: "1003",
-    orderNumber: "12347",
-    restaurantId: "3",
-    restaurantName: "Sushi Express",
-    restaurantImage:
-      "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-    items: [
-      {
-        id: "301",
-        name: "California Roll",
-        price: 8.99,
-        quantity: 2,
-      },
-      {
-        id: "304",
-        name: "Edamame",
-        price: 4.99,
-        quantity: 1,
-      },
-    ],
-    subtotal: 22.97,
-    deliveryFee: 3.99,
-    total: 26.96,
-    status: ORDER_STATUS.PREPARING,
-    paymentMethod: "PayPal",
-    createdAt: "2023-04-21T18:30:00Z",
-    address: "123 Home St, Anytown",
-    deliveryAddress: {
-      latitude: 37.7749,
-      longitude: -122.4194,
-    },
-    restaurantPhone: "+14155553456",
-    statusUpdates: {
-      placed: "Apr 21, 6:30 PM",
-      confirmed: "Apr 21, 6:35 PM",
-      preparing: "Apr 21, 6:45 PM",
-    },
-  },
-  {
-    id: "1004",
-    orderNumber: "12348",
-    restaurantId: "4",
-    restaurantName: "Taco Town",
-    restaurantImage:
-      "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=500&q=80",
-    items: [
-      {
-        id: "401",
-        name: "Beef Taco",
-        price: 3.99,
-        quantity: 3,
-      },
-      {
-        id: "403",
-        name: "Chips & Guacamole",
-        price: 5.99,
-        quantity: 1,
-      },
-    ],
-    subtotal: 17.96,
-    deliveryFee: 2.49,
-    total: 20.45,
-    status: ORDER_STATUS.PENDING,
-    paymentMethod: "Apple Pay",
-    createdAt: "2023-04-22T19:15:00Z",
-    address: "123 Home St, Anytown",
-    deliveryAddress: {
-      latitude: 37.7749,
-      longitude: -122.4194,
-    },
-    restaurantPhone: "+14155554567",
-    statusUpdates: {
-      placed: "Apr 22, 7:15 PM",
-    },
-  },
-];
 
 // API client with error handling
 const apiClient = {
@@ -980,6 +529,164 @@ const dataService = {
     }
   },
 
+  // Advanced search for restaurants with dishes grouped by categories
+  advancedSearch: async (params) => {
+    try {
+      const { query, lat, lng, range, sort = "distance" } = params;
+
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      if (query) queryParams.append("query", query);
+      if (lat) queryParams.append("lat", lat);
+      if (lng) queryParams.append("lng", lng);
+      if (range) queryParams.append("range", range);
+      if (sort) queryParams.append("sort", sort);
+
+      const queryString = queryParams.toString();
+      const endpoint = `${RESTAURANT_API_URL}/restaurants/advanced-search${
+        queryString ? `?${queryString}` : ""
+      }`;
+
+      console.log("Advanced search endpoint:", endpoint);
+
+      const response = await apiClient.get(endpoint);
+
+      if (response) {
+        // Handle case where response might be an array directly
+        if (Array.isArray(response)) {
+          console.log("Response is an array directly:", response.length);
+          return {
+            success: true,
+            restaurants: response,
+            count: response.length,
+          };
+        }
+
+        // Regular expected response format
+        if (response.success && response.restaurants) {
+          console.log(`Found ${response.count} restaurants`);
+
+          // Check if restaurants have dishes
+          const restaurantsWithDishes = response.restaurants.map(
+            (restaurant) => {
+              const dishCount =
+                restaurant.categorizedDishes?.reduce(
+                  (sum, category) => sum + (category.dishes?.length || 0),
+                  0
+                ) || 0;
+
+              console.log(
+                `Restaurant ${restaurant.name} has ${dishCount} dishes`
+              );
+
+              // If there are no categorized dishes, create a default structure
+              if (
+                !restaurant.categorizedDishes ||
+                restaurant.categorizedDishes.length === 0
+              ) {
+                console.log(
+                  `No categorized dishes for ${restaurant.name}, creating empty structure`
+                );
+                restaurant.categorizedDishes = [];
+              }
+
+              return restaurant;
+            }
+          );
+
+          return {
+            success: true,
+            restaurants: restaurantsWithDishes,
+            count: restaurantsWithDishes.length,
+          };
+        }
+
+        // Unexpected but still valid response
+        if (response.restaurants) {
+          console.log("Response has restaurants but no success flag");
+          return {
+            success: true,
+            restaurants: response.restaurants,
+            count: response.restaurants.length,
+          };
+        }
+
+        console.warn("Advanced search returned unexpected format:", response);
+        return {
+          success: false,
+          restaurants: [],
+          count: 0,
+        };
+      } else {
+        console.warn("Advanced search returned null or undefined response");
+        return {
+          success: false,
+          restaurants: [],
+          count: 0,
+        };
+      }
+    } catch (error) {
+      console.error("Error in advanced search:", error);
+      // Try to extract error message
+      const errorMessage =
+        error.response?.data?.message || error.message || "Unknown error";
+      console.log("Error message:", errorMessage);
+
+      // Fallback to sample data for testing/demo when the backend is unavailable
+      console.log("Falling back to sample restaurant data");
+
+      // Filter sample restaurants based on query if available
+      let filteredRestaurants = [...sampleRestaurants];
+      if (params.query) {
+        const lowerQuery = params.query.toLowerCase();
+        filteredRestaurants = filteredRestaurants.filter(
+          (restaurant) =>
+            restaurant.name.toLowerCase().includes(lowerQuery) ||
+            restaurant.cuisineType.toLowerCase().includes(lowerQuery)
+        );
+      }
+
+      // Transform sample data to match expected format
+      const restaurants = filteredRestaurants.map((restaurant) => {
+        // Group dishes by category
+        const dishCategories = {};
+        restaurant.dishes.forEach((dish) => {
+          const category = dish.category || "Uncategorized";
+          if (!dishCategories[category]) {
+            dishCategories[category] = [];
+          }
+          dishCategories[category].push({
+            ...dish,
+            _id: dish.id,
+            restaurantId: restaurant.id,
+            imageUrls: [dish.image], // Convert image to imageUrls array
+          });
+        });
+
+        // Convert to array format
+        const categorizedDishes = Object.keys(dishCategories).map(
+          (category) => ({
+            categoryName: category,
+            dishes: dishCategories[category],
+          })
+        );
+
+        return {
+          ...restaurant,
+          _id: restaurant.id,
+          categorizedDishes,
+        };
+      });
+
+      return {
+        success: true,
+        error: errorMessage,
+        restaurants: restaurants,
+        count: restaurants.length,
+      };
+    }
+  },
+
   // Get restaurant details with dishes
   getRestaurantDetails: async (restaurantId) => {
     try {
@@ -1204,11 +911,11 @@ const dataService = {
   },
 
   // Get restaurants filtered by distance from user location
-  getRestaurantsByLocation: async (latitude, longitude, radiuss = 300) => {
+  getRestaurantsByLocation: async (latitude, longitude, radius = 100) => {
     try {
       // Call the API endpoint with the coordinates and radius
       const response = await apiClient.get(
-        `${RESTAURANT_API_URL}/restaurants/nearby?lat=${latitude}&lng=${longitude}&range=${100}`
+        `${RESTAURANT_API_URL}/restaurants/nearby?lat=${latitude}&lng=${longitude}&range=${radius}`
       );
 
       if (response.success && response.restaurants) {
@@ -1226,6 +933,108 @@ const dataService = {
       }
     } catch (error) {
       console.error("Error getting restaurants by location:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Get food categories from the API
+  getFoodCategories: async () => {
+    try {
+      const response = await apiClient.get(
+        `${RESTAURANT_API_URL}/restaurants/categories`
+      );
+
+      if (response && response.categories) {
+        return {
+          success: true,
+          categories: response.categories,
+        };
+      } else {
+        console.warn(
+          "Categories endpoint returned unexpected format:",
+          response
+        );
+        // Fallback to sample categories
+        return {
+          success: true,
+          categories: [
+            {
+              id: 1,
+              name: "Appetizers",
+              image:
+                "https://www.eatingwell.com/thmb/VZOpYLlkdhow-YKvWLTlotmVRjY=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/loaded-smashed-brussels-sprouts-4f5ab837d61d40c8a5bf27a398ca29eb.jpg",
+            },
+            {
+              id: 2,
+              name: "Main Course",
+              image:
+                "https://sp-ao.shortpixel.ai/client/to_webp,q_glossy,ret_img,w_600,h_400/https://thefoodcafe.com/wp-content/uploads/2018/04/Bacon-wrapped-jalapeno-Chicken-600x400.jpg",
+            },
+            {
+              id: 3,
+              name: "Desserts",
+              image:
+                "https://www.tasteofhome.com/wp-content/uploads/2019/05/Fried-Ice-Cream-Dessert-Bars-_EXPS_SDJJ19_232652_B02_06_1b_rms-2.jpg",
+            },
+            {
+              id: 4,
+              name: "Beverages",
+              image:
+                "https://media.istockphoto.com/id/1303977605/photo/five-cocktails-in-hands-joined-in-celebratory-toast.jpg?s=612x612&w=0&k=20&c=QtnWuVeQCwKOfXIISxfkuDhQTe15qnnKOFKgpcH1Vko=",
+            },
+            {
+              id: 5,
+              name: "Salads",
+              image:
+                "https://i2.wp.com/www.downshiftology.com/wp-content/uploads/2019/04/Cobb-Salad-main.jpg",
+            },
+            {
+              id: 6,
+              name: "Soups",
+              image:
+                "https://cdn.loveandlemons.com/wp-content/uploads/2023/01/tomato-soup-recipe.jpg",
+            },
+            {
+              id: 7,
+              name: "Breads",
+              image:
+                "https://www.allrecipes.com/thmb/CjzJwg2pACUzGODdxJL1BJDRx9Y=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/6788-amish-white-bread-DDMFS-4x3-6faa1e552bdb4f6eabdd7791e59b3c84.jpg",
+            },
+            {
+              id: 8,
+              name: "Rice Dishes",
+              image:
+                "https://www.allrecipes.com/thmb/NVjvH6r7xOrcoxmA-OjPs3uSmUA=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/RM-33385-best-spanish-rice-ddmfs-3x4-054478cf67f14ffebc114d2d18639634.jpg",
+            },
+            {
+              id: 9,
+              name: "Noodles",
+              image:
+                "https://takestwoeggs.com/wp-content/uploads/2023/11/Soy-Sauce-Pan-Fried-Noodles-Takestwoeggs-sq.jpg",
+            },
+            {
+              id: 10,
+              name: "Seafood",
+              image:
+                "https://assets.epicurious.com/photos/54b87c137cbba01c0db7ff8d/1:1/w_2560%2Cc_limit/51248830_cioppino_1x1.jpg",
+            },
+            {
+              id: 11,
+              name: "Grilled",
+              image:
+                "https://assets.epicurious.com/photos/5b843bce1abfc56568396369/1:1/w_2560%2Cc_limit/Grilled-Chicken-with-Mustard-Sauce-and-Tomato-Salad-recipe-2-22082018.jpg",
+            },
+            {
+              id: 12,
+              name: "Fast Food",
+              image:
+                "https://www.summahealth.org/-/media/project/summahealth/website/page-content/flourish/2_18a_fl_fastfood_400x400.webp?la=en&h=400&w=400&hash=145DC0CF6234A159261389F18A36742A",
+            },
+          ],
+        };
+      }
+    } catch (error) {
+      console.error("Error fetching food categories:", error);
       return { success: false, error: error.message };
     }
   },

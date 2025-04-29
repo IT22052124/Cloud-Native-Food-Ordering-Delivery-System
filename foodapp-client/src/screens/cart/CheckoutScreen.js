@@ -503,7 +503,9 @@ const CheckoutScreen = ({ navigation, route }) => {
                 style={styles.itemImage}
               />
               <View style={styles.itemDetails}>
-                <Text style={styles.itemName}>{item.name}</Text>
+                <Text style={styles.itemName}>
+                  {item.displayName || item.name}
+                </Text>
                 <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
               </View>
               <Text style={styles.itemPrice}>
@@ -522,71 +524,80 @@ const CheckoutScreen = ({ navigation, route }) => {
     return (
       <View style={styles.section}>
         <Title style={styles.sectionTitle}>Delivery Address</Title>
-        <ScrollView style={styles.addressList}>
-          {tempLocation && (
-            <TouchableOpacity
-              key="temp-location"
-              style={[
-                styles.addressCard,
-                selectedAddress?._id === "temp-location" &&
-                  styles.selectedAddressCard,
-              ]}
-              onPress={() => setSelectedAddress(tempLocation)}
-            >
-              <RadioButton
-                value="temp-location"
-                status={
-                  selectedAddress?._id === "temp-location"
-                    ? "checked"
-                    : "unchecked"
-                }
+        <View style={styles.addressListContainer}>
+          {/* New container */}
+          <ScrollView
+            style={styles.addressList}
+            contentContainerStyle={styles.addressListContent}
+            nestedScrollEnabled={true}
+          >
+            {tempLocation && (
+              <TouchableOpacity
+                key="temp-location"
+                style={[
+                  styles.addressCard,
+                  selectedAddress?._id === "temp-location" &&
+                    styles.selectedAddressCard,
+                ]}
                 onPress={() => setSelectedAddress(tempLocation)}
-                color={theme.colors.primary}
-              />
-              <View style={styles.addressDetails}>
-                <Text style={styles.addressName}>{tempLocation.label}</Text>
-                <Text style={styles.addressText}>
-                  {tempLocation.street}, {tempLocation.city},{" "}
-                  {tempLocation.state}
-                </Text>
-              </View>
-              <View style={styles.tempBadge}>
-                <Text style={styles.tempText}>Temporary</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-          {addresses.map((address) => (
-            <TouchableOpacity
-              key={address._id}
-              style={[
-                styles.addressCard,
-                selectedAddress?._id === address._id &&
-                  styles.selectedAddressCard,
-              ]}
-              onPress={() => setSelectedAddress(address)}
-            >
-              <RadioButton
-                value={address._id}
-                status={
-                  selectedAddress?._id === address._id ? "checked" : "unchecked"
-                }
-                onPress={() => setSelectedAddress(address)}
-                color={theme.colors.primary}
-              />
-              <View style={styles.addressDetails}>
-                <Text style={styles.addressName}>{address.label}</Text>
-                <Text style={styles.addressText}>
-                  {address.street}, {address.city}, {address.state}
-                </Text>
-              </View>
-              {address.isDefault && (
-                <View style={styles.defaultBadge}>
-                  <Text style={styles.defaultText}>Default</Text>
+              >
+                <RadioButton
+                  value="temp-location"
+                  status={
+                    selectedAddress?._id === "temp-location"
+                      ? "checked"
+                      : "unchecked"
+                  }
+                  onPress={() => setSelectedAddress(tempLocation)}
+                  color={theme.colors.primary}
+                />
+                <View style={styles.addressDetails}>
+                  <Text style={styles.addressName}>{tempLocation.label}</Text>
+                  <Text style={styles.addressText}>
+                    {tempLocation.street}, {tempLocation.city},{" "}
+                    {tempLocation.state}
+                  </Text>
                 </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+                <View style={styles.tempBadge}>
+                  <Text style={styles.tempText}>Temporary</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            {addresses.map((address) => (
+              <TouchableOpacity
+                key={address._id}
+                style={[
+                  styles.addressCard,
+                  selectedAddress?._id === address._id &&
+                    styles.selectedAddressCard,
+                ]}
+                onPress={() => setSelectedAddress(address)}
+              >
+                <RadioButton
+                  value={address._id}
+                  status={
+                    selectedAddress?._id === address._id
+                      ? "checked"
+                      : "unchecked"
+                  }
+                  onPress={() => setSelectedAddress(address)}
+                  color={theme.colors.primary}
+                />
+                <View style={styles.addressDetails}>
+                  <Text style={styles.addressName}>{address.label}</Text>
+                  <Text style={styles.addressText}>
+                    {address.street}, {address.city}, {address.state}
+                  </Text>
+                </View>
+                {address.isDefault && (
+                  <View style={styles.defaultBadge}>
+                    <Text style={styles.defaultText}>Default</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
         <View style={styles.addressActions}>
           <Button
@@ -1025,9 +1036,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
-  addressList: {
-    maxHeight: 250,
-  },
   addressCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -1289,6 +1297,16 @@ const styles = StyleSheet.create({
   taxInfoContainer: {
     marginBottom: 8,
     paddingLeft: 16,
+  },
+  addressListContainer: {
+    height: 200, // Fixed height for the container
+    marginBottom: 8,
+  },
+  addressList: {
+    flex: 1, // Take up all space in container
+  },
+  addressListContent: {
+    paddingBottom: 8, // Add some padding at the bottom
   },
 });
 

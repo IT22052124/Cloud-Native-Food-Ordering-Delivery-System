@@ -7,25 +7,28 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  StatusBar,
+  Dimensions,
 } from "react-native";
 import {
   Text,
-  Avatar,
-  Card,
   Divider,
-  Button,
-  IconButton,
-  List,
   Modal,
   TextInput,
   Switch,
   Portal,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+
+// Import UI components
+import GradientButton from "../../components/ui/GradientButton";
+
+const { width } = Dimensions.get("window");
 
 const ProfileScreen = ({ navigation }) => {
   const theme = useTheme();
@@ -131,6 +134,69 @@ const ProfileScreen = ({ navigation }) => {
     theme.setMode(newMode ? "dark" : "light");
   };
 
+  const renderSettingItem = (
+    icon,
+    title,
+    subtitle,
+    value,
+    onToggle,
+    accentColor = theme.colors.primary
+  ) => (
+    <View style={styles.settingItem}>
+      <View
+        style={[
+          styles.settingIconContainer,
+          { backgroundColor: accentColor + "10" },
+        ]}
+      >
+        <Ionicons name={icon} size={22} color={accentColor} />
+      </View>
+      <View style={styles.settingContent}>
+        <Text style={[styles.settingTitle, { color: theme.colors.text }]}>
+          {title}
+        </Text>
+        {subtitle && (
+          <Text style={[styles.settingSubtitle, { color: theme.colors.gray }]}>
+            {subtitle}
+          </Text>
+        )}
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onToggle}
+        color={theme.colors.primary}
+      />
+    </View>
+  );
+
+  const renderProfileItem = (
+    icon,
+    title,
+    value,
+    onPress,
+    iconColor = theme.colors.primary
+  ) => (
+    <TouchableOpacity style={styles.profileItem} onPress={onPress}>
+      <View
+        style={[
+          styles.profileIconContainer,
+          { backgroundColor: iconColor + "10" },
+        ]}
+      >
+        <Ionicons name={icon} size={22} color={iconColor} />
+      </View>
+      <View style={styles.profileItemContent}>
+        <Text style={[styles.profileItemTitle, { color: theme.colors.text }]}>
+          {title}
+        </Text>
+        <Text style={[styles.profileItemValue, { color: theme.colors.gray }]}>
+          {value}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={theme.colors.gray} />
+    </TouchableOpacity>
+  );
+
   if (isLoading || !user) {
     return (
       <View
@@ -148,25 +214,39 @@ const ProfileScreen = ({ navigation }) => {
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <StatusBar
+        barStyle={theme.mode === "dark" ? "light-content" : "dark-content"}
+        backgroundColor={theme.colors.background}
+      />
+
+      <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.profileImageContainer}>
             {uploadingImage ? (
-              <View style={styles.uploadingContainer}>
+              <View
+                style={[
+                  styles.profileImage,
+                  {
+                    backgroundColor: theme.colors.primary + "20",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  },
+                ]}
+              >
                 <ActivityIndicator size="large" color={theme.colors.primary} />
               </View>
-            ) : user.profilePicture ? (
+            ) : (
               <Image
-                source={{ uri: user.profilePicture }}
+                source={{
+                  uri:
+                    user.profilePicture ||
+                    "https://ui-avatars.com/api/?name=" +
+                      encodeURIComponent(user.name || "User"),
+                }}
                 style={styles.profileImage}
               />
-            ) : (
-              <Avatar.Text
-                size={100}
-                label={`${user.name?.charAt(0) || ""}`}
-                backgroundColor={theme.colors.primary}
-              />
             )}
+
             <TouchableOpacity
               style={[
                 styles.editImageButton,
@@ -175,261 +255,207 @@ const ProfileScreen = ({ navigation }) => {
               onPress={pickImage}
               disabled={uploadingImage}
             >
-              <Ionicons name="camera" size={20} color="white" />
+              <Ionicons name="camera" size={18} color="white" />
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.userName}>{user.name}</Text>
-          <Text style={styles.userEmail}>{user.email}</Text>
+          <Text style={[styles.userName, { color: theme.colors.text }]}>
+            {user.name}
+          </Text>
+
+          <Text style={[styles.userEmail, { color: theme.colors.gray }]}>
+            {user.email}
+          </Text>
         </View>
 
-        <Card style={[styles.section, { ...theme.shadow.small }]}>
-          <Card.Content>
-            <Text style={styles.sectionTitle}>Account Information</Text>
+        <View style={styles.sectionContainer}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            Profile Information
+          </Text>
 
-            <List.Item
-              title="Name"
-              description={`${user.name} `}
-              left={(props) => <List.Icon {...props} icon="account" />}
-              right={(props) => (
-                <IconButton
-                  {...props}
-                  icon="pencil"
-                  onPress={() => openEditModal("name", user.name, "Name")}
-                />
-              )}
-            />
-
-            <Divider />
-
-            <List.Item
-              title="Email"
-              description={user.email}
-              left={(props) => <List.Icon {...props} icon="email" />}
-              right={(props) => (
-                <IconButton
-                  {...props}
-                  icon="pencil"
-                  onPress={() => openEditModal("email", user.email, "Email")}
-                />
-              )}
-            />
-
-            <Divider />
-
-            <List.Item
-              title="Phone Number"
-              description={user.phone || "Not set"}
-              left={(props) => <List.Icon {...props} icon="phone" />}
-              right={(props) => (
-                <IconButton
-                  {...props}
-                  icon="pencil"
-                  onPress={() =>
-                    openEditModal(
-                      "phoneNumber",
-                      user.phone || "",
-                      "Phone Number"
-                    )
-                  }
-                />
-              )}
-            />
-          </Card.Content>
-        </Card>
-
-        <Card style={[styles.section, { ...theme.shadow.small }]}>
-          <Card.Content>
-            <Text style={styles.sectionTitle}>Account Settings</Text>
-
-            <List.Item
-              title="Password"
-              description="Change your password"
-              left={(props) => <List.Icon {...props} icon="lock" />}
-              right={(props) => (
-                <IconButton
-                  {...props}
-                  icon="chevron-right"
-                  onPress={() => navigation.navigate("ChangePassword")}
-                />
-              )}
-            />
-
-            <Divider />
-
-            <List.Item
-              title="Saved Addresses"
-              description="Manage your delivery addresses"
-              left={(props) => <List.Icon {...props} icon="map-marker" />}
-              right={(props) => (
-                <IconButton
-                  {...props}
-                  icon="chevron-right"
-                  onPress={() => navigation.navigate("SavedAddresses")}
-                />
-              )}
-            />
-          </Card.Content>
-        </Card>
-
-        <Card style={[styles.section, { ...theme.shadow.small }]}>
-          <Card.Content>
-            <Text style={styles.sectionTitle}>Preferences</Text>
-
-            <List.Item
-              title="Push Notifications"
-              left={(props) => <List.Icon {...props} icon="bell" />}
-              right={(props) => (
-                <Switch
-                  value={notificationsEnabled}
-                  onValueChange={setNotificationsEnabled}
-                  color={theme.colors.primary}
-                />
-              )}
-            />
-
-            <Divider />
-
-            <List.Item
-              title="Location Services"
-              left={(props) => <List.Icon {...props} icon="map-marker" />}
-              right={(props) => (
-                <Switch
-                  value={locationEnabled}
-                  onValueChange={setLocationEnabled}
-                  color={theme.colors.primary}
-                />
-              )}
-            />
-
-            <Divider />
-
-            <List.Item
-              title="Dark Mode"
-              left={(props) => <List.Icon {...props} icon="theme-light-dark" />}
-              right={(props) => (
-                <Switch
-                  value={darkModeEnabled}
-                  onValueChange={toggleDarkMode}
-                  color={theme.colors.primary}
-                />
-              )}
-            />
-          </Card.Content>
-        </Card>
-
-        <Card style={[styles.section, { ...theme.shadow.small }]}>
-          <Card.Content>
-            <Text style={styles.sectionTitle}>Support</Text>
-
-            <List.Item
-              title="Help Center"
-              description="Find answers to common questions"
-              left={(props) => <List.Icon {...props} icon="help-circle" />}
-              right={(props) => (
-                <IconButton
-                  {...props}
-                  icon="chevron-right"
-                  onPress={() => navigation.navigate("HelpCenter")}
-                />
-              )}
-            />
-
-            <Divider />
-
-            <List.Item
-              title="About Us"
-              description="Learn more about our company"
-              left={(props) => <List.Icon {...props} icon="information" />}
-              right={(props) => (
-                <IconButton
-                  {...props}
-                  icon="chevron-right"
-                  onPress={() => navigation.navigate("AboutUs")}
-                />
-              )}
-            />
-
-            <Divider />
-
-            <List.Item
-              title="Privacy Policy"
-              description="Read our privacy policy"
-              left={(props) => <List.Icon {...props} icon="shield" />}
-              right={(props) => (
-                <IconButton
-                  {...props}
-                  icon="chevron-right"
-                  onPress={() => navigation.navigate("PrivacyPolicy")}
-                />
-              )}
-            />
-
-            <Divider />
-
-            <List.Item
-              title="Terms of Service"
-              description="Read our terms and conditions"
-              left={(props) => <List.Icon {...props} icon="file-document" />}
-              right={(props) => (
-                <IconButton
-                  {...props}
-                  icon="chevron-right"
-                  onPress={() => navigation.navigate("TermsOfService")}
-                />
-              )}
-            />
-          </Card.Content>
-        </Card>
-
-        <Button
-          mode="outlined"
-          onPress={handleLogout}
-          style={[styles.logoutButton, { borderColor: theme.colors.error }]}
-          color={theme.colors.error}
-          icon="logout"
-        >
-          Logout
-        </Button>
-
-        <Portal>
-          <Modal
-            visible={editModalVisible}
-            onDismiss={() => setEditModalVisible(false)}
-            contentContainerStyle={[
-              styles.modalContent,
-              { backgroundColor: theme.colors.surface },
+          <View
+            style={[
+              styles.sectionContent,
+              {
+                backgroundColor: theme.colors.card,
+                ...theme.shadow.small,
+              },
             ]}
           >
-            <Text style={styles.modalTitle}>Edit {editLabel}</Text>
+            {renderProfileItem("person", "Name", user.name || "Not set", () =>
+              openEditModal("name", user.name, "Name")
+            )}
+
+            <Divider style={styles.divider} />
+
+            {renderProfileItem(
+              "call",
+              "Phone",
+              user.phone || "Add phone number",
+              () => openEditModal("phone", user.phone, "Phone")
+            )}
+
+            <Divider style={styles.divider} />
+
+            {renderProfileItem(
+              "location",
+              "Address",
+              "Manage saved addresses",
+              () => navigation.navigate("SavedAddresses")
+            )}
+          </View>
+        </View>
+
+        <View style={styles.sectionContainer}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            Preferences
+          </Text>
+
+          <View
+            style={[
+              styles.sectionContent,
+              {
+                backgroundColor: theme.colors.card,
+                ...theme.shadow.small,
+              },
+            ]}
+          >
+            {renderSettingItem(
+              "notifications",
+              "Push Notifications",
+              "Get updates on your orders and promotions",
+              notificationsEnabled,
+              () => setNotificationsEnabled(!notificationsEnabled)
+            )}
+
+            <Divider style={styles.divider} />
+
+            {renderSettingItem(
+              "location",
+              "Location Services",
+              "Allow access to your current location",
+              locationEnabled,
+              () => setLocationEnabled(!locationEnabled)
+            )}
+
+            <Divider style={styles.divider} />
+
+            {renderSettingItem(
+              "moon",
+              "Dark Mode",
+              "Switch between light and dark themes",
+              darkModeEnabled,
+              toggleDarkMode
+            )}
+          </View>
+        </View>
+
+        <View style={styles.sectionContainer}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            Account
+          </Text>
+
+          <View
+            style={[
+              styles.sectionContent,
+              {
+                backgroundColor: theme.colors.card,
+                ...theme.shadow.small,
+              },
+            ]}
+          >
+            {renderProfileItem(
+              "lock-closed",
+              "Change Password",
+              "Update your password",
+              () => navigation.navigate("ChangePassword"),
+              theme.colors.info
+            )}
+
+            <Divider style={styles.divider} />
+
+            {renderProfileItem(
+              "help-circle",
+              "Help & Support",
+              "Contact customer support",
+              () => navigation.navigate("Support"),
+              theme.colors.secondary
+            )}
+
+            <Divider style={styles.divider} />
+          </View>
+          <GradientButton
+            title="Logout"
+            onPress={handleLogout}
+            style={[
+              styles.logoutButton,
+              {
+                backgroundColor: theme.colors.error,
+                borderColor: theme.colors.error,
+              },
+            ]}
+            colors={[theme.colors.error, theme.colors.error]}
+            providedTheme={theme}
+          />
+        </View>
+
+        {/* Bottom space for tab bar */}
+        <View style={styles.bottomPadding} />
+      </ScrollView>
+
+      <Portal>
+        <Modal
+          visible={editModalVisible}
+          onDismiss={() => setEditModalVisible(false)}
+          contentContainerStyle={[
+            styles.modalContainer,
+            { backgroundColor: theme.colors.card },
+          ]}
+        >
+          <View style={styles.modalContent}>
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+              Edit {editLabel}
+            </Text>
 
             <TextInput
               label={editLabel}
               value={editValue}
               onChangeText={setEditValue}
+              style={styles.input}
               mode="outlined"
-              style={styles.modalInput}
+              outlineColor={theme.colors.border}
+              activeOutlineColor={theme.colors.primary}
             />
 
-            <View style={styles.modalButtons}>
-              <Button
-                mode="text"
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.cancelButton,
+                  { borderColor: theme.colors.gray },
+                ]}
                 onPress={() => setEditModalVisible(false)}
-                style={styles.modalButton}
               >
-                Cancel
-              </Button>
-              <Button
-                mode="contained"
+                <Text
+                  style={[
+                    styles.cancelButtonText,
+                    { color: theme.colors.gray },
+                  ]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <GradientButton
+                title="Save"
                 onPress={saveProfileChanges}
-                style={styles.modalButton}
-              >
-                Save
-              </Button>
+                style={styles.saveButton}
+                providedTheme={theme}
+              />
             </View>
-          </Modal>
-        </Portal>
-      </ScrollView>
+          </View>
+        </Modal>
+      </Portal>
     </SafeAreaView>
   );
 };
@@ -443,12 +469,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  scrollContent: {
-    padding: 16,
-  },
   header: {
     alignItems: "center",
-    marginBottom: 24,
+    padding: 24,
   },
   profileImageContainer: {
     position: "relative",
@@ -459,14 +482,6 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
   },
-  uploadingContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "rgba(0,0,0,0.1)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
   editImageButton: {
     position: "absolute",
     bottom: 0,
@@ -476,51 +491,132 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 2,
-    borderColor: "white",
   },
   userName: {
     fontSize: 24,
-    fontWeight: "bold",
+    fontFamily: "Poppins-Bold",
+    fontWeight: "700",
     marginBottom: 4,
   },
   userEmail: {
-    fontSize: 16,
-    color: "#666",
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
   },
-  section: {
-    marginBottom: 16,
-    borderRadius: 12,
-    overflow: "hidden",
+  sectionContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 16,
+    fontFamily: "Poppins-Bold",
+    fontWeight: "700",
+    marginBottom: 12,
   },
-  logoutButton: {
-    marginTop: 8,
-    marginBottom: 40,
+  sectionContent: {
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  profileItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+  },
+  profileIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  profileItemContent: {
+    flex: 1,
+  },
+  profileItemTitle: {
+    fontSize: 16,
+    fontFamily: "Poppins-Medium",
+    marginBottom: 2,
+  },
+  profileItemValue: {
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
+  },
+  settingItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+  },
+  settingIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  settingContent: {
+    flex: 1,
+  },
+  settingTitle: {
+    fontSize: 16,
+    fontFamily: "Poppins-Medium",
+    marginBottom: 2,
+  },
+  settingSubtitle: {
+    fontSize: 12,
+    fontFamily: "Poppins-Regular",
+  },
+  divider: {
+    height: 1,
+    marginLeft: 68,
+  },
+  bottomPadding: {
+    height: 100,
+  },
+  modalContainer: {
+    margin: 20,
+    borderRadius: 16,
+    overflow: "hidden",
   },
   modalContent: {
     padding: 20,
-    margin: 20,
-    borderRadius: 12,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 20,
+    fontFamily: "Poppins-Bold",
+    fontWeight: "700",
+    marginBottom: 16,
   },
-  modalInput: {
+  input: {
     marginBottom: 20,
+    backgroundColor: "transparent",
   },
-  modalButtons: {
+  modalActions: {
     flexDirection: "row",
-    justifyContent: "flex-end",
+    justifyContent: "space-between",
   },
   modalButton: {
-    marginLeft: 12,
+    flex: 1,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelButton: {
+    borderWidth: 1,
+    marginRight: 8,
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontFamily: "Poppins-Medium",
+  },
+  saveButton: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  logoutButton: {
+    top: 20,
+    borderWidth: 1,
   },
 });
 

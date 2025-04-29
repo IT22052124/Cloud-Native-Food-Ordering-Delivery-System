@@ -32,17 +32,29 @@ export const CartProvider = ({ children }) => {
     try {
       setLoading(true);
       const cartData = await dataService.getCart();
-      console.log(cartData.restaurantDetails);
       if (cartData && cartData.items && cartData.items.length > 0) {
         setItems(
           cartData.items.map((item) => ({
-            id: item._id, // Cart item ID used for updating/removing
-            itemId: item.itemId, // Actual menu item ID
+            id: item._id,
+            itemId: item.itemId,
             name: item.item?.name || "",
+            displayName: item.isPortionItem
+              ? `${item.item?.name || ""} (${item.portionName})`
+              : item.item?.name || "",
             price: item.itemPrice,
             quantity: item.quantity,
             image: item.item?.imageUrls[0] || "",
             totalPrice: item.totalPrice,
+            // Add portion information if it exists
+            ...(item.isPortionItem && {
+              portionId: item.portionId,
+              portionName: item.portionName,
+              isPortionItem: true,
+              portion: item.portion || {
+                size: item.portionName,
+                price: item.itemPrice,
+              },
+            }),
           }))
         );
 
@@ -71,7 +83,6 @@ export const CartProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Failed to fetch cart from API:", error);
-      // Fallback to local storage if API fails
       loadCartFromStorage();
     } finally {
       setLoading(false);
@@ -106,25 +117,40 @@ export const CartProvider = ({ children }) => {
   };
 
   const addItem = async (item, restaurantData) => {
+    // For portions, we need to match both itemId and portionId exactly
     const existingItemIndex = items.findIndex(
-      (cartItem) => cartItem.itemId === item._id
+      (cartItem) =>
+        cartItem.itemId === item._id &&
+        (item.selectedPortion
+          ? cartItem.portionId === item.selectedPortion._id
+          : !cartItem.isPortionItem)
     );
 
     if (isAuthenticated) {
       try {
-        await dataService.addToCart({
-          itemId: item._id, //item.id,
-          restaurantId: restaurantData._id, //restaurantData.id,
-          quantity: item.quantity,
-          itemPrice: item.price, //item.price,
-        });
+        const cartItemData = {
+          itemId: item._id,
+          restaurantId: restaurantData._id,
+          quantity: item.quantity || 1,
+          itemPrice: item.selectedPortion
+            ? item.selectedPortion.price
+            : item.price,
+        };
+
+        // Add portion data if a portion is selected
+        if (item.selectedPortion) {
+          cartItemData.portionId = item.selectedPortion._id;
+          cartItemData.portionName = item.selectedPortion.size;
+          cartItemData.isPortionItem = true;
+        }
+
+        const result = await dataService.addToCart(cartItemData);
 
         // Refresh cart from API to ensure consistency
         await fetchCartFromApi();
         return { success: true };
       } catch (error) {
         console.error("Failed to add item to cart:", error);
-        // If error is about different restaurant, return appropriate response
         if (error.response?.data?.message?.includes("different restaurant")) {
           return {
             requiresConfirmation: true,
@@ -136,30 +162,44 @@ export const CartProvider = ({ children }) => {
     } else {
       // Local cart management for non-authenticated users
       if (existingItemIndex !== -1) {
-        // Item already exists in cart, increment quantity
+        // Item exists in cart, increment quantity
         const updatedItems = [...items];
         updatedItems[existingItemIndex] = {
           ...updatedItems[existingItemIndex],
-          quantity: updatedItems[existingItemIndex].quantity + 1,
+          quantity:
+            updatedItems[existingItemIndex].quantity + (item.quantity || 1),
           totalPrice:
             updatedItems[existingItemIndex].price *
-            (updatedItems[existingItemIndex].quantity + 1),
+            (updatedItems[existingItemIndex].quantity + (item.quantity || 1)),
         };
         setItems(updatedItems);
       } else {
         // Add new item to cart
-        setItems([
-          ...items,
-          {
-            id: Math.random().toString(36).substring(2, 15),
-            itemId: item.id,
-            name: item.name,
-            price: item.price,
-            image: item.image,
-            quantity: 1,
-            totalPrice: item.price,
-          },
-        ]);
+        const newCartItem = {
+          id: Math.random().toString(36).substring(2, 15),
+          itemId: item._id,
+          name: item.name,
+          displayName: item.selectedPortion
+            ? `${item.name} (${item.selectedPortion.size})`
+            : item.name,
+          price: item.selectedPortion ? item.selectedPortion.price : item.price,
+          image: item.imageUrls?.[0] || item.image,
+          quantity: item.quantity || 1,
+        };
+
+        // Add portion information if available
+        if (item.selectedPortion) {
+          newCartItem.portionId = item.selectedPortion._id;
+          newCartItem.portionName = item.selectedPortion.size;
+          newCartItem.isPortionItem = true;
+          newCartItem.portion = {
+            size: item.selectedPortion.size,
+            price: item.selectedPortion.price,
+          };
+        }
+
+        newCartItem.totalPrice = newCartItem.price * newCartItem.quantity;
+        setItems([...items, newCartItem]);
       }
 
       // Set restaurant if not already set
@@ -169,13 +209,6 @@ export const CartProvider = ({ children }) => {
     }
 
     return { success: true };
-    // } else {
-    //   // Items from different restaurant, ask user if they want to clear cart
-    //   return {
-    //     requiresConfirmation: true,
-    //     currentRestaurant: restaurant,
-    //   };
-    // }
   };
 
   const removeItem = async (cartId) => {

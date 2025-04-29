@@ -22,6 +22,17 @@ const orderItemSchema = new Schema({
     type: String,
     default: "",
   },
+  portionId: {
+    type: Schema.Types.ObjectId,
+    sparse: true,
+  },
+  portionName: {
+    type: String,
+  },
+  isPortionItem: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 // Schema for tracking status changes
@@ -102,6 +113,9 @@ const restaurantOrderSchema = new Schema({
   restaurantLocation: {
     lat: Number,
     lng: Number,
+  },
+  restaurantImage: {
+    type: String,
   },
   items: [orderItemSchema],
   subtotal: {

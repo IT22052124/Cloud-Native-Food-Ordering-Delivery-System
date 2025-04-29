@@ -31,6 +31,7 @@ global.gConfig = {
   auth_url: process.env.AUTH_SERVICE_URL,
   restaurant_url: process.env.RESTAURANT_SERVICE_URL,
   notification_url: process.env.NOTIFICATION_SERVICE_URL,
+  admin_url: process.env.ADMIN_SERVICE_URL,
 };
 
 // Routes

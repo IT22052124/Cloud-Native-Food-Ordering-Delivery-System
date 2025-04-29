@@ -2,14 +2,15 @@ import React, { createContext, useState, useContext, useEffect } from "react";
 import { useColorScheme } from "react-native";
 import { DefaultTheme, DarkTheme } from "@react-navigation/native";
 
-// Define light theme colors
+// Define light theme colors with new palette
 const lightTheme = {
   mode: "light",
   colors: {
-    primary: "#FF6B6B",
-    secondary: "#4ECDC4",
-    background: "#FFFFFF",
-    surface: "#F8F8F8",
+    primary: "#FF6B6B", // Coral
+    primaryGradient: ["#FF6B6B", "#FFA502"], // Coral to Gold gradient
+    secondary: "#FFA502", // Gold
+    background: "#F8F9FA", // Light gray background
+    surface: "#FFFFFF",
     error: "#FF5252",
     text: "#333333",
     onBackground: "#333333",
@@ -30,23 +31,23 @@ const lightTheme = {
     small: {
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.22,
+      shadowOpacity: 0.1,
       shadowRadius: 2.22,
-      elevation: 3,
+      elevation: 2,
     },
     medium: {
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
+      shadowOpacity: 0.15,
       shadowRadius: 3.84,
-      elevation: 5,
+      elevation: 3,
     },
     large: {
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
+      shadowOpacity: 0.2,
       shadowRadius: 4.65,
-      elevation: 8,
+      elevation: 5,
     },
   },
   navigationTheme: {
@@ -54,7 +55,7 @@ const lightTheme = {
     colors: {
       ...DefaultTheme.colors,
       primary: "#FF6B6B",
-      background: "#FFFFFF",
+      background: "#F8F9FA",
       card: "#FFFFFF",
       text: "#333333",
       border: "#E0E0E0",
@@ -63,23 +64,24 @@ const lightTheme = {
   },
 };
 
-// Define dark theme colors
+// Define dark theme colors with new palette
 const darkTheme = {
   mode: "dark",
   colors: {
-    primary: "#FF6B6B",
-    secondary: "#4ECDC4",
-    background: "#121212",
-    surface: "#1E1E1E",
+    primary: "#FF6B6B", // Coral
+    primaryGradient: ["#FF6B6B", "#FFA502"], // Coral to Gold gradient
+    secondary: "#FFA502", // Gold
+    background: "#1E1E1E", // Dark background
+    surface: "#252525",
     error: "#FF5252",
     text: "#FFFFFF",
     onBackground: "#FFFFFF",
     onSurface: "#FFFFFF",
     disabled: "#757575",
     placeholder: "#9E9E9E",
-    backdrop: "rgba(0, 0, 0, 0.5)",
+    backdrop: "rgba(0, 0, 0, 0.7)",
     notification: "#FF6B6B",
-    card: "#1E1E1E",
+    card: "#252525",
     border: "#2C2C2C",
     gray: "#BDBDBD",
     success: "#4CAF50",
@@ -115,8 +117,8 @@ const darkTheme = {
     colors: {
       ...DarkTheme.colors,
       primary: "#FF6B6B",
-      background: "#121212",
-      card: "#1E1E1E",
+      background: "#1E1E1E",
+      card: "#252525",
       text: "#FFFFFF",
       border: "#2C2C2C",
       notification: "#FF6B6B",

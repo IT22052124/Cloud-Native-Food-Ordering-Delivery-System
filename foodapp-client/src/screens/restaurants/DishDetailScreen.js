@@ -6,13 +6,28 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
+  TextInput,
+  Dimensions,
+  Platform,
 } from "react-native";
-import { Text, Button, Badge, Modal, Portal } from "react-native-paper";
+import {
+  Text,
+  Badge,
+  Button,
+  Modal,
+  Portal,
+  Divider,
+} from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
 import { useCart } from "../../context/CartContext";
 import dataService from "../../services/dataService";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons, FontAwesome } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import GradientButton from "../../components/ui/GradientButton";
+import * as Haptics from "expo-haptics";
+
+const { width } = Dimensions.get("window");
 
 const DishDetailScreen = ({ route, navigation }) => {
   const { restaurantId, dishId } = route.params;
@@ -25,6 +40,10 @@ const DishDetailScreen = ({ route, navigation }) => {
   const [cartAddingLoading, setCartAddingLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [cartModalVisible, setCartModalVisible] = useState(false);
+  const [selectedPortion, setSelectedPortion] = useState(null);
+  const [portionModalVisible, setPortionModalVisible] = useState(false);
+  const [modalQuantity, setModalQuantity] = useState(1);
+  const [qrModalVisible, setQrModalVisible] = useState(false);
 
   useEffect(() => {
     loadDishDetails();
@@ -41,7 +60,13 @@ const DishDetailScreen = ({ route, navigation }) => {
           restaurantId
         );
         const dishData = restaurantDish.dishes.find((d) => d._id === dishId);
+        console.log(dishData);
         setDish(dishData);
+
+        // Set default portion if portions exist
+        if (dishData?.portions && dishData.portions.length > 0) {
+          setSelectedPortion(dishData.portions[0]);
+        }
       }
     } catch (error) {
       console.error("Error loading dish details:", error);
@@ -51,42 +76,109 @@ const DishDetailScreen = ({ route, navigation }) => {
   };
 
   const increaseQuantity = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setQuantity(quantity + 1);
+    getCurrentPrice;
   };
 
   const decreaseQuantity = () => {
     if (quantity > 1) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setQuantity(quantity - 1);
     }
   };
 
+  // Helper to get base price (lowest portion price or dish.price)
+  const getBasePrice = () => {
+    if (dish?.portions && dish.portions.length > 0) {
+      return Math.min(...dish.portions.map((p) => p.price));
+    }
+    return dish?.price || 0;
+  };
+
+  // Helper to get current price (selected portion or base price)
+  const getCurrentPrice = () => {
+    if (selectedPortion) {
+      return selectedPortion.price * quantity;
+    }
+    return dish?.price * quantity || 0;
+  };
+
+  // Helper to get price difference for a portion
+  const getPortionDiff = (portion) => {
+    const base = getBasePrice();
+    const diff = portion.price - base;
+    return diff === 0 ? "+LKR 0" : `+LKR ${diff.toFixed(2)}`;
+  };
+
   const handleAddToCart = async () => {
+    if (!dish.isAvailable) {
+      return; // Don't allow adding if not available
+    }
+
+    if (dish.portions && dish.portions.length > 0 && !selectedPortion) {
+      setModalQuantity(1);
+      setPortionModalVisible(true);
+      return;
+    }
+
     setCartAddingLoading(true);
     if (
       cartRestaurant &&
       cartRestaurant.id !== restaurant._id &&
       items.length > 0
     ) {
-      // Show confirmation modal for clearing cart
       setCartModalVisible(true);
     } else {
-      const dishWithQuantity = { ...dish, quantity };
+      const dishWithQuantity = {
+        ...dish,
+        quantity,
+        selectedPortion,
+        price: selectedPortion ? selectedPortion.price : dish.price,
+      };
       const result = await addItem(dishWithQuantity, restaurant);
+      if (result.success) setModalVisible(true);
+      setCartAddingLoading(false);
+    }
+  };
 
-      if (result.success) {
-        // Show confirmation modal
-        setModalVisible(true);
-      }
+  const handlePortionAdd = async () => {
+    setPortionModalVisible(false);
+    setCartAddingLoading(true);
+    if (
+      cartRestaurant &&
+      cartRestaurant.id !== restaurant._id &&
+      items.length > 0
+    ) {
+      setCartModalVisible(true);
+    } else {
+      const dishWithPortion = {
+        ...dish,
+        quantity: modalQuantity,
+        selectedPortion,
+        price: selectedPortion.price,
+      };
+      const result = await addItem(dishWithPortion, restaurant);
+      if (result.success) setModalVisible(true);
       setCartAddingLoading(false);
     }
   };
 
   const handleClearCartAndAdd = () => {
     clearCart();
-    const dishWithQuantity = { ...dish, quantity };
+    const dishWithQuantity = {
+      ...dish,
+      quantity,
+      selectedPortion,
+      price: selectedPortion ? selectedPortion.price : dish.price,
+    };
     addItem(dishWithQuantity, restaurant);
     setCartModalVisible(false);
     setModalVisible(true);
+  };
+
+  const handleScanQRCode = () => {
+    setQrModalVisible(true);
   };
 
   if (loading) {
@@ -97,7 +189,7 @@ const DishDetailScreen = ({ route, navigation }) => {
           { backgroundColor: theme.colors.background },
         ]}
       >
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color="#FF5722" />
       </View>
     );
   }
@@ -114,10 +206,7 @@ const DishDetailScreen = ({ route, navigation }) => {
         <Button
           mode="contained"
           onPress={() => navigation.goBack()}
-          style={[
-            styles.goBackButton,
-            { backgroundColor: theme.colors.primary },
-          ]}
+          style={[styles.goBackButton, { backgroundColor: "#FF5722" }]}
         >
           Go Back
         </Button>
@@ -125,115 +214,261 @@ const DishDetailScreen = ({ route, navigation }) => {
     );
   }
 
-  const totalPrice = dish.price * quantity;
-
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Image
-            source={{ uri: dish.imageUrls[0] }}
-            style={styles.dishImage}
-            resizeMode="cover"
-          />
+      <View style={styles.cardContainer}>
+        <ScrollView showsVerticalScrollIndicator={false}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
+            <Ionicons name="chevron-back" size={24} color="#000" />
           </TouchableOpacity>
-          {dish.popular && (
-            <Badge
-              style={[
-                styles.popularBadge,
-                { backgroundColor: theme.colors.tertiary },
-              ]}
-            >
-              Popular
-            </Badge>
-          )}
-        </View>
 
-        <View style={styles.contentContainer}>
-          <View style={styles.titleContainer}>
-            <Text style={styles.dishName}>{dish.name}</Text>
-            <Text style={styles.dishPrice}>LKR {dish.price.toFixed(2)}</Text>
+          <View style={styles.imageContainer}>
+            <Image
+              source={{ uri: dish.imageUrls[0] }}
+              style={styles.dishImage}
+              resizeMode="cover"
+            />
+            {dish.popular && <Badge style={styles.popularBadge}>Popular</Badge>}
+            {!dish.isAvailable && (
+              <View style={styles.unavailableOverlay}>
+                <Text style={styles.unavailableText}>
+                  Currently Unavailable
+                </Text>
+              </View>
+            )}
           </View>
 
-          <Text style={styles.categoryText}>{dish.category}</Text>
+          <View style={styles.contentContainer}>
+            <Text style={styles.dishName}>{dish.name}</Text>
+            <Text style={styles.deliveryText}>{dish.category}</Text>
 
-          <Text style={styles.sectionTitle}>Description</Text>
-          <Text style={styles.descriptionText}>{dish.description}</Text>
+            <View style={styles.quantityContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.quantityButton,
+                  !dish.isAvailable && styles.disabledButton,
+                ]}
+                onPress={decreaseQuantity}
+                disabled={quantity <= 1 || !dish.isAvailable}
+              >
+                <Text style={styles.quantityButtonText}>−</Text>
+              </TouchableOpacity>
+              <Text style={styles.quantityValue}>{quantity}</Text>
+              <TouchableOpacity
+                style={[
+                  styles.quantityButton,
+                  !dish.isAvailable && styles.disabledButton,
+                ]}
+                onPress={increaseQuantity}
+                disabled={!dish.isAvailable}
+              >
+                <Text style={styles.quantityButtonText}>+</Text>
+              </TouchableOpacity>
 
-          <Text style={styles.sectionTitle}>From</Text>
-          <TouchableOpacity
-            style={styles.restaurantContainer}
-            onPress={() =>
-              navigation.navigate("RestaurantDetail", {
-                restaurantId: restaurant._id,
-              })
-            }
-          >
-            <Image
-              source={{ uri: restaurant.imageUrls[0] }}
-              style={styles.restaurantImage}
-            />
-            <View style={styles.restaurantInfo}>
-              <Text style={styles.restaurantName}>{restaurant.name}</Text>
-              {/* <Text style={styles.restaurantCuisine}>
-                {restaurant.cuisineType}
-              </Text> */}
+              <Text style={styles.priceText}>
+                LKR {getCurrentPrice().toFixed(2)}
+              </Text>
             </View>
-            <Ionicons
-              name="chevron-forward"
-              size={24}
-              color={theme.colors.gray}
-            />
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
 
-      <View
-        style={[
-          styles.footer,
-          { backgroundColor: theme.colors.background, ...theme.shadow.medium },
-        ]}
-      >
-        <View style={styles.quantityContainer}>
-          <TouchableOpacity
-            style={[
-              styles.quantityButton,
-              { borderColor: theme.colors.primary },
-            ]}
-            onPress={decreaseQuantity}
-          >
-            <Ionicons name="remove" size={20} color={theme.colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.quantityText}>{quantity}</Text>
-          <TouchableOpacity
-            style={[
-              styles.quantityButton,
-              { borderColor: theme.colors.primary },
-            ]}
-            onPress={increaseQuantity}
-          >
-            <Ionicons name="add" size={20} color={theme.colors.primary} />
-          </TouchableOpacity>
-        </View>
+            {dish.portions && dish.portions.length > 0 && (
+              <View style={styles.portionSection}>
+                <Text style={styles.sectionTitle}>Select Size</Text>
+                <View style={styles.portionsContainer}>
+                  {dish.portions.map((portion, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.portionCard,
+                        !dish.isAvailable && styles.disabledPortionCard,
+                        selectedPortion && selectedPortion.size === portion.size
+                          ? {
+                              borderColor: "#FF5722",
+                              backgroundColor: "rgba(255, 87, 34, 0.1)",
+                            }
+                          : {
+                              borderColor: "#E0E0E0",
+                            },
+                      ]}
+                      onPress={() =>
+                        dish.isAvailable && setSelectedPortion(portion)
+                      }
+                      disabled={!dish.isAvailable}
+                    >
+                      <View style={styles.portionNameContainer}>
+                        <Text
+                          style={[
+                            styles.portionName,
+                            !dish.isAvailable && styles.disabledText,
+                            selectedPortion &&
+                              selectedPortion.size === portion.size && {
+                                color: "#FF5722",
+                                fontWeight: "bold",
+                              },
+                          ]}
+                        >
+                          {portion.size}
+                        </Text>
+                      </View>
+                      <View>
+                        <Text
+                          style={[
+                            styles.portionPrice,
+                            !dish.isAvailable && styles.disabledText,
+                          ]}
+                        >
+                          LKR {portion.price.toFixed(2)}
+                        </Text>
+                        <Text style={styles.portionDiff}>
+                          {getPortionDiff(portion)}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
 
-        <Button
-          mode="contained"
-          style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
-          labelStyle={styles.addButtonLabel}
-          onPress={handleAddToCart}
-          loading={cartAddingLoading}
-          disabled={cartAddingLoading}
-        >
-          Add to Cart - LKR{totalPrice.toFixed(2)}
-        </Button>
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Description</Text>
+              <Text style={styles.descriptionText}>{dish.description}</Text>
+            </View>
+
+            <View style={styles.restaurantSection}>
+              <Text style={styles.sectionTitle}>From</Text>
+              <TouchableOpacity
+                style={styles.restaurantCard}
+                onPress={() =>
+                  navigation.navigate("RestaurantDetail", {
+                    restaurantId: restaurant._id,
+                  })
+                }
+                disabled={!dish.isAvailable}
+              >
+                <Image
+                  source={{ uri: restaurant.imageUrls[0] }}
+                  style={styles.restaurantImage}
+                />
+                <View style={styles.restaurantInfo}>
+                  <Text style={styles.restaurantName}>
+                    {restaurant.name} ({restaurant.address.city})
+                  </Text>
+                  <Text style={styles.restaurantCuisine}>
+                    {restaurant.cuisineType}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color="#999" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.actionButtonsContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.addButton,
+                  !dish.isAvailable && styles.disabledAddButton,
+                ]}
+                onPress={handleAddToCart}
+                disabled={cartAddingLoading || !dish.isAvailable}
+              >
+                {cartAddingLoading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.addButtonText}>Add to cart</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {!dish.isAvailable && (
+              <Text style={styles.unavailableNote}>
+                This item is currently unavailable. Please check back later or
+                explore other options.
+              </Text>
+            )}
+          </View>
+        </ScrollView>
       </View>
+
+      {/* Portion Selection Modal */}
+      <Portal>
+        <Modal
+          visible={portionModalVisible}
+          onDismiss={() => setPortionModalVisible(false)}
+          contentContainerStyle={[
+            styles.modal,
+            { backgroundColor: theme.colors.background },
+          ]}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select your portion</Text>
+            {dish?.portions?.map((portion, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={[
+                  styles.radioRow,
+                  selectedPortion?.name === portion.name &&
+                    styles.radioRowSelected,
+                ]}
+                onPress={() => setSelectedPortion(portion)}
+              >
+                <View
+                  style={[
+                    styles.radioCircle,
+                    selectedPortion?.name === portion.name &&
+                      styles.radioCircleSelected,
+                  ]}
+                >
+                  {selectedPortion?.name === portion.name && (
+                    <View style={styles.radioDot} />
+                  )}
+                </View>
+                <Text style={styles.radioLabel}>{portion.name}</Text>
+                <Text style={styles.radioPrice}>
+                  LKR {portion.price.toFixed(2)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <View style={styles.modalFooterRow}>
+              <View style={styles.modalQtyBox}>
+                <TouchableOpacity
+                  style={styles.qtyBtn}
+                  onPress={() =>
+                    setModalQuantity(Math.max(1, modalQuantity - 1))
+                  }
+                >
+                  <Text style={styles.qtyBtnText}>-</Text>
+                </TouchableOpacity>
+                <Text style={styles.qtyText}>{modalQuantity}</Text>
+                <TouchableOpacity
+                  style={styles.qtyBtn}
+                  onPress={() => setModalQuantity(modalQuantity + 1)}
+                >
+                  <Text style={styles.qtyBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.modalPrice}>
+                LKR{" "}
+                {(selectedPortion
+                  ? selectedPortion.price * modalQuantity
+                  : getBasePrice() * modalQuantity
+                ).toFixed(2)}
+              </Text>
+            </View>
+            <Button
+              mode="contained"
+              style={[styles.addButtonModal, { backgroundColor: "#FF5722" }]}
+              labelStyle={styles.addButtonLabel}
+              onPress={handlePortionAdd}
+              disabled={!selectedPortion}
+            >
+              Add to Cart
+            </Button>
+          </View>
+        </Modal>
+      </Portal>
 
       {/* Added to cart confirmation modal */}
       <Portal>
@@ -246,11 +481,7 @@ const DishDetailScreen = ({ route, navigation }) => {
           ]}
         >
           <View style={styles.modalContent}>
-            <Ionicons
-              name="checkmark-circle"
-              size={60}
-              color={theme.colors.success}
-            />
+            <Ionicons name="checkmark-circle" size={60} color="#4CAF50" />
             <Text style={styles.modalTitle}>Added to Cart</Text>
             <Text style={styles.modalText}>
               {quantity} x {dish.name} has been added to your cart.
@@ -270,10 +501,7 @@ const DishDetailScreen = ({ route, navigation }) => {
                   setModalVisible(false);
                   navigation.navigate("Cart");
                 }}
-                style={[
-                  styles.modalButton,
-                  { backgroundColor: theme.colors.primary },
-                ]}
+                style={[styles.modalButton, { backgroundColor: "#FF5722" }]}
               >
                 View Cart
               </Button>
@@ -293,11 +521,7 @@ const DishDetailScreen = ({ route, navigation }) => {
           ]}
         >
           <View style={styles.modalContent}>
-            <Ionicons
-              name="alert-circle"
-              size={60}
-              color={theme.colors.warning}
-            />
+            <Ionicons name="alert-circle" size={60} color="#FFC107" />
             <Text style={styles.modalTitle}>Clear Cart?</Text>
             <Text style={styles.modalText}>
               Your cart contains items from {cartRestaurant?.name}. Do you want
@@ -315,10 +539,7 @@ const DishDetailScreen = ({ route, navigation }) => {
               <Button
                 mode="contained"
                 onPress={handleClearCartAndAdd}
-                style={[
-                  styles.modalButton,
-                  { backgroundColor: theme.colors.primary },
-                ]}
+                style={[styles.modalButton, { backgroundColor: "#FF5722" }]}
               >
                 Clear Cart
               </Button>
@@ -326,6 +547,37 @@ const DishDetailScreen = ({ route, navigation }) => {
           </View>
         </Modal>
       </Portal>
+
+      {/* QR Code Modal */}
+      {/* <Portal>
+        <Modal
+          visible={qrModalVisible}
+          onDismiss={() => setQrModalVisible(false)}
+          contentContainerStyle={[
+            styles.modal,
+            { backgroundColor: theme.colors.background },
+          ]}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Scan to Order</Text> */}
+      {/* <Image
+              source={require("../../assets/images/qr-placeholder.png")}
+              style={styles.qrCode}
+              onError={() => console.log("Error loading QR code")}
+            />
+            <Text style={styles.modalText}>
+              Scan this QR code at the restaurant to order {dish.name}.
+            </Text> */}
+      {/* <Button
+              mode="contained"
+              onPress={() => setQrModalVisible(false)}
+              style={{ backgroundColor: "#FF5722", marginTop: 16 }}
+            >
+              Close
+            </Button>
+          </View>
+        </Modal>
+      </Portal> */}
     </SafeAreaView>
   );
 };
@@ -333,6 +585,15 @@ const DishDetailScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  cardContainer: {
+    flex: 1,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
   loadingContainer: {
     flex: 1,
@@ -348,72 +609,185 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 18,
     marginBottom: 20,
+    textAlign: "center",
   },
   goBackButton: {
-    paddingHorizontal: 20,
+    borderRadius: 10,
+    paddingHorizontal: 16,
   },
-  header: {
+  backButton: {
+    position: "absolute",
+    top: 16,
+    left: 16,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageContainer: {
+    height: 250,
+    width: "100%",
     position: "relative",
   },
   dishImage: {
     width: "100%",
-    height: 250,
-  },
-  backButton: {
-    position: "absolute",
-    top: 15,
-    left: 15,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    borderRadius: 20,
-    padding: 8,
+    height: "100%",
   },
   popularBadge: {
     position: "absolute",
-    top: 15,
-    right: 15,
+    top: 16,
+    right: 16,
+    paddingHorizontal: 10,
+    backgroundColor: "#FF5722",
+    color: "#FFFFFF",
   },
-  contentContainer: {
-    padding: 16,
-  },
-  titleContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  unavailableOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
   },
-  dishName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    flex: 1,
-    marginRight: 10,
-  },
-  dishPrice: {
+  unavailableText: {
+    color: "#FFFFFF",
     fontSize: 20,
     fontWeight: "bold",
+    textAlign: "center",
+    padding: 10,
+    backgroundColor: "rgba(255, 87, 34, 0.8)",
+    borderRadius: 5,
   },
-  categoryText: {
+  contentContainer: {
+    padding: 20,
+  },
+  dishName: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#333333",
+    marginBottom: 6,
+  },
+  deliveryText: {
+    fontSize: 14,
+    color: "#888888",
+    marginBottom: 20,
+  },
+  quantityContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  quantityButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F5F5F5",
+  },
+  disabledButton: {
+    opacity: 0.5,
+    backgroundColor: "#F0F0F0",
+  },
+  quantityButtonText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333333",
+  },
+  quantityValue: {
     fontSize: 16,
-    color: "#666",
-    marginBottom: 16,
+    fontWeight: "bold",
+    marginHorizontal: 16,
+    width: 20,
+    textAlign: "center",
+  },
+  priceText: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333333",
+    marginLeft: "auto",
+  },
+  sectionContainer: {
+    marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginTop: 16,
+    color: "#333333",
     marginBottom: 8,
   },
   descriptionText: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: "#444",
+    fontSize: 14,
+    lineHeight: 22,
+    color: "#888888",
   },
-  restaurantContainer: {
+  portionSection: {
+    marginBottom: 10,
+  },
+  portionsContainer: {
+    marginTop: 12,
+  },
+  portionCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 12,
+    borderWidth: 1,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  disabledPortionCard: {
+    opacity: 0.6,
+    backgroundColor: "#F8F8F8",
+  },
+  portionNameContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f9f9f9",
+  },
+  portionName: {
+    fontSize: 14,
+    color: "#333333",
+  },
+  portionPrice: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#333333",
+    textAlign: "right",
+  },
+  portionDiff: {
+    fontSize: 12,
+    color: "#888888",
+    textAlign: "right",
+  },
+  disabledText: {
+    color: "#999999",
+  },
+  restaurantSection: {
+    marginBottom: 16,
+  },
+  restaurantCard: {
+    flexDirection: "row",
+    alignItems: "center",
     padding: 12,
+    backgroundColor: "#F8F8F8",
     borderRadius: 12,
-    marginTop: 8,
+    marginTop: 5,
+
+    // Shadow for iOS
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+
+    // Elevation for Android
+    elevation: 3,
   },
   restaurantImage: {
     width: 50,
@@ -427,49 +801,66 @@ const styles = StyleSheet.create({
   restaurantName: {
     fontSize: 16,
     fontWeight: "bold",
+    color: "#333333",
   },
   restaurantCuisine: {
     fontSize: 14,
-    color: "#666",
+    color: "#888888",
   },
-  footer: {
-    padding: 16,
+  actionButtonsContainer: {
+    flexDirection: "row",
+    marginBottom: 16,
+  },
+  scanButton: {
     flexDirection: "row",
     alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-  },
-  quantityContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: 16,
-  },
-  quantityButton: {
-    borderWidth: 1,
-    borderRadius: 15,
-    width: 30,
-    height: 30,
     justifyContent: "center",
-    alignItems: "center",
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#FF5722",
+    borderRadius: 8,
+    marginRight: 8,
+    flex: 1,
   },
-  quantityText: {
-    fontSize: 18,
+  disabledScanButton: {
+    borderColor: "#CCCCCC",
+    opacity: 0.6,
+  },
+  scanButtonText: {
+    color: "#FF5722",
     fontWeight: "bold",
-    marginHorizontal: 12,
+    marginLeft: 8,
   },
   addButton: {
-    flex: 1,
+    backgroundColor: "#FF5722",
     borderRadius: 8,
+    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 2,
   },
-  addButtonLabel: {
+  disabledAddButton: {
+    backgroundColor: "#CCCCCC",
+    opacity: 0.6,
+  },
+  addButtonText: {
+    color: "#FFFFFF",
     fontSize: 16,
-    paddingVertical: 2,
+    fontWeight: "bold",
+  },
+  unavailableNote: {
+    fontSize: 14,
+    color: "#F44336",
+    textAlign: "center",
+    marginTop: 8,
+    fontStyle: "italic",
   },
   modal: {
     margin: 20,
     borderRadius: 16,
     padding: 20,
-    alignItems: "center",
+    width: "90%",
+    alignSelf: "center",
   },
   modalContent: {
     alignItems: "center",
@@ -480,6 +871,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginTop: 16,
     marginBottom: 8,
+    textAlign: "center",
   },
   modalText: {
     fontSize: 16,
@@ -495,6 +887,98 @@ const styles = StyleSheet.create({
   modalButton: {
     flex: 1,
     marginHorizontal: 8,
+  },
+  radioRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+    width: "100%",
+  },
+  radioRowSelected: {
+    backgroundColor: "#f6f6f6",
+  },
+  radioCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: "#aaa",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  radioCircleSelected: {
+    borderColor: "#FF5722",
+  },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#FF5722",
+  },
+  radioLabel: {
+    fontSize: 16,
+    fontWeight: "bold",
+    flex: 1,
+  },
+  radioPrice: {
+    fontSize: 15,
+    color: "#888",
+    marginLeft: 8,
+  },
+  modalFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    marginTop: 20,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+  },
+  modalQtyBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#FF5722",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  qtyBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  qtyBtnText: {
+    fontSize: 20,
+    color: "#FF5722",
+    fontWeight: "bold",
+  },
+  qtyText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginHorizontal: 8,
+  },
+  modalPrice: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginLeft: "auto",
+    marginRight: 8,
+  },
+  addButtonModal: {
+    marginTop: 20,
+    width: "100%",
+  },
+  addButtonLabel: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  qrCode: {
+    width: 200,
+    height: 200,
+    marginVertical: 16,
   },
 });
 

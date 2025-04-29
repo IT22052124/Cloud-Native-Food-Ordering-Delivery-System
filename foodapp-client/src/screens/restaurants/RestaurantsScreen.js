@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -6,6 +6,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Animated,
+  Dimensions,
+  Platform,
 } from "react-native";
 import {
   Text,
@@ -21,16 +24,25 @@ import { useTheme } from "../../context/ThemeContext";
 import { useLocation } from "../../context/LocationContext";
 import dataService from "../../services/dataService";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import SearchBar from "../../components/ui/SearchBar";
+import GradientButton from "../../components/ui/GradientButton";
+
+const { width } = Dimensions.get("window");
+
+const CARD_WIDTH = width - 32;
 
 const RestaurantsScreen = ({ navigation, route }) => {
   const theme = useTheme();
   const { selectedAddress, deliveryRange } = useLocation();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [locationBased, setLocationBased] = useState(false);
   const [error, setError] = useState(null);
+  const [searchValue, setSearchValue] = useState("");
 
   // Create theme-dependent styles inside the component
   const themedStyles = {
@@ -73,6 +85,14 @@ const RestaurantsScreen = ({ navigation, route }) => {
     loadData();
   }, [selectedAddress]);
 
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, [restaurants]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -90,7 +110,7 @@ const RestaurantsScreen = ({ navigation, route }) => {
           restaurantsData = await dataService.getRestaurantsByLocation(
             selectedAddress.latitude,
             selectedAddress.longitude,
-            deliveryRange || 5
+            100
           );
 
           if (
@@ -167,6 +187,10 @@ const RestaurantsScreen = ({ navigation, route }) => {
     navigation.navigate("Search");
   };
 
+  const handleSearchClear = () => {
+    setSearchValue("");
+  };
+
   const handleRefresh = () => {
     setRefreshing(true);
     loadData();
@@ -177,265 +201,244 @@ const RestaurantsScreen = ({ navigation, route }) => {
   };
 
   const isRestaurantClosed = (restaurant) => {
-    if (!restaurant.openingHours) return false;
+    if (!restaurant.openingHours || restaurant.openingHours.length === 0)
+      return false;
 
-    // If the restaurant is explicitly marked as closed
-    if (restaurant.openingHours.isClosed) return true;
+    // Get current day of the week (0 = Sunday, 1 = Monday, etc.)
+    const now = new Date();
+    const currentDay = now.getDay();
+    // Convert to match our array structure (where 0 = Monday, 6 = Sunday)
+    const dayIndex = currentDay === 0 ? 6 : currentDay - 1;
+
+    // Get the opening hours for today
+    const todayHours = restaurant.openingHours[dayIndex];
+
+    if (!todayHours) return true;
+
+    // If the restaurant is explicitly marked as closed for today
+    if (todayHours.isClosed) return true;
 
     // Check if current time is outside opening hours
-    if (restaurant.openingHours.open && restaurant.openingHours.close) {
-      const now = new Date();
+    if (todayHours.open && todayHours.close) {
       const currentTime = now.getHours() * 60 + now.getMinutes(); // current time in minutes
 
       // Convert opening hours to minutes for comparison
-      const [openHour, openMinute] = restaurant.openingHours.open
-        .split(":")
-        .map(Number);
-      const [closeHour, closeMinute] = restaurant.openingHours.close
-        .split(":")
-        .map(Number);
+      const [openHour, openMinute] = todayHours.open.split(":").map(Number);
+      const [closeHour, closeMinute] = todayHours.close.split(":").map(Number);
 
       const openTime = openHour * 60 + openMinute;
       const closeTime = closeHour * 60 + closeMinute;
 
-      // Check if current time is outside opening hours
-      if (currentTime < openTime || currentTime > closeTime) {
-        return true;
+      // Handle overnight opening hours (close time is less than open time)
+      if (closeTime < openTime) {
+        // Restaurant is open overnight
+        return currentTime < openTime && currentTime > closeTime;
+      } else {
+        // Regular hours
+        return currentTime < openTime || currentTime > closeTime;
       }
     }
 
-    return false;
+    // If open/close times aren't properly set, consider it closed
+    return todayHours.open === "" || todayHours.close === "";
   };
 
   const renderRestaurantItem = ({ item }) => {
     const isClosed = isRestaurantClosed(item);
-    const hasDeliveryOnly =
-      item.serviceType?.delivery && !item.serviceType?.pickup;
-    const hasPickupOnly =
-      item.serviceType?.pickup && !item.serviceType?.delivery;
 
     return (
-      <Card
-        style={[
-          styles.restaurantCard,
-          { ...theme.shadow.small },
-          isClosed && styles.closedRestaurantCard,
-        ]}
+      <TouchableOpacity
+        style={[styles.restaurantCard, { backgroundColor: theme.colors.card }]}
         onPress={() => {
-          if (!isClosed) {
-            navigation.navigate("RestaurantDetail", { restaurantId: item._id });
-          }
+          navigation.navigate("RestaurantDetail", { restaurantId: item._id });
         }}
+        activeOpacity={isClosed ? 1 : 0.95}
       >
-        <View style={styles.cardContentContainer}>
-          {/* Service Type Label at top left */}
-          {hasPickupOnly && (
-            <View style={styles.serviceTypeBadge}>
-              <View style={styles.pickupIconContainer}>
-                <MaterialIcons name="directions-walk" size={16} color="#fff" />
-              </View>
-              <Text style={styles.serviceTypeBadgeText}>PICK UP ONLY</Text>
-            </View>
-          )}
-          {hasDeliveryOnly && (
-            <View style={[styles.serviceTypeBadge, styles.deliveryBadge]}>
-              <MaterialIcons name="delivery-dining" size={16} color="#fff" />
-              <Text style={styles.serviceTypeBadgeText}> DELIVERY ONLY</Text>
-            </View>
-          )}
-
-          {/* Heart/Favorite icon at top right */}
-          <TouchableOpacity style={styles.favoriteButton}>
-            <Ionicons name="heart-outline" size={24} color="#fff" />
-          </TouchableOpacity>
-
-          {/* Restaurant Image */}
-          <Card.Cover
-            source={{ uri: item.coverImageUrl }}
+        <View style={styles.restaurantImageContainer}>
+          <Image
+            source={{ uri: item.coverImageUrl || item.imageUrls[0] }}
             style={[styles.restaurantImage, isClosed && styles.closedImage]}
+            resizeMode="cover"
           />
-
-          {/* Estimated time and price */}
-          {item.estimatedPrepTime && (
-            <View style={styles.timeAndPriceContainer}>
-              <View style={styles.timeContainer}>
-                <Ionicons name="time-outline" size={18} color="#fff" />
-                <Text style={styles.timeText}>
-                  {item.estimatedPrepTime}min - {item.estimatedPrepTime + 10}min
-                </Text>
-              </View>
-              {item.deliveryFee && (
-                <View style={styles.priceContainer}>
-                  <Text style={styles.priceText}>
-                    Fee: LKR {item.deliveryFee.toFixed(2)}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Distance badge for location-based results */}
-          {locationBased && item.distance && (
-            <View style={styles.distanceBadge}>
-              <Ionicons name="location-outline" size={14} color="#fff" />
-              <Text style={styles.distanceBadgeText}>
-                {parseFloat(item.distance).toFixed(1)} km
-              </Text>
-            </View>
-          )}
 
           {isClosed && (
             <View style={styles.closedOverlay}>
-              <Text style={styles.closedText}>CLOSED</Text>
-              {item.openingHours?.open && item.openingHours?.close && (
-                <Text style={styles.openingHoursText}>
-                  Opens at {item.openingHours.open}
-                </Text>
-              )}
+              <Text style={styles.closedText}>Closed</Text>
             </View>
           )}
-        </View>
 
-        <Card.Content>
-          <View style={styles.restaurantInfoContainer}>
-            <View style={styles.nameAndRatingContainer}>
-              <Title style={styles.restaurantName}>{item.name}</Title>
-              {item.rating && (
-                <View style={styles.ratingContainer}>
-                  <Ionicons
-                    name="thumbs-up"
-                    size={16}
-                    color={theme.colors.primary}
-                  />
-                  <Text style={styles.ratingText}>
-                    {item.rating}% ({item.ratingCount || "500+"})
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {item.promotion && (
-              <View style={styles.promotionContainer}>
-                <Ionicons
-                  name="pricetag-outline"
-                  size={18}
-                  color={theme.colors.primary}
-                />
-                <Text style={themedStyles.promotionText}>{item.promotion}</Text>
+          {/* Service Type Badges */}
+          <View style={styles.serviceTypeBadges}>
+            {item.serviceType?.delivery && (
+              <View
+                style={[
+                  styles.serviceBadge,
+                  { backgroundColor: theme.colors.primary + "80" },
+                ]}
+              >
+                <Ionicons name="bicycle-outline" size={14} color="white" />
+                <Text style={styles.serviceBadgeText}>Delivery</Text>
               </View>
             )}
+            {item.serviceType?.pickup && (
+              <View
+                style={[
+                  styles.serviceBadge,
+                  { backgroundColor: theme.colors.primary + "80" },
+                ]}
+              >
+                <MaterialIcons name="store" size={14} color="white" />
+                <Text style={styles.serviceBadgeText}>Pickup</Text>
+              </View>
+            )}
+          </View>
 
-            <View style={styles.infoContainer}>
-              {item.cuisineType && (
-                <Text style={styles.cuisineText}>{item.cuisineType}</Text>
-              )}
-
-              {item.openingHours?.open && item.openingHours?.close && (
-                <Text style={styles.hoursText}>
-                  Hours: {item.openingHours.open} - {item.openingHours.close}
-                </Text>
-              )}
+          {/* Time and Distance Info */}
+          <View style={styles.timeDistanceInfo}>
+            <View style={styles.infoItem}>
+              <Ionicons name="time-outline" size={14} color="white" />
+              <Text style={styles.infoText}>{item.estimatedPrepTime}min</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Ionicons name="location-outline" size={14} color="white" />
+              <Text style={styles.infoText}>{item.distance}km</Text>
             </View>
           </View>
-        </Card.Content>
-      </Card>
+        </View>
+
+        <View style={styles.restaurantInfo}>
+          <View style={styles.nameStatusContainer}>
+            <Text
+              style={[styles.restaurantName, { color: theme.colors.text }]}
+              numberOfLines={1}
+            >
+              {item.name}
+            </Text>
+            <View
+              style={[
+                styles.statusChip,
+                {
+                  backgroundColor: isClosed
+                    ? theme.colors.error + "20"
+                    : theme.colors.success + "20",
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.statusDot,
+                  {
+                    backgroundColor: isClosed
+                      ? theme.colors.error
+                      : theme.colors.success,
+                  },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.statusText,
+                  {
+                    color: isClosed ? theme.colors.error : theme.colors.success,
+                  },
+                ]}
+              >
+                {isClosed ? "Closed" : "Open"}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
     );
   };
 
   const renderLocationDisclaimer = () => {
-    if (!selectedAddress) return null;
-
-    const locationName = selectedAddress.isCurrentLocation
-      ? "Current Location"
-      : selectedAddress.label || "Custom Location";
+    if (!locationBased) return null;
 
     return (
       <View
         style={[
-          styles.locationDisclaimerContainer,
+          styles.locationContainer,
           themedStyles.locationDisclaimerContainer,
         ]}
       >
-        <View style={styles.locationDisclaimerContent}>
-          <Text
-            style={[
-              styles.locationDisclaimerText,
-              themedStyles.locationDisclaimerText,
-            ]}
-          >
-            Showing restaurants near{"       "}
-            <Text style={themedStyles.locationName}>{locationName}</Text>
+        <Text
+          style={[styles.locationText, themedStyles.locationDisclaimerText]}
+        >
+          Showing restaurants near{" "}
+          <Text style={themedStyles.locationName}>
+            {selectedAddress?.formattedAddress
+              ? selectedAddress.formattedAddress
+              : "selected location"}
           </Text>
-          <TouchableOpacity onPress={handleChangeLocation}>
-            <Text style={themedStyles.changeLocationText}>Change Location</Text>
-          </TouchableOpacity>
-        </View>
+        </Text>
+        <TouchableOpacity onPress={handleChangeLocation}>
+          <Text style={themedStyles.changeLocationText}>Change Location</Text>
+        </TouchableOpacity>
       </View>
     );
   };
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
-      <View style={styles.topBar}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color={theme.colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.screenTitle}>Restaurants</Text>
-        <View style={styles.placeholder} />
+      <View style={styles.titleContainer}>
+        <Text style={[styles.title, { color: theme.colors.text }]}>
+          Restaurants
+        </Text>
       </View>
 
-      <TouchableOpacity onPress={handleSearch} activeOpacity={0.7}>
-        <Searchbar
-          placeholder="Search for restaurants or dishes"
-          value=""
-          style={[styles.searchBar, { backgroundColor: theme.colors.surface }]}
-          onFocus={handleSearch}
-          showSoftInputOnFocus={false}
-          icon="magnify"
-          iconColor={theme.colors.primary}
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => navigation.navigate("Search")}
+      >
+        <SearchBar
+          editable={false} // Make the input field not directly editable
+          style={styles.SearchBar}
         />
       </TouchableOpacity>
 
-      {/* Location-based disclaimer */}
-      {locationBased && renderLocationDisclaimer()}
+      {renderLocationDisclaimer()}
     </View>
   );
 
   const renderEmptyComponent = () => (
-    <View style={styles.emptyContainer}>
-      <Image
-        source={{
-          uri: "https://png.pngtree.com/png-vector/20220708/ourmid/pngtree-fast-food-logo-png-image_5763171.png",
-        }}
-        style={styles.emptyImage}
-      />
-      <Text style={styles.emptyText}>No Restaurants Found</Text>
-
+    <View
+      style={[
+        styles.emptyContainer,
+        { alignItems: "center", justifyContent: "flex-start", marginTop: 20 },
+      ]}
+    >
       {error ? (
-        <Text style={styles.emptySubtext}>{error.message}</Text>
-      ) : (
-        <Text style={styles.emptySubtext}>
-          {locationBased
-            ? "Try changing your location or delivery range"
-            : "No restaurants available at this time"}
-        </Text>
-      )}
-
-      {locationBased && (
-        <Button
-          mode="contained"
+        <View
           style={[
-            styles.changeLocationButton,
-            themedStyles.changeLocationButton,
-            { marginTop: 20 },
+            styles.errorContainer,
+            themedStyles.errorContainer,
+            { width: "100%" },
           ]}
-          onPress={handleChangeLocation}
         >
-          Change Location
-        </Button>
+          <Ionicons name="alert-circle" size={48} color={theme.colors.error} />
+          <Text style={[styles.emptyText, themedStyles.errorText]}>
+            {error.message}
+          </Text>
+          {error.type === "location" && (
+            <GradientButton
+              title="Change Location"
+              onPress={handleChangeLocation}
+              style={{ marginTop: 16 }}
+              fullWidth
+            />
+          )}
+        </View>
+      ) : (
+        <>
+          <Ionicons
+            name="restaurant-outline"
+            size={64}
+            color={theme.colors.gray}
+          />
+          <Text style={[styles.emptyText, { color: theme.colors.text }]}>
+            No restaurants available
+          </Text>
+        </>
       )}
     </View>
   );
@@ -459,9 +462,10 @@ const RestaurantsScreen = ({ navigation, route }) => {
     >
       <FlatList
         data={restaurants}
+        keyExtractor={(item) => item._id.toString()}
         renderItem={renderRestaurantItem}
-        keyExtractor={(item) => item._id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmptyComponent}
         refreshing={refreshing}
@@ -471,7 +475,6 @@ const RestaurantsScreen = ({ navigation, route }) => {
   );
 };
 
-// Static styles without theme-dependent properties
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -481,133 +484,132 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  headerContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-  },
-  topBar: {
+  headerContainer: {},
+  titleContainer: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    marginVertical: 10,
+    alignItems: "center",
+    marginTop: 10,
+    marginBottom: 10,
   },
-  backButton: {
-    padding: 5,
+  title: {
+    fontSize: 28,
+    fontFamily: "Poppins-Bold",
+    marginVertical: 8,
   },
-  screenTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  placeholder: {
-    width: 24,
-  },
-  searchBar: {
-    marginVertical: 10,
-    borderRadius: 12,
-    elevation: 2,
-  },
-  listContent: {
-    paddingBottom: 20,
+  listContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   restaurantCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 12,
+    borderRadius: 16,
+    marginBottom: 12,
     overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  closedRestaurantCard: {
-    opacity: 0.8,
-    borderColor: "#ccc",
-    borderWidth: 1,
+  restaurantImageContainer: {
+    position: "relative",
+    height: 180,
   },
   restaurantImage: {
-    height: 150,
+    width: "100%",
+    height: "100%",
   },
-  closedImage: {
-    opacity: 0.6,
-  },
-  closedOverlay: {
+  serviceTypeBadges: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
+    top: 10,
+    right: 10,
+    flexDirection: "row",
+    gap: 6,
+  },
+  serviceBadge: {
+    flexDirection: "row",
     alignItems: "center",
-    zIndex: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
   },
-  closedText: {
+  serviceBadgeText: {
     color: "white",
-    fontSize: 24,
-    fontWeight: "bold",
-    letterSpacing: 1,
+    fontSize: 10,
+    fontWeight: "600",
   },
-  openingHoursText: {
+  timeDistanceInfo: {
+    position: "absolute",
+    bottom: 10,
+    left: 10,
+    flexDirection: "row",
+    gap: 6,
+  },
+  infoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  infoText: {
     color: "white",
-    fontSize: 14,
-    marginTop: 4,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  restaurantInfo: {
+    padding: 10,
+  },
+  nameStatusContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   restaurantName: {
+    fontSize: 16,
     fontWeight: "bold",
-    fontSize: 18,
-    marginTop: 5,
-  },
-  infoContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 5,
-    flexWrap: "wrap",
-  },
-  hoursContainer: {
-    marginTop: 4,
-  },
-  hoursText: {
-    fontSize: 13,
-    color: "#666",
-  },
-  cuisineText: {
-    color: "#666",
-    fontSize: 14,
-    marginRight: 10,
-  },
-  prepTimeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  prepTimeText: {
-    marginLeft: 4,
-    fontSize: 13,
-    color: "#666",
-  },
-  serviceTypesContainer: {
-    flexDirection: "row",
-    marginTop: 8,
-    flexWrap: "wrap",
-  },
-  serviceChip: {
+    flex: 1,
     marginRight: 8,
-    marginTop: 4,
-    backgroundColor: "#f0f0f0",
   },
-  serviceChipText: {
-    fontSize: 12,
-  },
-  deliveryInfoContainer: {
+  statusChip: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
   },
-  icon: {
-    marginLeft: 10,
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  deliveryText: {
-    marginLeft: 4,
-    color: "#666",
+  statusText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  locationContainer: {
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 8,
+  },
+  locationText: {
     fontSize: 14,
+    fontFamily: "Poppins-Regular",
+    marginBottom: 4,
   },
   emptyContainer: {
-    padding: 20,
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 50,
@@ -648,52 +650,6 @@ const styles = StyleSheet.create({
   },
   pickupIconContainer: {
     marginRight: 4,
-  },
-  serviceTypeBadgeText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 14,
-  },
-  favoriteButton: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-    zIndex: 10,
-    backgroundColor: "rgba(255,255,255,0.3)",
-    borderRadius: 20,
-    padding: 6,
-  },
-  timeAndPriceContainer: {
-    position: "absolute",
-    bottom: 10,
-    right: 10,
-    alignItems: "flex-end",
-  },
-  timeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.6)",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 16,
-    marginBottom: 4,
-  },
-  timeText: {
-    color: "#fff",
-    marginLeft: 4,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  priceContainer: {
-    backgroundColor: "rgba(0,0,0,0.6)",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 16,
-  },
-  priceText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "500",
   },
   restaurantInfoContainer: {
     paddingVertical: 8,
@@ -765,6 +721,25 @@ const styles = StyleSheet.create({
   },
   changeLocationButton: {
     borderRadius: 8,
+  },
+  closedImage: {
+    opacity: 0.5,
+  },
+  closedOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closedText: {
+    color: "white",
+    fontSize: 24,
+    fontWeight: "bold",
+    textTransform: "uppercase",
   },
 });
 

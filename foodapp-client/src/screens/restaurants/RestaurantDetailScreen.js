@@ -11,7 +11,14 @@ import {
   Text as RNText,
   Animated,
 } from "react-native";
-import { Card, Badge, Button, Modal, Portal } from "react-native-paper";
+import {
+  Card,
+  Badge,
+  Button,
+  Modal,
+  Portal,
+  Divider,
+} from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
 import { useCart } from "../../context/CartContext";
@@ -42,10 +49,13 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
   const [currentItem, setCurrentItem] = useState(null);
   const [cartModalVisible, setCartModalVisible] = useState(false);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [portionModalVisible, setPortionModalVisible] = useState(false);
+  const [selectedDish, setSelectedDish] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState(null);
   const [headerHeight, setHeaderHeight] = useState(HEADER_HEIGHT);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [selectedPortions, setSelectedPortions] = useState({});
 
   const scrollViewRef = useRef(null);
   const sectionRefs = useRef({});
@@ -164,8 +174,21 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
   };
 
   const handleAddToCart = async (item) => {
+    // If the item has portions, show the portion selection modal
+    if (item.portions && item.portions.length > 0) {
+      setSelectedDish(item);
+      setPortionModalVisible(true);
+      return;
+    }
+
+    // For items without portions
     setAddToCartLoading(true);
     setModalVisible(true);
+
+    const itemToAdd = {
+      ...item,
+      quantity: 1,
+    };
 
     if (
       cartRestaurant &&
@@ -173,15 +196,48 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
       items.length > 0
     ) {
       // Show confirmation modal for clearing cart
-      setCurrentItem(item);
+      setCurrentItem(itemToAdd);
       setModalVisible(false);
       setAddToCartLoading(false);
       setCartModalVisible(true);
     } else {
-      const result = await addItem({ ...item, quantity: 1 }, restaurant);
+      const result = await addItem(itemToAdd, restaurant);
       if (result.success) {
         // Show confirmation modal
-        setCurrentItem(item);
+        setCurrentItem(itemToAdd);
+        setAddToCartLoading(false);
+        setModalVisible(true);
+      }
+    }
+  };
+
+  const handleAddWithSelectedPortion = async (portion) => {
+    setPortionModalVisible(false);
+    setAddToCartLoading(true);
+    setModalVisible(true);
+
+    const itemToAdd = {
+      ...selectedDish,
+      quantity: 1,
+      selectedPortion: portion,
+      price: portion.price,
+    };
+
+    if (
+      cartRestaurant &&
+      cartRestaurant.id !== restaurant._id &&
+      items.length > 0
+    ) {
+      // Show confirmation modal for clearing cart
+      setCurrentItem(itemToAdd);
+      setModalVisible(false);
+      setAddToCartLoading(false);
+      setCartModalVisible(true);
+    } else {
+      const result = await addItem(itemToAdd, restaurant);
+      if (result.success) {
+        // Show confirmation modal
+        setCurrentItem(itemToAdd);
         setAddToCartLoading(false);
         setModalVisible(true);
       }
@@ -214,9 +270,17 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
     setSearchFocused(false);
   };
 
+  // Handle portion selection
+  const handlePortionSelect = (dishId, portionId) => {
+    setSelectedPortions((prev) => ({
+      ...prev,
+      [dishId]: portionId,
+    }));
+  };
+
   const renderDishItem = ({ item }) => (
     <Card
-      style={[styles.dishCard, { ...theme.shadow.small }]}
+      style={[styles.dishCard, { backgroundColor: theme.colors.surface }]}
       onPress={() =>
         navigation.navigate("DishDetail", {
           restaurantId: restaurant._id,
@@ -227,24 +291,78 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
       <View style={styles.dishContent}>
         <View style={styles.dishInfo}>
           <RNText style={styles.dishName}>{item.name}</RNText>
-          <RNText style={styles.dishPrice}>LKR {item.price.toFixed(2)}</RNText>
-          <RNText style={styles.dishDescription} numberOfLines={2}>
-            {item.description}
-          </RNText>
 
-          <Button
-            mode="contained"
-            style={[
-              styles.addButton,
-              { backgroundColor: theme.colors.primary },
-            ]}
-            labelStyle={styles.addButtonLabel}
-            onPress={() => handleAddToCart(item)}
-          >
-            Add
-          </Button>
+          {/* Display price based on whether it has portions or not */}
+          {item.portions && item.portions.length > 0 ? (
+            <View style={styles.priceRangeContainer}>
+              <RNText style={styles.priceRange}>
+                LKR {Math.min(...item.portions.map((p) => p.price)).toFixed(2)}{" "}
+                - {Math.max(...item.portions.map((p) => p.price)).toFixed(2)}
+              </RNText>
+              <RNText style={styles.portionAvailable}>
+                {item.portions.length} sizes available
+              </RNText>
+            </View>
+          ) : (
+            <RNText style={styles.dishPrice}>
+              LKR {item.price.toFixed(2)}
+            </RNText>
+          )}
+
+          {/* <RNText style={styles.dishDescription} numberOfLines={2}>
+            {item.description}
+          </RNText> */}
+          {isOpen ? (
+            item.isAvailable ? (
+              <Button
+                mode="contained"
+                style={[
+                  styles.addButton,
+                  { backgroundColor: theme.colors.primary },
+                ]}
+                labelStyle={styles.addButtonLabel}
+                onPress={() => handleAddToCart(item)}
+                icon="silverware-variant"
+              >
+                Add
+              </Button>
+            ) : (
+              <View style={styles.unavailableContainer}>
+                <Ionicons
+                  name="close-circle"
+                  size={20}
+                  color={theme.colors.error}
+                />
+                <RNText
+                  style={[
+                    styles.unavailableText,
+                    { color: theme.colors.error },
+                  ]}
+                >
+                  Not Available
+                </RNText>
+              </View>
+            )
+          ) : (
+            <View style={styles.unavailableContainer}>
+              <Ionicons
+                name="close-circle"
+                size={20}
+                color={theme.colors.error}
+              />
+              <RNText
+                style={[styles.unavailableText, { color: theme.colors.error }]}
+              >
+                Currently Closed
+              </RNText>
+            </View>
+          )}
         </View>
-        <Image source={{ uri: item.imageUrls[0] }} style={styles.dishImage} />
+        <Image
+          source={{ uri: item.imageUrls[0] }}
+          style={styles.dishImage}
+          resizeMode="cover"
+        />
       </View>
 
       {item.popular && (
@@ -338,12 +456,9 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
   const Animated_TouchableOpacity =
     Animated.createAnimatedComponent(TouchableOpacity);
 
-  // Create a function to render dish sections
   const renderDishSections = () => {
-    // If search query exists, show simplified results without category sections
     if (searchQuery.trim() !== "") {
       if (filteredDishes.length === 0) {
-        // Show "No dishes found" message when no results
         return (
           <View style={styles.noResultsContainer}>
             <Ionicons name="search-outline" size={50} color="#aaa" />
@@ -355,7 +470,6 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
         );
       }
 
-      // Show all filtered dishes in a single list without category headers
       return (
         <View style={styles.searchResultsContainer}>
           <RNText style={styles.searchResultsTitle}>
@@ -428,7 +542,51 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
     longitude: restaurant.address?.coordinates?.lng,
   };
 
-  const isOpen = restaurant.openingHours && !restaurant.openingHours.isClosed;
+  const isRestaurantClosed = () => {
+    console.log("123 ", restaurant.openingHours);
+    if (!restaurant.openingHours || restaurant.openingHours.length === 0)
+      return false;
+
+    // Get current day of the week (0 = Sunday, 1 = Monday, etc.)
+    const now = new Date();
+    const currentDay = now.getDay();
+    // Convert to match our array structure (where 0 = Monday, 6 = Sunday)
+    const dayIndex = currentDay === 0 ? 6 : currentDay - 1;
+
+    // Get the opening hours for today
+    const todayHours = restaurant.openingHours[dayIndex];
+    console.log(todayHours);
+    if (!todayHours) return true;
+
+    // If the restaurant is explicitly marked as closed for today
+    if (todayHours.isClosed) return true;
+
+    // Check if current time is outside opening hours
+    if (todayHours.open && todayHours.close) {
+      const currentTime = now.getHours() * 60 + now.getMinutes(); // current time in minutes
+
+      // Convert opening hours to minutes for comparison
+      const [openHour, openMinute] = todayHours.open.split(":").map(Number);
+      const [closeHour, closeMinute] = todayHours.close.split(":").map(Number);
+
+      const openTime = openHour * 60 + openMinute;
+      const closeTime = closeHour * 60 + closeMinute;
+
+      // Handle overnight opening hours (close time is less than open time)
+      if (closeTime < openTime) {
+        // Restaurant is open overnight
+        return currentTime < openTime && currentTime > closeTime;
+      } else {
+        // Regular hours
+        return currentTime < openTime || currentTime > closeTime;
+      }
+    }
+
+    // If open/close times aren't properly set, consider it closed
+    return todayHours.open === "" || todayHours.close === "";
+  };
+
+  const isOpen = !isRestaurantClosed();
 
   return (
     <SafeAreaView
@@ -532,22 +690,6 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
               />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.favoriteButton}>
-              <Ionicons
-                name="heart-outline"
-                size={24}
-                color={theme.colors.white}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.shareButton}>
-              <Ionicons
-                name="share-social-outline"
-                size={24}
-                color={theme.colors.white}
-              />
-            </TouchableOpacity>
-
             {/* More Info Button */}
             <TouchableOpacity
               style={[
@@ -563,7 +705,7 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
               }}
             >
               <Ionicons
-                name="restaurant-outline"
+                name="storefront-outline"
                 size={20}
                 color={theme.colors.white}
               />
@@ -574,10 +716,15 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
               </RNText>
             </TouchableOpacity>
           </View>
-
           {/* Restaurant Info */}
           <View style={styles.restaurantInfoContainer}>
-            <RNText style={styles.openStatus}>
+            <RNText
+              style={[
+                styles.openStatus,
+                { color: isOpen ? "#4CAF50" : "#FF6666" },
+                ,
+              ]}
+            >
               {isOpen ? "Open" : "Closed"}
             </RNText>
             <RNText style={styles.restaurantName}>
@@ -591,7 +738,7 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
             <View style={styles.serviceTypesContainer}>
               {restaurant.serviceType?.delivery && (
                 <View style={styles.serviceTypeItem}>
-                  <Ionicons name="bicycle-outline" size={20} color="#444" />
+                  <Ionicons name="bicycle-sharp" size={20} color="#444" />
                   <RNText style={styles.serviceTypeText}>Delivery</RNText>
                 </View>
               )}
@@ -623,51 +770,74 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
               </View>
             </View>
           </View>
+          <Divider />
 
-          {/* Categories Header */}
-          <View style={styles.categoriesHeaderContainer}>
-            <RNText style={styles.categoriesHeaderText}>Categories</RNText>
-          </View>
+          {dishes.length !== 0 && (
+            <>
+              <View style={styles.categoriesHeaderContainer}>
+                <RNText style={styles.categoriesHeaderText}>Categories</RNText>
+              </View>
 
-          {/* Regular Category Tabs */}
-          <View style={styles.categoryTabsContainer}>
-            <FlatList
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={categories}
-              renderItem={renderCategoryTab}
-              keyExtractor={(item) => item}
-              contentContainerStyle={styles.categoryTabsList}
-            />
-          </View>
+              <View style={styles.categoryTabsContainer}>
+                <FlatList
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  data={categories}
+                  renderItem={renderCategoryTab}
+                  keyExtractor={(item) => item}
+                  contentContainerStyle={styles.categoryTabsList}
+                />
+              </View>
 
-          {/* Regular Search */}
-          <View style={styles.searchContainer}>
-            <Ionicons
-              name="search"
-              size={20}
-              color="#888"
-              style={styles.searchIcon}
-            />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search for items"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholderTextColor="#888"
-            />
-          </View>
+              <View style={styles.searchContainer}>
+                <Ionicons
+                  name="search"
+                  size={20}
+                  color="#888"
+                  style={styles.searchIcon}
+                />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search for items"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholderTextColor="#888"
+                />
+              </View>
+            </>
+          )}
         </View>
 
         {/* Menu Content */}
-        <View style={styles.menuContainer}>
-          <View style={styles.menuHeaderContainer}>
-            <Ionicons name="star" size={22} color="#222" />
-            <RNText style={styles.menuHeaderText}>Menu</RNText>
+        {dishes.length === 0 ? (
+          <View style={styles.noMenuContainer}>
+            <Ionicons name="restaurant-outline" size={70} color="#bbbbbb" />
+            <RNText style={styles.noMenuTitle}>No Dishes Available</RNText>
+            <RNText style={styles.noMenuText}>
+              This restaurant hasn't added any dishes yet. Please check back
+              later.
+            </RNText>
+            <Button
+              mode="contained"
+              onPress={() => navigation.goBack()}
+              style={[
+                styles.goBackButtonMenu,
+                { backgroundColor: theme.colors.primary },
+              ]}
+            >
+              Go Back
+            </Button>
           </View>
+        ) : (
+          <View style={styles.menuContainer}>
+            <View style={styles.menuHeaderContainer}>
+              <Ionicons name="fast-food" size={22} color="#222" />
+              <RNText style={styles.menuHeaderText}>Menu</RNText>
+            </View>
 
-          {renderDishSections()}
-        </View>
+            {renderDishSections()}
+          </View>
+        )}
       </Animated.ScrollView>
 
       {/* Modals */}
@@ -696,7 +866,11 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
                 />
                 <RNText style={styles.modalTitle}>Added to Cart</RNText>
                 <RNText style={styles.modalText}>
-                  {currentItem?.name} has been added to your cart.
+                  {currentItem?.name}
+                  {currentItem?.selectedPortion
+                    ? ` (${currentItem.selectedPortion.size})`
+                    : ""}
+                  has been added to your cart.
                 </RNText>
 
                 <View style={styles.modalButtons}>
@@ -835,6 +1009,62 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
           </View>
         </Modal>
       </Portal>
+
+      {/* Portion Selection Modal */}
+      <Portal>
+        <Modal
+          visible={portionModalVisible}
+          onDismiss={() => setPortionModalVisible(false)}
+          contentContainerStyle={[
+            styles.portionModal,
+            { backgroundColor: theme.colors.background },
+          ]}
+        >
+          <View style={styles.portionModalContent}>
+            {selectedDish && (
+              <>
+                <View style={styles.portionModalHeader}>
+                  <RNText style={styles.portionModalTitle}>
+                    Select Size ({selectedDish.name})
+                  </RNText>
+                  <TouchableOpacity
+                    onPress={() => setPortionModalVisible(false)}
+                    style={styles.closeModalButton}
+                  >
+                    <Ionicons name="close" size={24} color="#333" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.portionOptionsList}>
+                  {selectedDish.portions.map((portion) => (
+                    <TouchableOpacity
+                      key={portion._id}
+                      style={styles.portionOptionItem}
+                      onPress={() => handleAddWithSelectedPortion(portion)}
+                    >
+                      <View style={styles.portionOptionContent}>
+                        <View>
+                          <RNText style={styles.portionOptionSize}>
+                            {portion.size.charAt(0).toUpperCase() +
+                              portion.size.slice(1)}
+                          </RNText>
+                          <RNText style={styles.portionOptionDescription}>
+                            {portion.description ||
+                              `${portion.size} portion size`}
+                          </RNText>
+                        </View>
+                        <RNText style={styles.portionOptionPrice}>
+                          LKR {portion.price.toFixed(2)}
+                        </RNText>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+          </View>
+        </Modal>
+      </Portal>
     </SafeAreaView>
   );
 };
@@ -844,9 +1074,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cuisineType: {
-    fontSize: 16,
+    fontSize: 15,
     color: "#666",
-    marginBottom: 12,
+    marginBottom: 4,
     fontStyle: "italic",
   },
   loadingContainer: {
@@ -903,22 +1133,20 @@ const styles = StyleSheet.create({
   restaurantInfoContainer: {
     paddingLeft: 16,
     paddingRight: 16,
-    paddingTop: 24,
+    paddingTop: 5,
   },
   openStatus: {
-    fontSize: 16,
-    color: "#4CAF50",
+    fontSize: 20,
     fontWeight: "bold",
-    marginBottom: 8,
   },
   restaurantName: {
-    fontSize: 24,
+    fontSize: 30,
     fontWeight: "bold",
     marginBottom: 5,
   },
   serviceTypesContainer: {
     flexDirection: "row",
-    marginBottom: 16,
+    marginBottom: 5,
   },
   serviceTypeItem: {
     flexDirection: "row",
@@ -974,10 +1202,8 @@ const styles = StyleSheet.create({
 
   // Regular category tabs
   categoryTabsContainer: {
-    backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eeeeee",
-    marginBottom: 10,
     paddingBottom: 5,
   },
 
@@ -1055,9 +1281,9 @@ const styles = StyleSheet.create({
   // Categories header
   categoriesHeaderContainer: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-    backgroundColor: "#fff",
+    alignItems: "center",
+    paddingTop: 5,
+    paddingBottom: 5,
   },
   categoriesHeaderText: {
     fontSize: 18,
@@ -1104,7 +1330,7 @@ const styles = StyleSheet.create({
   // Menu section styling improvements
   menuContainer: {
     padding: 16,
-    paddingTop: 16,
+    paddingTop: 5,
   },
   menuHeaderContainer: {
     flexDirection: "row",
@@ -1117,62 +1343,89 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     color: "#222",
   },
-  categorySection: {
-    marginBottom: 24,
-  },
+  categorySection: {},
   categorySectionTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    marginBottom: 12,
     color: "#333",
   },
   dishItem: {
-    marginBottom: 16,
+    marginBottom: 5,
   },
   dishCard: {
-    borderRadius: 12,
+    borderRadius: 20,
     overflow: "hidden",
+    elevation: 4,
+    marginHorizontal: 2,
+    marginVertical: 8,
+    borderWidth: 0,
   },
   dishContent: {
     flexDirection: "row",
-    padding: 12,
+    padding: 15,
+    alignItems: "stretch", // make children take full height
   },
   dishInfo: {
     flex: 1,
-    paddingRight: 10,
+    paddingRight: 15,
+    justifyContent: "space-between", // push Add button to the bottom
   },
   dishName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 4,
+    marginBottom: 5,
+    color: "#222",
+    letterSpacing: 0.3,
   },
   dishPrice: {
-    fontSize: 15,
-    fontWeight: "bold",
-    marginBottom: 6,
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 8,
+    color: "#555",
+  },
+  priceRangeContainer: {
+    marginBottom: 10,
+  },
+  priceRange: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#555",
+  },
+  portionAvailable: {
+    fontSize: 13,
+    color: "#777",
+    marginTop: 2,
   },
   dishDescription: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 8,
+    fontSize: 10,
+    color: "#777",
+    marginBottom: 16,
+    lineHeight: 20,
   },
   dishImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
+    width: 110,
+    height: "100%", // matches dishInfo height
+    borderRadius: 16,
   },
   addButton: {
-    alignSelf: "flex-start",
-    paddingVertical: 2,
+    paddingVertical: 6,
     paddingHorizontal: 12,
+    borderRadius: 20,
+    alignSelf: "flex-start", // or "stretch" if you want full width
+    elevation: 2,
+    marginTop: 10,
   },
   addButtonLabel: {
-    fontSize: 14,
+    fontSize: 17,
+    fontWeight: "bold",
+    letterSpacing: 0.5,
   },
   popularBadge: {
     position: "absolute",
-    top: 8,
-    right: 8,
+    top: 15,
+    right: 15,
+    paddingHorizontal: 8,
+    borderRadius: 12,
   },
   modal: {
     margin: 20,
@@ -1214,12 +1467,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
-    elevation: 4,
+    elevation: 8, // Increase elevation
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    zIndex: 10,
+    zIndex: 50, // Increase z-index
   },
   moreInfoText: {
     marginLeft: 6,
@@ -1306,6 +1559,121 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#555",
     marginBottom: 15,
+  },
+  unavailableContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  unavailableText: {
+    marginLeft: 4,
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  portionModal: {
+    margin: 20,
+    borderRadius: 20,
+    padding: 0,
+    overflow: "hidden",
+    maxHeight: "80%",
+  },
+  portionModalContent: {
+    width: "100%",
+  },
+  portionModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  portionModalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    alignSelf: "center",
+  },
+  closeModalButton: {
+    padding: 5,
+  },
+  selectedDishInfo: {
+    flexDirection: "row",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  portionModalImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+  },
+  selectedDishDetails: {
+    flex: 1,
+    marginLeft: 15,
+    justifyContent: "center",
+  },
+  selectedDishName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 6,
+  },
+  selectedDishDescription: {
+    fontSize: 14,
+    color: "#777",
+    lineHeight: 20,
+  },
+  portionOptionsList: {
+    paddingBottom: 20,
+  },
+  portionOptionItem: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  portionOptionContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  portionOptionSize: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  portionOptionDescription: {
+    fontSize: 14,
+    color: "#777",
+  },
+  portionOptionPrice: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  noMenuContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 30,
+    marginTop: 40,
+  },
+  noMenuTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#333",
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  noMenuText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 30,
+    lineHeight: 22,
+  },
+  goBackButtonMenu: {
+    paddingHorizontal: 20,
+    marginTop: 10,
   },
 });
 
