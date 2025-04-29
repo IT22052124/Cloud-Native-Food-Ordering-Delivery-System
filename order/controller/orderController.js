@@ -198,7 +198,7 @@ const createOrder = async (req, res) => {
     // Call settlement service to record this order
     try {
       await axios.post(
-        ${global.gConfig.admin_url}/api/settlements/add-order,
+        `${global.gConfig.admin_url}/api/settlements/add-order`,
         {
           restaurantId: savedOrder.restaurantOrder.restaurantId,
           orderId: savedOrder._id,
