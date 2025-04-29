@@ -17,6 +17,11 @@ export const loginOwner = async (credentials) => {
   return response.data;
 };
 
+export const signup = async (credentials) => {
+  const response = await axios.post('http://localhost:5001/api/auth/register', credentials);
+  return response.data;
+};
+
 export const loginRestaurantAdmin = async (credentials) => {
   const response = await axios.post('http://localhost:3000/api/branch/login', credentials);
   return response.data;
