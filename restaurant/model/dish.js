@@ -40,10 +40,9 @@ const dishSchema = mongoose.Schema(
       {
         type: String,
         trim: true,
-       
-      }
+      },
     ],
-   portions: {
+    portions: {
       type: [
         {
           size: {
@@ -78,19 +77,24 @@ const dishSchema = mongoose.Schema(
   }
 );
 
-
 // Validator to ensure exactly one of price or portions is provided
 dishSchema.pre("validate", function (next) {
   const hasPrice = this.price !== null && this.price !== undefined;
-  const hasPortions = this.portions && Array.isArray(this.portions) && this.portions.length > 0;
+  const hasPortions =
+    this.portions && Array.isArray(this.portions) && this.portions.length > 0;
 
   if (hasPrice && hasPortions) {
     next(new Error("A dish cannot have both a single price and portions"));
   } else if (!hasPrice && !hasPortions) {
-    next(new Error("A dish must have either a single price or at least one portion"));
+    next(
+      new Error(
+        "A dish must have either a single price or at least one portion"
+      )
+    );
   } else {
     next();
   }
 });
 
-export const Dish = mongoose.model("Dish", dishSchema);
+const Dish = mongoose.model("Dish", dishSchema);
+export { Dish };

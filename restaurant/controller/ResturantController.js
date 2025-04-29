@@ -217,8 +217,8 @@ export const updateRestaurant = async (req, res) => {
       restaurantAdmin,
       imageUrls: newImageUrls,
       coverImageUrl,
-      openingHours, // Updated to expect an array 
-           bank,
+      openingHours, // Updated to expect an array
+      bank,
       serviceType,
       cuisineType,
       estimatedPrepTime,
@@ -279,9 +279,9 @@ export const updateRestaurant = async (req, res) => {
     restaurant.address = address || restaurant.address;
     restaurant.contact = contact || restaurant.contact;
     restaurant.openingHours = Array.isArray(openingHours)
-    ? openingHours
-    : restaurant.openingHours; // Update only if provided
-      restaurant.bank = bank || restaurant.bank;
+      ? openingHours
+      : restaurant.openingHours; // Update only if provided
+    restaurant.bank = bank || restaurant.bank;
     restaurant.serviceType = serviceType || restaurant.serviceType;
     restaurant.cuisineType = cuisineType || restaurant.cuisineType;
     restaurant.estimatedPrepTime =
@@ -729,6 +729,319 @@ export const getMyRestaurants = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Search restaurants with location filter and retrieve dishes by categories
+ * @route   GET /api/restaurants/advanced-search
+ * @access  Public
+ */
+/**
+ * @desc    Search restaurants with location filter and retrieve dishes by categories,
+ *          with improved matching for restaurant name, dish name, and dish category
+ * @route   GET /api/restaurants/advanced-search
+ * @access  Public
+ */
+/**
+ * @desc    Search restaurants with location filter and retrieve dishes by categories,
+ *          with improved matching for restaurant name, dish name, and dish category
+ * @route   GET /api/restaurants/advanced-search
+ * @access  Public
+ */
+export const searchRestaurantsWithDishes = async (req, res) => {
+  try {
+    const { query, lat, lng, range, sort = "distance" } = req.query;
+
+    // Build the query filters
+    let filters = { isActive: true, isVerified: "active" }; // Only return active and verified restaurants
+    let aggregationPipeline = [];
+
+    // Add location filter if coordinates provided
+    if (lat && lng && range) {
+      const latitude = parseFloat(lat);
+      const longitude = parseFloat(lng);
+      const radiusInKm = parseFloat(range);
+
+      // Validate parameter values
+      if (isNaN(latitude) || isNaN(longitude) || isNaN(radiusInKm)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid location parameters: lat, lng, and range must be valid numbers",
+        });
+      }
+
+      if (radiusInKm <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Range must be greater than 0",
+        });
+      }
+
+      // Limit maximum radius to a reasonable value to prevent performance issues
+      const effectiveRadius = Math.min(radiusInKm, 100); // Cap at 100km
+      console.log(
+        `Searching for restaurants within ${effectiveRadius}km of [${latitude}, ${longitude}]`
+      );
+
+      // Use geoNear for location-based search
+      aggregationPipeline.push({
+        $geoNear: {
+          near: {
+            type: "Point",
+            coordinates: [longitude, latitude],
+          },
+          distanceField: "distance",
+          maxDistance: effectiveRadius * 1000,
+          spherical: true,
+          distanceMultiplier: 0.001,
+          query: filters,
+        },
+      });
+    } else {
+      // If no location, just use a regular $match
+      aggregationPipeline.push({ $match: filters });
+    }
+
+    // Get restaurants based on the criteria
+    const restaurants = await Restaurant.aggregate(aggregationPipeline);
+
+    if (restaurants.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "No restaurants found matching your criteria",
+        restaurants: [],
+      });
+    }
+
+    // Get all restaurant IDs for dish lookup
+    const restaurantIds = restaurants.map((restaurant) => restaurant._id);
+
+    // Step 1: Find dishes by restaurant ID first to ensure we have all dishes
+    let allDishes = await Dish.find({
+      restaurantId: { $in: restaurantIds },
+      isAvailable: true,
+    }).lean();
+
+    // Step 2: Filter restaurants and dishes based on search query
+    let filteredRestaurants = [...restaurants];
+    let matchingDishMap = new Map(); // Map of restaurantId to matching dishes
+
+    // If query is provided, filter by restaurant name, dish name, or dish category
+    if (query) {
+      const searchRegex = new RegExp(query, "i");
+
+      // Type 1: Filter restaurants by name
+      const restaurantsByName = filteredRestaurants.filter((restaurant) =>
+        searchRegex.test(restaurant.name)
+      );
+
+      // Type 2: Find restaurants that have matching dishes by name
+      const matchingDishes = allDishes.filter((dish) =>
+        searchRegex.test(dish.name)
+      );
+
+      const restaurantsByDishName = filteredRestaurants.filter((restaurant) =>
+        matchingDishes.some(
+          (dish) => dish.restaurantId.toString() === restaurant._id.toString()
+        )
+      );
+
+      // Type 3: Find restaurants that have dishes matching the category
+      const matchingDishCategories = allDishes.filter(
+        (dish) => dish.category && searchRegex.test(dish.category)
+      );
+
+      const restaurantsByCategory = filteredRestaurants.filter((restaurant) =>
+        matchingDishCategories.some(
+          (dish) => dish.restaurantId.toString() === restaurant._id.toString()
+        )
+      );
+
+      // Combine all matching restaurants, removing duplicates
+      const combinedRestaurants = [
+        ...restaurantsByName,
+        ...restaurantsByDishName,
+        ...restaurantsByCategory,
+      ];
+
+      // Remove duplicates by creating a Map with _id as key
+      const uniqueRestaurants = new Map();
+      combinedRestaurants.forEach((restaurant) => {
+        uniqueRestaurants.set(restaurant._id.toString(), restaurant);
+      });
+
+      filteredRestaurants = Array.from(uniqueRestaurants.values());
+
+      // Create a map of matching dishes for each restaurant for prioritizing in the display
+      matchingDishes.forEach((dish) => {
+        const restId = dish.restaurantId.toString();
+        if (!matchingDishMap.has(restId)) {
+          matchingDishMap.set(restId, []);
+        }
+        matchingDishMap.get(restId).push(dish);
+      });
+    }
+
+    // If no restaurants match after filtering, return empty result
+    if (filteredRestaurants.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "No restaurants found matching your criteria",
+        restaurants: [],
+      });
+    }
+
+    // Get updated restaurant IDs after filtering
+    const filteredRestaurantIds = filteredRestaurants.map(
+      (restaurant) => restaurant._id
+    );
+
+    // Sort results
+    if (sort === "rating") {
+      filteredRestaurants.sort(
+        (a, b) => (b.averageRating || 0) - (a.averageRating || 0)
+      );
+    } else if (sort === "name") {
+      filteredRestaurants.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      // Default sort by distance if geoNear was used, otherwise by name
+      if (lat && lng && range) {
+        filteredRestaurants.sort(
+          (a, b) => (a.distance || 0) - (b.distance || 0)
+        );
+      } else {
+        filteredRestaurants.sort((a, b) => a.name.localeCompare(b.name));
+      }
+    }
+
+    // Get preset food categories to ensure consistent ordering
+    const foodCategories = [
+      "Appetizers",
+      "Main Course",
+      "Desserts",
+      "Beverages",
+      "Salads",
+      "Soups",
+      "Breads",
+      "Rice Dishes",
+      "Noodles",
+      "Seafood",
+      "Grilled",
+      "Fast Food",
+      "Uncategorized",
+    ];
+
+    // Group dishes by restaurant and category
+    const restaurantsWithDishes = filteredRestaurants.map((restaurant) => {
+      // Get dishes for this restaurant
+      const restaurantDishes = allDishes.filter(
+        (dish) => dish.restaurantId.toString() === restaurant._id.toString()
+      );
+
+      // Group dishes by category
+      const dishesByCategory = {};
+
+      // First, initialize categories for consistent ordering
+      foodCategories.forEach((category) => {
+        dishesByCategory[category] = [];
+      });
+
+      // Then add dishes to their respective categories
+      restaurantDishes.forEach((dish) => {
+        const categoryName = dish.category || "Uncategorized";
+
+        if (!dishesByCategory[categoryName]) {
+          dishesByCategory[categoryName] = [];
+        }
+
+        // Create a processed dish with all necessary fields
+        const processedDish = {
+          _id: dish._id,
+          id: dish._id, // Add both formats for frontend compatibility
+          name: dish.name,
+          description: dish.description || "",
+          price: dish.price || 0,
+          category: dish.category || "Uncategorized",
+          restaurantId: dish.restaurantId,
+          imageUrls: dish.imageUrls || [],
+          isAvailable: dish.isAvailable,
+          food_type: dish.food_type || "non-veg",
+          portions: dish.portions || null,
+          // Add a flag for matching dishes (for frontend highlighting)
+          isMatching:
+            matchingDishMap.has(restaurant._id.toString()) &&
+            matchingDishMap
+              .get(restaurant._id.toString())
+              .some((d) => d._id.toString() === dish._id.toString()),
+        };
+
+        dishesByCategory[categoryName].push(processedDish);
+      });
+
+      // Convert to array format for easier consumption on frontend
+      // Only include categories that have dishes
+      const categorizedDishes = Object.keys(dishesByCategory)
+        .filter((category) => dishesByCategory[category].length > 0)
+        .map((category) => ({
+          categoryName: category,
+          dishes: dishesByCategory[category],
+        }));
+
+      // Optional: If a search query was provided, prioritize matching dishes by moving them to the top
+      if (query && matchingDishMap.has(restaurant._id.toString())) {
+        // Calculate search relevance information
+        const matchingDishesForRestaurant = matchingDishMap.get(
+          restaurant._id.toString()
+        );
+        const matchingDishCount = matchingDishesForRestaurant.length;
+
+        // Add search relevance information to restaurant object
+        return {
+          ...restaurant,
+          categorizedDishes,
+          searchRelevance: {
+            matchType: restaurant.name
+              .toLowerCase()
+              .includes(query.toLowerCase())
+              ? "restaurantName"
+              : "dishMatch",
+            matchingDishCount,
+          },
+        };
+      }
+
+      return {
+        ...restaurant,
+        categorizedDishes,
+      };
+    });
+
+    // Log dish counts for debugging
+    restaurantsWithDishes.forEach((restaurant) => {
+      const dishCount = restaurant.categorizedDishes.reduce(
+        (total, category) => total + category.dishes.length,
+        0
+      );
+      console.log(
+        `Restaurant ${restaurant.name} has ${dishCount} dishes in ${restaurant.categorizedDishes.length} categories`
+      );
+    });
+
+    console.log(restaurantsWithDishes);
+    res.status(200).json({
+      success: true,
+      count: restaurantsWithDishes.length,
+      restaurants: restaurantsWithDishes,
+    });
+  } catch (error) {
+    console.log("Error in searching restaurants with dishes", error);
+    res.status(500).json({
+      success: false,
       message: "Server error",
       error: error.message,
     });

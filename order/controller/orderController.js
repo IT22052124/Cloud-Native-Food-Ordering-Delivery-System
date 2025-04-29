@@ -198,7 +198,7 @@ const createOrder = async (req, res) => {
     // Call settlement service to record this order
     try {
       await axios.post(
-        ${global.gConfig.admin_url}/api/settlements/add-order,
+        `${global.gConfig.admin_url}/api/settlements/add-order`,
         {
           restaurantId: savedOrder.restaurantOrder.restaurantId,
           orderId: savedOrder._id,
@@ -214,8 +214,60 @@ const createOrder = async (req, res) => {
         err
       );
     }
+
     // Clear cart after successful order
     await CartItem.deleteMany({ customerId });
+
+    // Send notification to customer via email
+    try {
+      await axios.post(
+        `${global.gConfig.notification_url}/api/notifications/email`,
+        {
+          to: email,
+          subject: `Your Order #${savedOrder.orderId} has been placed`,
+          text: `Your order #${savedOrder.orderId} from ${
+            savedOrder.restaurantOrder.restaurantName
+          } has been placed successfully. Total amount: $${savedOrder.totalAmount.toFixed(
+            2
+          )}. Thank you for your order!`,
+          html: `
+            <h2>Order Confirmation</h2>
+            <p>Thank you for your order!</p>
+            <p><strong>Order #:</strong> ${savedOrder.orderId}</p>
+            <p><strong>Restaurant:</strong> ${
+              savedOrder.restaurantOrder.restaurantName
+            }</p>
+            <p><strong>Total Amount:</strong> $${savedOrder.totalAmount.toFixed(
+              2
+            )}</p>
+            <p><strong>Estimated Delivery Time:</strong> 30-45 minutes</p>
+            <p>You can track your order status in the app.</p>
+          `,
+        },
+        { headers: { Authorization: req.headers.authorization } }
+      );
+
+      // Send SMS notification to customer
+      await axios.post(
+        `${global.gConfig.notification_url}/api/notifications/sms`,
+        {
+          to: phone,
+          body: `Your order #${savedOrder.orderId} from ${
+            savedOrder.restaurantOrder.restaurantName
+          } has been placed. Total: $${savedOrder.totalAmount.toFixed(
+            2
+          )}. Track it in our app!`,
+        },
+        { headers: { Authorization: req.headers.authorization } }
+      );
+
+      console.log("Order notifications sent successfully");
+    } catch (notificationError) {
+      console.error(
+        "Failed to send order notifications (non-critical):",
+        notificationError
+      );
+    }
 
     // Notify restaurant about new order
     // try {

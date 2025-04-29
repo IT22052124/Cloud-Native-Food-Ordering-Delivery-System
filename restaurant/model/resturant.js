@@ -21,8 +21,8 @@ const RestaurantSchema = new mongoose.Schema(
       phone: String,
       email: String,
     },
-    
-openingHours: [
+
+    openingHours: [
       {
         day: {
           type: String,
@@ -122,4 +122,5 @@ openingHours: [
 
 RestaurantSchema.index({ location: "2dsphere" });
 
-export const Restaurant = mongoose.model("Restaurant", RestaurantSchema);
+const Restaurant = mongoose.model("Restaurant", RestaurantSchema);
+export { Restaurant };
