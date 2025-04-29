@@ -14,7 +14,8 @@ import {
   getMypendingRestaurants,
   searchRestaurants,
   getRestaurantsByLocation,
-} from "../Controller/ResturantController.js";
+  searchRestaurantsWithDishes,
+} from "../controller/ResturantController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -29,6 +30,7 @@ router.get(
   getMypendingRestaurants
 );
 router.get("/restaurants/search", searchRestaurants);
+router.get("/restaurants/advanced-search", searchRestaurantsWithDishes);
 router.get("/restaurants/nearby", getRestaurantsByLocation);
 router.get("/restaurants/:id/dishes", restaurantDishes);
 router.get("/restaurants/:id", getRestaurantById);
