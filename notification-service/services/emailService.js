@@ -3,30 +3,26 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Create a transporter with environment variables
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
-  secure: process.env.SMTP_SECURE === "true",
+// Validate environment variables
+const smtpConfig = {
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT) || 587,
+  secure: process.env.SMTP_SECURE === "true", // `false` for TLS
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASSWORD,
   },
-});
+  tls: {
+    rejectUnauthorized: false, // Bypass SSL cert validation (DEV ONLY)
+  },
+};
 
-/**
- * Send an email notification
- * @param {string} to - Recipient email
- * @param {string} subject - Email subject
- * @param {string} text - Plain text message
- * @param {string} html - HTML message (optional)
- * @returns {Promise} - Nodemailer response
- */
+const transporter = nodemailer.createTransport(smtpConfig);
 
 export const sendEmail = async (to, subject, text, html) => {
   try {
     const mailOptions = {
-      from: process.env.SMTP_FROM || "no-reply@fooddelivery.com",
+      from: `"FoodDash" <${process.env.SMTP_FROM}>`,
       to,
       subject,
       text,
@@ -34,10 +30,10 @@ export const sendEmail = async (to, subject, text, html) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`Email sent: ${info.messageId}`);
+    console.log(`📧 Email sent to ${to}: ${info.messageId}`);
     return info;
   } catch (error) {
-    console.error("Error sending email:", error);
-    throw error;
+    console.error("❌ Email failed:", error.message);
+    throw new Error(`Email failed: ${error.message}`);
   }
 };
