@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: restaurant-service
+    ports:
+      - "${PORT}:5006"
+    environment:
+      - PORT=${PORT}
+      - NODE_ENV=${NODE_ENV}
+      - MONGOURL=${MONGOURL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_SECRETS=${JWT_SECRETS}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - JWT_EXPIRE=${JWT_EXPIRE}
+      - ORDERS_SERVICE_URL=${ORDERS_SERVICE_URL}
+    restart: unless-stopped

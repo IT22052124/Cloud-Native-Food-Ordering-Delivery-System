@@ -289,7 +289,7 @@ const EditDish = () => {
                   </div>
                   {/* Pricing Type Toggle */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Pricing Type</label>
+                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">Pricing Type (add 20% margin from base price)</label>
                     <div className="flex space-x-4 bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-300 dark:border-gray-600 mt-2">
                       <label className={`flex-1 p-2 rounded-md cursor-pointer transition-colors duration-200 ${pricingType === 'single' ? 'bg-orange-100 dark:bg-gray-600 border border-orange-300 dark:border-orange-500' : 'hover:bg-gray-50 dark:hover:bg-gray-600'}`}>
                         <div className="flex items-center justify-center">

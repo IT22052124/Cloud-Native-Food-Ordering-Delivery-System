@@ -21,7 +21,7 @@ const Dishes = () => {
         const data = await getDishes(user.restaurantId);
         setDishes(data.dishes);
       } catch (error) {
-        toast.error('Failed to fetch dishes');
+        console.error('Failed to fetch dishes');
       }
       setLoading(false);
     };

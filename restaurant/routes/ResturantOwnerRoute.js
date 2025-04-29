@@ -11,6 +11,7 @@ import {
   getFoodCategories,
   updateRestaurantVerification,
   getMyRestaurants,
+  getMypendingRestaurants,
   searchRestaurants,
   getRestaurantsByLocation,
   searchRestaurantsWithDishes,
@@ -23,6 +24,11 @@ const router = express.Router();
 router.post("/restaurants/add", authMiddleware, addRestaurant);
 router.get("/restaurants/", getRestaurants);
 router.get("/owner/restaurants/", authMiddleware, getMyRestaurants);
+router.get(
+  "/owner/restaurants/pending",
+  authMiddleware,
+  getMypendingRestaurants
+);
 router.get("/restaurants/search", searchRestaurants);
 router.get("/restaurants/advanced-search", searchRestaurantsWithDishes);
 router.get("/restaurants/nearby", getRestaurantsByLocation);

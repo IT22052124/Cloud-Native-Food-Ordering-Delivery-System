@@ -13,6 +13,7 @@ const authMiddlewareAdmin = (req, res, next) => {
     req.resturantId = decoded.id; // Restaurant ID from token
     req.adminId = decoded.adminId; // Admin ID for additional checks if needed
     req.role = decoded.role; // Role for authorizeRole middleware
+    req.username = decoded.username; // Username for additional checks if needed
     next();
   } catch (error) {
     console.error("Token verification failed:", error.message);

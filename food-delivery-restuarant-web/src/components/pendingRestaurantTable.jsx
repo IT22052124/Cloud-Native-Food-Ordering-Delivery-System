@@ -25,10 +25,10 @@ const PendingRestaurantTable = ({ restaurants = [] }) => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-amber-200 dark:border-gray-700">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center">
-          <div className="mr-3 p-2 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg shadow-md">
+          <div className="mr-3 p-2 bg-gradient-to-br from-orange-400 to-pink-500 rounded-lg shadow-md">
             <FaStore className="text-white" />
           </div>
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-amber-500 to-orange-600">
+          <span className="bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-pink-600">
             Restaurants Awaiting Verification
           </span>
         </h2>
@@ -50,13 +50,13 @@ const PendingRestaurantTable = ({ restaurants = [] }) => {
           <div className="flex space-x-2">
             <button
               onClick={() => setViewMode("table")}
-              className={`p-3 rounded-xl ${viewMode === "table" ? "bg-amber-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"} hover:bg-amber-600 hover:text-white transition-all duration-200 shadow-sm`}
+              className={`p-3 rounded-xl ${viewMode === "table" ? "bg-green-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"} hover:bg-amber-600 hover:text-white transition-all duration-200 shadow-sm`}
             >
               <FaThList />
             </button>
             <button
               onClick={() => setViewMode("card")}
-              className={`p-3 rounded-xl ${viewMode === "card" ? "bg-amber-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"} hover:bg-amber-600 hover:text-white transition-all duration-200 shadow-sm`}
+              className={`p-3 rounded-xl ${viewMode === "card" ? "bg-green-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"} hover:bg-amber-600 hover:text-white transition-all duration-200 shadow-sm`}
             >
               <FaTh />
             </button>
@@ -144,7 +144,7 @@ const PendingRestaurantTable = ({ restaurants = [] }) => {
                   <td className="px-6 py-5 whitespace-nowrap text-center">
                     <Link
                       to={`/restaurants/${restaurant._id}`}
-                      className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:from-amber-600 hover:to-orange-700 transition-all duration-200 shadow-sm hover:shadow transform hover:scale-105"
+                      className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:from-amber-600 hover:to-orange-700 transition-all duration-200 shadow-sm hover:shadow transform hover:scale-105"
                     >
                       <FaEye className="mr-2" />
                       View Details
@@ -185,7 +185,7 @@ const PendingRestaurantTable = ({ restaurants = [] }) => {
                 </div>
                 <Link
                   to={`/restaurants/${restaurant._id}`}
-                  className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:from-amber-600 hover:to-orange-700 transition-all duration-200 shadow-sm hover:shadow"
+                  className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:from-amber-600 hover:to-orange-700 transition-all duration-200 shadow-sm hover:shadow"
                 >
                   <FaEye className="mr-2" />
                   View Details

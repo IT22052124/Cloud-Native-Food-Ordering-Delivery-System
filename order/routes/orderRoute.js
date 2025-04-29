@@ -13,6 +13,8 @@ import {
   getOrderTracking,
   updateOrderPayment,
   updateOrderPaymentStatus,
+  queryOrders,
+  getOrdersByIds,
 } from "../controller/orderController.js";
 
 const router = express.Router();
@@ -65,5 +67,8 @@ router
   .patch(authorize("delivery"), updateDeliveryLocation);
 
 router.patch("/:orderId/payment", updateOrderPayment);
+
+router.get("/orders/query", queryOrders);
+router.post("/orders/batch", getOrdersByIds);
 
 export default router;

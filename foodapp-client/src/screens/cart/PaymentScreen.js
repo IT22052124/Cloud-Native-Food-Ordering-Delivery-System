@@ -119,10 +119,12 @@ const PaymentScreen = ({ navigation, route }) => {
       const order = await createOrder();
       setOrderDetails(order);
 
+      const amountInCents = Math.round(total * 100);
+
       // 2. Create Payment Intent with order ID
       const response = await dataService.createPaymentIntent({
         orderId: order.id,
-        amount: Math.round(total * 100), // Convert to cents and ensure it's an integer
+        amount: amountInCents, 
         currency: "lkr",
       });
 

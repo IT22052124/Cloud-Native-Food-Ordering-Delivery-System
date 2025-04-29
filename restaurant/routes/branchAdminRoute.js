@@ -7,7 +7,8 @@ import {
   deleteDish,
   updateDishById,
   getOrdersForRestaurant,
-  updateRestaurant,getRestaurantById,updateRestaurantStatus
+  updateRestaurant,getRestaurantById,updateRestaurantStatus,
+  getAdminCredentials,updateAdminCredentials
 } from "../controller/branchAdmin.js";
 import authMiddlewareAdmin from "../middleware/getToken.js";
 import { authorizeRole } from "../middleware/authRole.js";
@@ -24,6 +25,9 @@ router.post("/login", restaurantAdminLogin);
  router.put("/restaurants/:id",authMiddlewareAdmin, updateRestaurant);
  router.get("/restaurants/:id", getRestaurantById);
  router.patch("/restaurants/:id/status",authMiddlewareAdmin, updateRestaurantStatus);
+ router.get("/restaurants/:id/usernames",authMiddlewareAdmin, getAdminCredentials);
+ router.patch("/restaurants/:id/credentials",authMiddlewareAdmin, updateAdminCredentials);
+
 
  
  

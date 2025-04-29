@@ -77,7 +77,7 @@ const DishTable = ({ dishes }) => {
               onClick={() => setViewMode('table')}
               className={`p-2 rounded-md ${
                 viewMode === 'table'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-green-600 text-white'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               } hover:bg-blue-700 hover:text-white transition-all duration-200`}
             >
@@ -87,7 +87,7 @@ const DishTable = ({ dishes }) => {
               onClick={() => setViewMode('card')}
               className={`p-2 rounded-md ${
                 viewMode === 'card'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-green-600 text-white'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               } hover:bg-blue-700 hover:text-white transition-all duration-200`}
             >

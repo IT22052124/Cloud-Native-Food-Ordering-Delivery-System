@@ -31,7 +31,7 @@ export const loginUser = async (email, password) => {
 export const getRestaurants = async () => {
   try {
     const token = localStorage.getItem("token");
-    const response = await axios.get("http://localhost:3000/api/restaurants", {
+    const response = await axios.get("http://localhost:5006/api/restaurants", {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -50,7 +50,7 @@ export const getRestaurants = async () => {
 export const updateRestaurantVerification = async (restaurantId, status) => {
   try {
     const response = await fetch(
-      `http://localhost:3000/api/restaurants/${restaurantId}/verfication`,
+      `http://localhost:5006/api/restaurants/${restaurantId}/verfication`,
       {
         method: "PATCH",
         headers: {
@@ -234,6 +234,81 @@ export const updateDriverStatus = async (driverId, status) => {
     return await response.json();
   } catch (error) {
     console.error("Error updating driver status:", error);
+    throw error;
+  }
+};
+
+export const getAllOrders = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.get(
+      "http://localhost:5002/api/orders/admin/all",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    console.log("getAllOrders: API response:", response.data);
+    return response.data.orders || [];
+  } catch (error) {
+    console.error("getAllOrders: Error:", error);
+    return [];
+    throw error;
+  }
+};
+
+// api.js
+export const getAllUsers = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.get("http://localhost:5001/api/users", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    // Ensure we always return an array, even if the API returns an object
+    return Array.isArray(response.data)
+      ? response.data
+      : Array.isArray(response.data.users)
+      ? response.data.users
+      : [];
+  } catch (error) {
+    console.error("getAllUsers: Error:", error);
+    return []; // Return empty array on error
+  }
+};
+
+export const getAllRestaurantSettlements = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.get("http://localhost:5008/api/settlements", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    console.log("getAllRestaurantSettlements: API response:", response.data);
+    return response.data.settlements || [];
+  } catch (error) {
+    console.error("getAllRestaurantSettlements: Error:", error);
+    return [];
+  }
+};
+
+export const processWeeklySettlements = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.post(
+      "http://localhost:5008/api/settlements/process-weekly",
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Settlement processing failed:",
+      error.response?.data || error
+    );
     throw error;
   }
 };

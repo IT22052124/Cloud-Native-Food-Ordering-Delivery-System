@@ -28,7 +28,6 @@ const DishDetails = () => {
         setDish(data.dish)
         setCurrentImageIndex(0)
       } catch (error) {
-        toast.error("Failed to fetch dish details")
         navigate("/dishes")
       } finally {
         setLoading(false)

@@ -1,11 +1,7 @@
-import { useContext } from "react";
+import { useContext, useState, useEffect } from "react";
 import { ThemeContext } from "../context/ThemeContext";
-import {
-  dashboardStats,
-  revenueData,
-  ordersByCategory,
-  recentOrders,
-} from "../data/dashboardData";
+import { processDashboardData } from "../utils/dashboardData";
+import { getAllOrders, getAllUsers } from "../utils/api";
 
 // For this implementation, we'll use placeholders for charts
 // In a real implementation, you'd use a library like recharts or chart.js
@@ -45,13 +41,83 @@ function DashboardCard({ title, value, subtitle, icon, colorClass }) {
 
 function Dashboard() {
   const { theme } = useContext(ThemeContext);
-  const { today, weekly, monthly } = dashboardStats;
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const [ordersResponse, usersResponse] = await Promise.all([
+          getAllOrders(),
+          getAllUsers(),
+        ]);
+
+        const processedData = processDashboardData(
+          ordersResponse,
+          usersResponse
+        );
+
+        setDashboardData(processedData);
+      } catch (err) {
+        console.error("Failed to load dashboard data:", err);
+        setError("Failed to load dashboard data. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div
+        className={`p-6 rounded-lg shadow-md ${
+          theme === "dark" ? "bg-gray-800" : "bg-white"
+        }`}
+      >
+        <div className="text-center py-8">Loading dashboard data...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div
+        className={`p-6 rounded-lg shadow-md ${
+          theme === "dark" ? "bg-gray-800" : "bg-white"
+        }`}
+      >
+        <div className="text-center py-8 text-red-500">{error}</div>
+      </div>
+    );
+  }
+
+  if (!dashboardData) {
+    return (
+      <div
+        className={`p-6 rounded-lg shadow-md ${
+          theme === "dark" ? "bg-gray-800" : "bg-white"
+        }`}
+      >
+        <div className="text-center py-8">No dashboard data available</div>
+      </div>
+    );
+  }
+
+  const { today, weekly, monthly, recentOrders } = dashboardData;
 
   // Format currency
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-LK", {
       style: "currency",
-      currency: "USD",
+      currency: "LKR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(amount);
   };
 
@@ -313,15 +379,15 @@ function Dashboard() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
                       className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                      ${
-                        order.status === "Delivered"
-                          ? "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100"
-                          : order.status === "In Transit"
-                          ? "bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100"
-                          : order.status === "Preparing"
-                          ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100"
-                          : "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100"
-                      }`}
+          ${
+            order.status === "Delivered"
+              ? "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100"
+              : order.status === "Pending"
+              ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100"
+              : order.status === "Cancelled"
+              ? "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100"
+              : "bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100"
+          }`}
                     >
                       {order.status}
                     </span>

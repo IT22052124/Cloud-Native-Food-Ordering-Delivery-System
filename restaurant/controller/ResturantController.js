@@ -715,7 +715,34 @@ export const searchRestaurants = async (req, res) => {
 export const getMyRestaurants = async (req, res) => {
   try {
     const ownerId = req.owner; // From JWT middleware
-    const restaurants = await Restaurant.find({ ownerId });
+    const restaurants = await Restaurant.find({ ownerId ,
+      isVerified:"active"
+    });
+
+    if (!restaurants || restaurants.length === 0) {
+      return res.status(404).json({
+        message: "You don't have any restaurants yet!",
+      });
+    }
+
+    res.json({
+      count: restaurants.length,
+      restaurants,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+export const getMypendingRestaurants = async (req, res) => {
+  try {
+    const ownerId = req.owner; // From JWT middleware
+    const restaurants = await Restaurant.find({ ownerId ,
+      isVerified:"pending"
+    });
 
     if (!restaurants || restaurants.length === 0) {
       return res.status(404).json({
