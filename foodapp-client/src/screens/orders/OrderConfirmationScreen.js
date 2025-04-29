@@ -33,7 +33,7 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
         setLoading(true);
         const response = await dataService.getOrderById(orderId);
         setOrder(response.order.order);
-        console.log(response.order.order);
+        console.log(response.order.order.restaurantOrder.items);
         setRestaurant(response.order.restaurant);
       } catch (error) {
         console.error("Error fetching order details:", error);
@@ -189,7 +189,10 @@ const OrderConfirmationScreen = ({ navigation, route }) => {
                     style={styles.itemImage}
                   />
                   <View style={styles.itemDetails}>
-                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemName}>
+                      {item.name}{" "}
+                      {item.portionName ? "(" + item.portionName + ")" : ""}
+                    </Text>
                     <Text style={styles.itemQuantity}>
                       Qty: {item.quantity}
                     </Text>

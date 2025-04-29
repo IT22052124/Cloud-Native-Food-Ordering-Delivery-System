@@ -8,29 +8,24 @@ import {
   FlatList,
   ActivityIndicator,
   Dimensions,
-  ImageBackground,
+  StatusBar,
   RefreshControl,
-} from "react-native";
-import {
-  Text,
-  Searchbar,
-  Card,
-  Title,
-  Paragraph,
-  Button,
   Modal,
-  Portal,
-  List,
-  Divider,
-  Avatar,
-  Chip,
-} from "react-native-paper";
+} from "react-native";
+import { Text, Title, Paragraph, Divider } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
-import dataService from "../../services/dataService";
-import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useLocation } from "../../context/LocationContext";
+import dataService from "../../services/dataService";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+
+// Import our new UI components
+import SearchBar from "../../components/ui/SearchBar";
+import FoodCard from "../../components/ui/FoodCard";
+import HeroBanner from "../../components/ui/HeroBanner";
+import GradientButton from "../../components/ui/GradientButton";
 
 const { width } = Dimensions.get("window");
 
@@ -51,10 +46,12 @@ const HomeScreen = ({ navigation }) => {
   const [categories, setCategories] = useState([]);
   const [restaurants, setRestaurants] = useState([]);
   const [featuredRestaurants, setFeaturedRestaurants] = useState([]);
+  const [popularItems, setPopularItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [locationError, setLocationError] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Get time-based greeting
   const getGreeting = () => {
@@ -89,7 +86,7 @@ const HomeScreen = ({ navigation }) => {
   }, [selectedAddress]);
 
   const onRefresh = React.useCallback(() => {
-    // setRefreshing(true);
+    setRefreshing(true);
     if (selectedAddress) {
       fetchRestaurantsByLocation().finally(() => setRefreshing(false));
     } else {
@@ -125,6 +122,42 @@ const HomeScreen = ({ navigation }) => {
         })
         .slice(0, 3);
       setFeaturedRestaurants(featured);
+
+      // Set popular items - mock data for now
+      setPopularItems([
+        {
+          id: "1",
+          name: "Double Cheeseburger",
+          price: 12.99,
+          category: "Burgers",
+          imageUrl:
+            "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+        },
+        {
+          id: "2",
+          name: "Margherita Pizza",
+          price: 14.99,
+          category: "Pizza",
+          imageUrl:
+            "https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+        },
+        {
+          id: "3",
+          name: "Chicken Caesar Salad",
+          price: 9.99,
+          category: "Salads",
+          imageUrl:
+            "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+        },
+        {
+          id: "4",
+          name: "Spicy Ramen Bowl",
+          price: 11.99,
+          category: "Asian",
+          imageUrl:
+            "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+        },
+      ]);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -144,22 +177,57 @@ const HomeScreen = ({ navigation }) => {
         dataService.getRestaurantsByLocation(
           selectedAddress.latitude,
           selectedAddress.longitude,
-          5 // Default delivery range set to 5km
+          100 // Default delivery range set to 5km
         ),
       ]);
 
-      setCategories(categoriesData.categories);
+      if (
+        categoriesData &&
+        categoriesData.success &&
+        categoriesData.categories
+      ) {
+        setCategories(categoriesData.categories);
+      } else {
+        console.warn("No categories returned from API");
+      }
 
       if (
         restaurantsData.success &&
         restaurantsData.restaurants &&
         restaurantsData.restaurants.length > 0
       ) {
-        setRestaurants(restaurantsData.restaurants);
+        // Process restaurant data to ensure it has all required fields
+        const processedRestaurants = restaurantsData.restaurants.map(
+          (restaurant) => {
+            return {
+              ...restaurant,
+              // Convert MongoDB distance field (in km) to a displayable string with 1 decimal place
+              distance: restaurant.distance
+                ? `${restaurant.distance.toFixed(1)} km`
+                : null,
+              deliveryTime: calculateDeliveryTime(restaurant),
+              // Add other default properties if they're missing from the API response
+              rating:
+                restaurant.rating ||
+                (restaurant.reviews && restaurant.reviews.length > 0
+                  ? (
+                      restaurant.reviews.reduce(
+                        (sum, review) => sum + review.rating,
+                        0
+                      ) / restaurant.reviews.length
+                    ).toFixed(1)
+                  : "New"),
+              deliveryFee: calculateDeliveryFee(restaurant.distance || 0),
+              minOrder: restaurant.minOrder || 10,
+            };
+          }
+        );
+
+        setRestaurants(processedRestaurants);
         setLocationError(false);
 
         // Set featured restaurants with distance info
-        const featured = [...restaurantsData.restaurants]
+        const featured = [...processedRestaurants]
           .sort((a, b) => {
             // Sort by whether they're open first
             const aOpen = !isRestaurantClosed(a);
@@ -167,11 +235,24 @@ const HomeScreen = ({ navigation }) => {
 
             if (aOpen !== bOpen) return bOpen - aOpen; // Open restaurants first
 
-            // Then by distance (restaurants are already sorted by distance from API)
-            return parseFloat(a.distance || 0) - parseFloat(b.distance || 0);
+            // Then by distance
+            const aDistance =
+              typeof a.distance === "string"
+                ? parseFloat(a.distance.replace(" km", ""))
+                : parseFloat(a.distance || 0);
+
+            const bDistance =
+              typeof b.distance === "string"
+                ? parseFloat(b.distance.replace(" km", ""))
+                : parseFloat(b.distance || 0);
+
+            return aDistance - bDistance;
           })
           .slice(0, 3);
         setFeaturedRestaurants(featured);
+
+        // Also update popular items based on restaurant data
+        updatePopularItems(processedRestaurants);
       } else {
         // If no nearby restaurants are found, set error state
         console.log("No nearby restaurants found");
@@ -186,6 +267,115 @@ const HomeScreen = ({ navigation }) => {
       setFeaturedRestaurants([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Helper function to calculate delivery time based on distance and restaurant prep time
+  const calculateDeliveryTime = (restaurant) => {
+    // Base delivery time calculation
+    const distance = parseFloat(restaurant.distance || 0);
+    // Estimated prep time from restaurant, default to 15 minutes
+    const prepTime = restaurant.estimatedPrepTime || 15;
+
+    // Calculate delivery time: prep time + (distance * avg speed)
+    // Assuming average delivery speed of 18 km/h (0.3 km/min)
+    const deliveryMinutes = Math.round(prepTime + distance / 0.3);
+
+    // Add a 10-minute range
+    const minTime = Math.max(10, deliveryMinutes - 5);
+    const maxTime = deliveryMinutes + 5;
+
+    return `${minTime}-${maxTime} min`;
+  };
+
+  // Helper function to calculate delivery fee based on distance
+  const calculateDeliveryFee = (distance) => {
+    // Base fee
+    const baseFee = 2.99;
+    const distanceKm = parseFloat(distance);
+
+    // If distance > 3km, add $0.50 per additional km
+    const additionalFee = distanceKm > 3 ? (distanceKm - 3) * 0.5 : 0;
+
+    // Round to 2 decimal places and ensure it's a string with 2 decimals
+    return (baseFee + additionalFee).toFixed(2);
+  };
+
+  // Update popular items based on restaurant data
+  const updatePopularItems = (restaurantList) => {
+    try {
+      // Collect dishes marked as popular from restaurants
+      let allPopularDishes = [];
+
+      restaurantList.forEach((restaurant) => {
+        if (restaurant.dishes && Array.isArray(restaurant.dishes)) {
+          // If dishes data is already available
+          const popularDishes = restaurant.dishes
+            .filter((dish) => dish.popular)
+            .map((dish) => ({
+              ...dish,
+              restaurantId: restaurant.id || restaurant._id,
+              restaurantName: restaurant.name,
+            }));
+
+          allPopularDishes = [...allPopularDishes, ...popularDishes];
+        }
+      });
+
+      // If we have enough popular dishes from the API
+      if (allPopularDishes.length >= 4) {
+        setPopularItems(allPopularDishes.slice(0, 4));
+      } else {
+        // Fallback to default popular items if not enough data
+        setPopularItems([
+          {
+            id: "1",
+            name: "Double Cheeseburger",
+            price: 12.99,
+            category: "Burgers",
+            imageUrl:
+              "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+          },
+          {
+            id: "2",
+            name: "Margherita Pizza",
+            price: 14.99,
+            category: "Pizza",
+            imageUrl:
+              "https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+          },
+          {
+            id: "3",
+            name: "Chicken Caesar Salad",
+            price: 9.99,
+            category: "Salads",
+            imageUrl:
+              "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+          },
+          {
+            id: "4",
+            name: "Spicy Ramen Bowl",
+            price: 11.99,
+            category: "Asian",
+            imageUrl:
+              "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error("Error updating popular items:", error);
+      // Fallback to default popular items on error
+      setPopularItems([
+        {
+          id: "1",
+          name: "Double Cheeseburger",
+          price: 12.99,
+          category: "Burgers",
+          imageUrl:
+            "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+        },
+        // ... other default items
+      ]);
     }
   };
 
@@ -231,8 +421,14 @@ const HomeScreen = ({ navigation }) => {
     return false;
   };
 
-  const handleSearch = async () => {
-    navigation.navigate("Search");
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      navigation.navigate("Search", { searchQuery });
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
   };
 
   const handleAddressSelect = (address) => {
@@ -255,327 +451,175 @@ const HomeScreen = ({ navigation }) => {
     setLocationModalVisible(false);
     navigation.navigate("LocationMap", {
       onLocationSelect: (location) => {
-        addCustomLocation(location);
+        addCustomLocation({
+          ...location,
+          isCustom: true,
+        });
       },
     });
   };
 
   const renderCategory = ({ item }) => (
     <TouchableOpacity
-      style={styles.categoryItem}
+      style={[
+        styles.categoryItem,
+        { backgroundColor: theme.colors.card, ...theme.shadow.small },
+      ]}
       onPress={() => navigation.navigate("Search", { searchQuery: item.name })}
     >
-      <View style={[styles.categoryImageContainer, { ...theme.shadow.small }]}>
+      <View style={styles.categoryImageContainer}>
         <Image source={{ uri: item.image }} style={styles.categoryImage} />
       </View>
-      <Text style={styles.categoryName}>{item.name}</Text>
+      <Text style={[styles.categoryName, { color: theme.colors.text }]}>
+        {item.name}
+      </Text>
     </TouchableOpacity>
   );
 
-  const renderRestaurantCard = (restaurant, featured = false) => {
-    const isClosed = isRestaurantClosed(restaurant);
-    const showServiceTypes =
-      restaurant.serviceTypes &&
-      !(restaurant.serviceTypes.delivery && restaurant.serviceTypes.pickup);
-
-    return (
-      <Card
-        style={[
-          styles.restaurantCard,
-          { ...theme.shadow.small },
-          featured && styles.featuredCard,
-          isClosed && styles.closedRestaurantCard,
-        ]}
-        onPress={() => {
-          if (!isClosed) {
-            navigation.navigate("RestaurantDetail", {
-              restaurantId: restaurant._id,
-            });
-          }
-        }}
-      >
-        {featured && (
-          <View style={styles.featuredBadge}>
-            <Text style={styles.featuredText}>Featured</Text>
-          </View>
-        )}
-
-        <Card.Cover
-          source={{ uri: restaurant.coverImageUrl }}
-          style={[
-            styles.restaurantImage,
-            featured && styles.featuredImage,
-            isClosed && styles.closedImage,
-          ]}
-        />
-
-        {isClosed && (
-          <View style={styles.closedOverlay}>
-            <Text style={styles.closedText}>CLOSED</Text>
-            {restaurant.openingHours?.open && (
-              <Text style={styles.openingHoursText}>
-                Opens at {restaurant.openingHours.open}
-              </Text>
-            )}
-          </View>
-        )}
-
-        <Card.Content style={styles.restaurantCardContent}>
-          <Title style={styles.restaurantName}>{restaurant.name}</Title>
-
-          <View style={styles.restaurantInfo}>
-            {restaurant.cuisineType && (
-              <Text style={styles.restaurantType}>
-                {restaurant.cuisineType}
-              </Text>
-            )}
-
-            {restaurant.estimatedPrepTime && (
-              <View style={styles.prepTimeContainer}>
-                <Ionicons
-                  name="time-outline"
-                  size={14}
-                  color={theme.colors.gray}
-                />
-                <Text style={styles.prepTimeText}>
-                  {restaurant.estimatedPrepTime} min
-                </Text>
-              </View>
-            )}
-
-            {/* Display distance when available */}
-            {restaurant.distance && (
-              <View style={styles.distanceContainer}>
-                <Ionicons
-                  name="location-outline"
-                  size={14}
-                  color={theme.colors.gray}
-                />
-                <Text style={styles.distanceText}>
-                  {restaurant.distance} km
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {restaurant.openingHours?.open && restaurant.openingHours?.close && (
-            <Text style={styles.hoursText}>
-              Hours: {restaurant.openingHours.open} -{" "}
-              {restaurant.openingHours.close}
-            </Text>
-          )}
-
-          {showServiceTypes && (
-            <View style={styles.serviceTypeContainer}>
-              {restaurant.serviceTypes?.delivery && (
-                <Chip
-                  style={styles.serviceChip}
-                  textStyle={styles.serviceChipText}
-                  icon="bike"
-                >
-                  Delivery
-                </Chip>
-              )}
-
-              {restaurant.serviceTypes?.pickup && (
-                <Chip
-                  style={styles.serviceChip}
-                  textStyle={styles.serviceChipText}
-                  icon="shopping"
-                >
-                  Pickup
-                </Chip>
-              )}
-            </View>
-          )}
-        </Card.Content>
-      </Card>
-    );
-  };
-
-  const renderLocationModal = () => (
-    <Portal>
-      <Modal
-        visible={locationModalVisible}
-        onDismiss={() => setLocationModalVisible(false)}
-        contentContainerStyle={styles.locationModal}
-      >
-        <View style={styles.locationModalHeader}>
-          <Text style={styles.locationModalTitle}>Choose Location</Text>
-          <TouchableOpacity onPress={() => setLocationModalVisible(false)}>
-            <Ionicons name="close" size={24} color={theme.colors.gray} />
-          </TouchableOpacity>
-        </View>
-
-        <Divider />
-
-        <ScrollView style={styles.locationList}>
-          {/* Current Location */}
-          {currentLocation && (
-            <>
-              <TouchableOpacity
-                style={styles.locationOption}
-                onPress={() =>
-                  handleAddressSelect({
-                    label: "Current Location",
-                    isCurrentLocation: true,
-                    ...currentLocation,
-                  })
-                }
-              >
-                <View style={styles.locationOptionIcon}>
-                  <Ionicons name="locate" size={24} color="#000" />
-                </View>
-                <View style={styles.locationOptionContent}>
-                  <Text style={styles.locationOptionTitle}>
-                    Your current location
-                  </Text>
-                </View>
-                {selectedAddress?.isCurrentLocation && (
-                  <Ionicons
-                    name="checkmark"
-                    size={24}
-                    color={theme.colors.primary}
-                  />
-                )}
-              </TouchableOpacity>
-              <Divider />
-            </>
-          )}
-
-          {/* Set on map */}
-          <TouchableOpacity
-            style={styles.locationOption}
-            onPress={handleSetOnMap}
-          >
-            <View style={styles.locationOptionIcon}>
-              <Ionicons name="map" size={24} color="#000" />
-            </View>
-            <View style={styles.locationOptionContent}>
-              <Text style={styles.locationOptionTitle}>Set on map</Text>
-            </View>
-            {selectedAddress?.isCustom && (
-              <Ionicons
-                name="checkmark"
-                size={24}
-                color={theme.colors.primary}
-              />
-            )}
-          </TouchableOpacity>
-          <Divider />
-
-          {/* Saved Addresses */}
-          {savedAddresses.length > 0 ? (
-            <>
-              {savedAddresses.map((address) => (
-                <React.Fragment key={address._id}>
-                  <TouchableOpacity
-                    style={styles.locationOption}
-                    onPress={() => handleAddressSelect(address)}
-                  >
-                    <View style={styles.locationOptionIcon}>
-                      <Ionicons
-                        name={
-                          address.label.toLowerCase().includes("home")
-                            ? "home"
-                            : address.label.toLowerCase().includes("work")
-                            ? "briefcase"
-                            : "location"
-                        }
-                        size={24}
-                        color="#000"
-                      />
-                    </View>
-                    <View style={styles.locationOptionContent}>
-                      <Text style={styles.locationOptionTitle}>
-                        {address.label}
-                      </Text>
-                      <Text style={styles.locationOptionAddress}>
-                        {address.street}, {address.city}
-                      </Text>
-                    </View>
-                    {selectedAddress?._id === address._id && (
-                      <Ionicons
-                        name="checkmark"
-                        size={24}
-                        color={theme.colors.primary}
-                      />
-                    )}
-                  </TouchableOpacity>
-                  <Divider />
-                </React.Fragment>
-              ))}
-            </>
-          ) : null}
-
-          {/* Add Address */}
-          <TouchableOpacity
-            style={styles.locationOption}
-            onPress={() => {
-              setLocationModalVisible(false);
-              navigation.navigate("Profile", {
-                screen: "SavedAddresses",
-                params: { addNew: true },
-              });
-            }}
-          >
-            <View style={styles.locationOptionIcon}>
-              <Ionicons name="add-circle" size={24} color="#000" />
-            </View>
-            <View style={styles.locationOptionContent}>
-              <Text style={styles.locationOptionTitle}>Add New Address</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#757575" />
-          </TouchableOpacity>
-        </ScrollView>
-      </Modal>
-    </Portal>
+  const renderPopularItem = ({ item }) => (
+    <FoodCard
+      item={item}
+      onPress={() => {
+        /* Navigate to food detail */
+      }}
+      onAddToCart={() => {
+        /* Add to cart functionality */
+      }}
+      isTrending={item.id === "1"}
+    />
   );
 
-  const renderPromoSection = () => (
-    <View style={styles.promoSection}>
-      <ImageBackground
-        source={{
-          uri: "https://img.freepik.com/free-photo/top-view-table-full-delicious-food-composition_23-2149141352.jpg",
-        }}
-        style={styles.promoBg}
-        imageStyle={{ borderRadius: 12, opacity: 0.8 }}
-      >
-        <View style={styles.promoContent}>
-          <Text style={styles.promoTitle}>Special Offers</Text>
-          <Text style={styles.promoSubtitle}>Up to 40% Off Today</Text>
-          <Button
-            mode="contained"
-            onPress={() => {}}
-            style={styles.promoButton}
-            labelStyle={styles.promoButtonLabel}
-          >
-            Explore Deals
-          </Button>
+  const renderHeader = () => (
+    <>
+      {/* User greeting and location */}
+      <View style={styles.headerContainer}>
+        <View>
+          <Text style={[styles.greeting, { color: theme.colors.text }]}>
+            {getGreeting()}
+          </Text>
+          <Text style={[styles.username, { color: theme.colors.text }]}>
+            {user?.name || "Guest"}
+          </Text>
         </View>
-      </ImageBackground>
+
+        <TouchableOpacity
+          style={[
+            styles.locationButton,
+            {
+              backgroundColor:
+                theme.mode === "light" ? "#FFFFFF" : theme.colors.surface,
+            },
+          ]}
+          onPress={() => setLocationModalVisible(true)}
+        >
+          <Ionicons name="location" size={16} color={theme.colors.primary} />
+          <Text
+            style={[styles.locationText, { color: theme.colors.text }]}
+            numberOfLines={1}
+          >
+            {selectedAddress
+              ? selectedAddress.label ||
+                (selectedAddress.isCurrentLocation
+                  ? "Current Location"
+                  : selectedAddress.street ||
+                    selectedAddress.address ||
+                    "Selected Location")
+              : "Set Location"}
+          </Text>
+          <Ionicons name="chevron-down" size={16} color={theme.colors.gray} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Search Bar */}
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => navigation.navigate("Search")}
+      >
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          onSubmit={handleSearch}
+          onClear={handleClearSearch}
+          editable={false} // Make the input field not directly editable
+          style={styles.SearchBar}
+        />
+      </TouchableOpacity>
+
+      {/* Hero Banner */}
+      {featuredRestaurants.length > 0 && (
+        <HeroBanner
+          imageUrl={featuredRestaurants[0].coverImageUrl}
+          title={featuredRestaurants[0].name}
+          subtitle={`${featuredRestaurants[0].cuisineType} • ${
+            featuredRestaurants[0].distance
+              ? `${featuredRestaurants[0].distance} km`
+              : "Delivery Available"
+          }`}
+          onPress={() =>
+            navigation.navigate("RestaurantDetail", {
+              restaurantId: featuredRestaurants[0]._id,
+            })
+          }
+        />
+      )}
+
+      {/* Categories section */}
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            Categories
+          </Text>
+          <TouchableOpacity onPress={() => navigation.navigate("Search")}>
+            <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>
+              See All
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </>
+  );
+
+  const renderPopularItemsSection = () => (
+    <View style={styles.sectionContainer}>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+          Popular Items
+        </Text>
+        <TouchableOpacity onPress={() => navigation.navigate("Search")}>
+          <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>
+            See All
+          </Text>
+        </TouchableOpacity>
+      </View>
+      <FlatList
+        data={popularItems}
+        renderItem={renderPopularItem}
+        keyExtractor={(item) => item.id}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.popularItemsList}
+      />
     </View>
   );
 
-  const renderLocationErrorState = () => (
-    <View style={styles.errorContainer}>
-      <Image
-        source={{
-          uri: "https://cdn-icons-png.flaticon.com/512/8186/8186510.png",
-        }}
-        style={styles.errorImage}
-      />
-      <Text style={styles.errorTitle}>No Restaurants Found Nearby</Text>
-      <Text style={styles.errorSubtitle}>
-        We couldn't find any restaurants near your selected location.
+  const renderRestaurantsSection = () => (
+    <View style={styles.sectionContainer}>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+          Nearby Restaurants
+        </Text>
+        <TouchableOpacity onPress={() => navigation.navigate("Search")}>
+          <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>
+            See All
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Restaurant list or grid will be rendered here */}
+      {/* For this example, we'll just use a placeholder */}
+      <Text style={{ color: theme.colors.gray, marginLeft: 16 }}>
+        Coming soon...
       </Text>
-      <Button
-        mode="contained"
-        style={styles.changeLocationButton}
-        onPress={() => setLocationModalVisible(true)}
-      >
-        Change Location
-      </Button>
     </View>
   );
 
@@ -592,146 +636,290 @@ const HomeScreen = ({ navigation }) => {
     );
   }
 
-  const greeting = getGreeting();
-
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      {renderLocationModal()}
+      <StatusBar
+        barStyle={theme.mode === "dark" ? "light-content" : "dark-content"}
+        backgroundColor={theme.colors.background}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[theme.colors.primary]}
-            tintColor={theme.colors.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Updated header with time-based greeting */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.welcomeText}>
-              Hello, {user?.name || "Guest"}
-            </Text>
-            <Text style={styles.greetingText}>{greeting}</Text>
-            <TouchableOpacity
-              style={styles.locationSelector}
-              onPress={() => setLocationModalVisible(true)}
-            >
-              <Ionicons
-                name="location"
-                size={16}
-                color={theme.colors.primary}
-              />
-              <Text style={styles.locationText} numberOfLines={1}>
-                {selectedAddress
-                  ? selectedAddress.isCurrentLocation
-                    ? "Current Location"
-                    : selectedAddress.isCustom
-                    ? selectedAddress.label || "Custom Location"
-                    : `${selectedAddress.label}: ${selectedAddress.street}`
-                  : "Select Location"}
-              </Text>
-              <Ionicons
-                name="chevron-down"
-                size={16}
-                color={theme.colors.gray}
-              />
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
-            <Image
-              source={
-                user?.profilePicture
-                  ? { uri: user.profilePicture }
-                  : {
-                      uri: "https://png.pngtree.com/png-vector/20220708/ourmid/pngtree-fast-food-logo-png-image_5763171.png",
-                    }
-              }
-              style={styles.profileImage}
-            />
-          </TouchableOpacity>
-        </View>
+        {renderHeader()}
 
-        <TouchableOpacity onPress={handleSearch} activeOpacity={0.7}>
-          <Searchbar
-            placeholder="Search for restaurants or dishes"
-            value=""
+        {/* Categories Horizontal List */}
+        <FlatList
+          data={categories}
+          renderItem={renderCategory}
+          keyExtractor={(item) => item._id}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesList}
+        />
+
+        {renderPopularItemsSection()}
+        {renderRestaurantsSection()}
+
+        {/* Extra space at bottom for the tab bar */}
+        <View style={styles.bottomPadding} />
+      </ScrollView>
+
+      {/* Location Modal */}
+      <Modal
+        visible={locationModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setLocationModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
             style={[
-              styles.searchBar,
-              { backgroundColor: theme.colors.surface },
+              styles.modalContainer,
+              { backgroundColor: theme.colors.background },
             ]}
-            onFocus={handleSearch}
-            showSoftInputOnFocus={false}
-            icon="magnify"
-            iconColor={theme.colors.primary}
-          />
-        </TouchableOpacity>
-
-        {/* Only show promotion, categories, and restaurants sections if there's no location error */}
-        {locationError ? (
-          renderLocationErrorState()
-        ) : (
-          <>
-            {renderPromoSection()}
-
-            <Text style={styles.sectionTitle}>Categories</Text>
-            <FlatList
-              data={categories}
-              renderItem={renderCategory}
-              keyExtractor={(item) => item.id}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoriesList}
-            />
-
-            <Text style={styles.sectionTitle}>Featured Restaurants</Text>
-            <View style={styles.featuredContainer}>
-              {featuredRestaurants.length > 0 ? (
-                featuredRestaurants.map((restaurant, index) => (
-                  <View key={restaurant._id} style={styles.featuredItem}>
-                    {renderRestaurantCard(restaurant, true)}
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.emptyText}>
-                  No featured restaurants available
-                </Text>
-              )}
-            </View>
-
-            <View style={styles.allRestaurantsHeader}>
-              <Text style={styles.sectionTitle}>All Restaurants</Text>
-              <TouchableOpacity
-                onPress={() => navigation.navigate("Restaurants")}
-              >
-                <Text
-                  style={[styles.viewAllText, { color: theme.colors.primary }]}
-                >
-                  View All
-                </Text>
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                Delivery Location
+              </Text>
+              <TouchableOpacity onPress={() => setLocationModalVisible(false)}>
+                <Ionicons name="close" size={24} color={theme.colors.text} />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.allRestaurantsContainer}>
-              {restaurants?.length > 0 ? (
-                restaurants.slice(0, 6).map((restaurant) => (
-                  <View key={restaurant._id} style={styles.restaurantItem}>
-                    {renderRestaurantCard(restaurant)}
+            <Divider />
+
+            <ScrollView style={styles.locationsList}>
+              {/* Current Location Option */}
+              {currentLocation && (
+                <TouchableOpacity
+                  style={[
+                    styles.locationItem,
+                    selectedAddress?.isCurrentLocation &&
+                      styles.selectedLocationItem,
+                  ]}
+                  onPress={() =>
+                    handleAddressSelect({
+                      label: "Current Location",
+                      latitude: currentLocation.latitude,
+                      longitude: currentLocation.longitude,
+                      isCurrentLocation: true,
+                    })
+                  }
+                >
+                  <View style={styles.locationLeftSection}>
+                    <View
+                      style={[
+                        styles.locationIconContainer,
+                        { backgroundColor: theme.colors.primaryLight },
+                      ]}
+                    >
+                      <Ionicons
+                        name="navigate"
+                        size={18}
+                        color={theme.colors.primary}
+                      />
+                    </View>
+                    <View style={styles.locationInfo}>
+                      <Text
+                        style={[
+                          styles.locationLabel,
+                          { color: theme.colors.text },
+                        ]}
+                      >
+                        Current Location
+                      </Text>
+                      <Text
+                        style={[
+                          styles.locationAddress,
+                          { color: theme.colors.gray },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {locationLoading
+                          ? "Getting your location..."
+                          : "Using your device's location"}
+                      </Text>
+                    </View>
                   </View>
-                ))
-              ) : (
-                <Text style={styles.emptyText}>No restaurants available</Text>
+                  {selectedAddress?.isCurrentLocation && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={24}
+                      color={theme.colors.primary}
+                    />
+                  )}
+                </TouchableOpacity>
               )}
-            </View>
-          </>
-        )}
-      </ScrollView>
+
+              {/* Set on Map option */}
+              <TouchableOpacity
+                style={[
+                  styles.locationItem,
+                  selectedAddress?.isCustom && styles.selectedLocationItem,
+                ]}
+                onPress={handleSetOnMap}
+              >
+                <View style={styles.locationLeftSection}>
+                  <View
+                    style={[
+                      styles.locationIconContainer,
+                      { backgroundColor: theme.colors.primaryLight },
+                    ]}
+                  >
+                    <Ionicons
+                      name="map"
+                      size={18}
+                      color={theme.colors.primary}
+                    />
+                  </View>
+                  <View style={styles.locationInfo}>
+                    <Text
+                      style={[
+                        styles.locationLabel,
+                        { color: theme.colors.text },
+                      ]}
+                    >
+                      {selectedAddress
+                        ? "Change location on map"
+                        : "Set location on map"}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.locationAddress,
+                        { color: theme.colors.gray },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {selectedAddress?.isCustom
+                        ? "Custom location is currently selected"
+                        : "Select a precise location on the map"}
+                    </Text>
+                  </View>
+                </View>
+                {selectedAddress?.isCustom && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={24}
+                    color={theme.colors.primary}
+                  />
+                )}
+              </TouchableOpacity>
+
+              {/* Saved Addresses */}
+              {savedAddresses && savedAddresses.length > 0 && (
+                <>
+                  <View style={styles.sectionDivider}>
+                    <Text
+                      style={[
+                        styles.sectionLabel,
+                        { color: theme.colors.gray },
+                      ]}
+                    >
+                      Saved Addresses
+                    </Text>
+                  </View>
+                  {savedAddresses.map((address, index) => (
+                    <TouchableOpacity
+                      key={address._id || index}
+                      style={[
+                        styles.locationItem,
+                        selectedAddress?._id === address._id &&
+                          styles.selectedLocationItem,
+                      ]}
+                      onPress={() => handleAddressSelect(address)}
+                    >
+                      <View style={styles.locationLeftSection}>
+                        <View
+                          style={[
+                            styles.locationIconContainer,
+                            { backgroundColor: theme.colors.primaryLight },
+                          ]}
+                        >
+                          <Ionicons
+                            name={
+                              address.type === "home"
+                                ? "home"
+                                : address.type === "work"
+                                ? "briefcase"
+                                : "location"
+                            }
+                            size={18}
+                            color={theme.colors.primary}
+                          />
+                        </View>
+                        <View style={styles.locationInfo}>
+                          <Text
+                            style={[
+                              styles.locationLabel,
+                              { color: theme.colors.text },
+                            ]}
+                          >
+                            {address.label ||
+                              (address.type === "home"
+                                ? "Home"
+                                : address.type === "work"
+                                ? "Work"
+                                : "Saved Address")}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.locationAddress,
+                              { color: theme.colors.gray },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {address.street ||
+                              address.address ||
+                              "No address details"}
+                            {address.city ? `, ${address.city}` : ""}
+                          </Text>
+                        </View>
+                      </View>
+                      {selectedAddress?._id === address._id && (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={24}
+                          color={theme.colors.primary}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+
+              {/* Add New Address */}
+              <TouchableOpacity
+                style={styles.addLocationButton}
+                onPress={() => {
+                  setLocationModalVisible(false);
+                  navigation.navigate("AddressForm");
+                }}
+              >
+                <View
+                  style={[
+                    styles.locationIconContainer,
+                    { backgroundColor: theme.colors.primaryLight },
+                  ]}
+                >
+                  <Ionicons name="add" size={18} color={theme.colors.primary} />
+                </View>
+                <Text
+                  style={[styles.addLocationText, { color: theme.colors.text }]}
+                >
+                  Add a new address
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -740,364 +928,183 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 16,
-    paddingBottom: 20,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  header: {
+  headerContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 10,
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
-  welcomeText: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 4,
+  greeting: {
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
   },
-  greetingText: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 8,
+  username: {
+    fontSize: 18,
+    fontFamily: "Poppins-Bold",
+    fontWeight: "700",
   },
-  locationSelector: {
+  locationButton: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 4,
-    maxWidth: width * 0.7,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    maxWidth: width * 0.45,
   },
   locationText: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: 12,
+    fontFamily: "Poppins-Medium",
     marginHorizontal: 4,
   },
-  profileImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 2,
-    borderColor: "#eee",
+  sectionContainer: {
+    marginTop: 24,
   },
-  searchBar: {
-    marginBottom: 20,
-    borderRadius: 12,
-    elevation: 2,
-  },
-  promoSection: {
-    height: 150,
-    marginBottom: 20,
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  promoBg: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  promoContent: {
-    paddingHorizontal: 20,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    height: "100%",
-    justifyContent: "center",
-  },
-  promoTitle: {
-    color: "white",
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
-  promoSubtitle: {
-    color: "white",
-    fontSize: 16,
-    marginBottom: 16,
-  },
-  promoButton: {
-    alignSelf: "flex-start",
-    borderRadius: 20,
-  },
-  promoButtonLabel: {
-    fontSize: 14,
-    paddingHorizontal: 8,
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 15,
-    marginBottom: 12,
+    fontFamily: "Poppins-Bold",
+    fontWeight: "700",
+  },
+  seeAllText: {
+    fontSize: 14,
+    fontFamily: "Poppins-Medium",
   },
   categoriesList: {
-    paddingVertical: 5,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   categoryItem: {
-    marginRight: 15,
     alignItems: "center",
+    marginRight: 16,
+    borderRadius: 12,
+    padding: 10,
     width: 80,
   },
   categoryImageContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    overflow: "hidden",
-    backgroundColor: "white",
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden",
     marginBottom: 8,
   },
   categoryImage: {
     width: "100%",
     height: "100%",
-    borderRadius: 35,
     resizeMode: "cover",
   },
   categoryName: {
+    fontSize: 12,
+    fontFamily: "Poppins-Medium",
     textAlign: "center",
-    fontSize: 12,
   },
-  featuredContainer: {
-    marginBottom: 15,
+  popularItemsList: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
-  featuredItem: {
-    marginBottom: 15,
+  bottomPadding: {
+    height: 100,
   },
-  featuredCard: {
-    borderRadius: 16,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
-  featuredImage: {
-    height: 180,
-    width: "100%",
-    resizeMode: "cover",
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+  modalContainer: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 16,
+    maxHeight: "80%",
   },
-  featuredBadge: {
-    position: "absolute",
-    top: 15,
-    left: 15,
-    backgroundColor: "rgba(255, 100, 0, 0.9)",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-    zIndex: 1,
-  },
-  featuredText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 12,
-  },
-  allRestaurantsHeader: {
+  modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
-  viewAllText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  allRestaurantsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  restaurantItem: {
-    width: "48%",
-    marginBottom: 15,
-  },
-  restaurantCard: {
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  closedRestaurantCard: {
-    opacity: 0.8,
-    borderColor: "#ccc",
-    borderWidth: 1,
-  },
-  restaurantImage: {
-    height: 120,
-    width: "100%",
-    resizeMode: "cover",
-  },
-  closedImage: {
-    opacity: 0.6,
-  },
-  closedOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1,
-  },
-  closedText: {
-    color: "white",
+  modalTitle: {
     fontSize: 18,
-    fontWeight: "bold",
-    letterSpacing: 1,
+    fontFamily: "Poppins-Bold",
+    fontWeight: "700",
   },
-  openingHoursText: {
-    color: "white",
-    fontSize: 12,
-    marginTop: 4,
+  locationsList: {
+    padding: 16,
+    maxHeight: 400,
   },
-  restaurantCardContent: {
-    padding: 8,
-  },
-  restaurantName: {
-    fontSize: 16,
-    marginVertical: 4,
-  },
-  restaurantInfo: {
+  locationItem: {
     flexDirection: "row",
     alignItems: "center",
-    flexWrap: "wrap",
-    marginBottom: 4,
-  },
-  restaurantRating: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: 8,
-  },
-  ratingText: {
-    marginLeft: 2,
-    fontSize: 12,
-  },
-  restaurantType: {
-    fontSize: 12,
-    marginRight: 8,
-    color: "#666",
-  },
-  prepTimeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  prepTimeText: {
-    marginLeft: 4,
-    fontSize: 12,
-    color: "#666",
-  },
-  hoursText: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 4,
-  },
-  serviceTypeContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  serviceChip: {
-    marginRight: 4,
-    height: 24,
-    backgroundColor: "#f0f0f0",
-  },
-  serviceChipText: {
-    fontSize: 10,
-  },
-  emptyText: {
-    color: "#666",
-    textAlign: "center",
-    padding: 20,
-  },
-  locationModal: {
-    backgroundColor: "white",
-    margin: 0,
-    marginTop: 50,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    flex: 1,
-  },
-  locationModalHeader: {
-    flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
   },
-  locationModalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    textAlign: "center",
-    flex: 1,
+  selectedLocationItem: {
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
   },
-  locationList: {
-    flex: 1,
-  },
-  locationOption: {
+  locationLeftSection: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    flex: 1,
   },
-  locationOptionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#f0f0f0",
+  locationIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
   },
-  locationOptionContent: {
+  locationInfo: {
     flex: 1,
   },
-  locationOptionTitle: {
+  locationLabel: {
     fontSize: 16,
-    fontWeight: "500",
+    fontFamily: "Poppins-Medium",
+    marginBottom: 2,
   },
-  locationOptionAddress: {
+  locationAddress: {
     fontSize: 14,
-    color: "#757575",
-    marginTop: 2,
+    fontFamily: "Poppins-Regular",
   },
-  distanceContainer: {
+  addLocationButton: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
+    paddingVertical: 16,
   },
-  distanceText: {
-    marginLeft: 4,
-    fontSize: 12,
-    color: "#666",
+  addLocationText: {
+    fontSize: 16,
+    fontFamily: "Poppins-Medium",
+    marginLeft: 12,
   },
-  errorContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 30,
-    backgroundColor: "rgba(249, 249, 249, 0.8)",
-    borderRadius: 16,
-    marginBottom: 15,
+  sectionDivider: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+    marginTop: 8,
   },
-  errorImage: {
-    width: 100,
-    height: 100,
-    marginBottom: 16,
-    opacity: 0.8,
-  },
-  errorTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 8,
-    color: "#555",
-    textAlign: "center",
-  },
-  errorSubtitle: {
+  sectionLabel: {
     fontSize: 14,
-    color: "#777",
-    textAlign: "center",
-    marginBottom: 20,
-    paddingHorizontal: 20,
+    fontFamily: "Poppins-Medium",
   },
-  changeLocationButton: {
-    borderRadius: 8,
-    paddingHorizontal: 16,
+  SearchBar: {
+    marginLeft: 20,
+    marginRight: 20,
   },
 });
 

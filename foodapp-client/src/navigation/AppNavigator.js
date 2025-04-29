@@ -64,6 +64,11 @@ const HomeStack = () => {
       <Stack.Screen name="RestaurantInfo" component={RestaurantInfoScreen} />
       <Stack.Screen name="LocationMap" component={LocationMapScreen} />
       <Stack.Screen name="Search" component={SearchScreen} />
+      <Stack.Screen
+        name="Restaurant"
+        component={RestaurantDetailScreen}
+        options={{ headerShown: false }}
+      />
     </Stack.Navigator>
   );
 };
@@ -80,6 +85,11 @@ const RestaurantsStack = () => {
       <Stack.Screen name="DishDetail" component={DishDetailScreen} />
       <Stack.Screen name="RestaurantInfo" component={RestaurantInfoScreen} />
       <Stack.Screen name="Search" component={SearchScreen} />
+      <Stack.Screen
+        name="Restaurant"
+        component={RestaurantDetailScreen}
+        options={{ headerShown: false }}
+      />
     </Stack.Navigator>
   );
 };

@@ -79,7 +79,8 @@ const getAllCartItems = async (req, res) => {
         (dish) => dish._id && dish._id.toString() === item.itemId.toString()
       );
 
-      return {
+      // Base cart item response
+      const cartItemResponse = {
         _id: item._id,
         itemId: item.itemId,
         item: dish || null,
@@ -87,6 +88,20 @@ const getAllCartItems = async (req, res) => {
         itemPrice: item.itemPrice,
         totalPrice: item.totalPrice,
       };
+
+      // Add portion information if it's a portion item
+      if (item.isPortionItem && dish?.portions) {
+        const portion = dish.portions.find(
+          (p) => p._id.toString() === item.portionId.toString()
+        );
+
+        cartItemResponse.portionId = item.portionId;
+        cartItemResponse.portionName = item.portionName;
+        cartItemResponse.isPortionItem = true;
+        cartItemResponse.portion = portion || null;
+      }
+
+      return cartItemResponse;
     });
 
     // Format the response
@@ -125,11 +140,7 @@ const addCartItem = async (req, res) => {
       req.body.restaurantId
     );
 
-    if (
-      !dishesResponse ||
-      !dishesResponse.data ||
-      !dishesResponse.data.dishes
-    ) {
+    if (!dishesResponse?.data?.dishes) {
       return res
         .status(404)
         .json({ status: 404, message: "Failed to fetch restaurant menu" });
@@ -158,25 +169,49 @@ const addCartItem = async (req, res) => {
       }
     }
 
-    // Check if the item already exists in the cart
-    const existingItem = await CartItem.findOne({
+    // Determine if this is a portion item
+    const isPortion = !!req.body.portionId;
+
+    // Build query to find existing cart item with the same characteristics
+    let existingItemQuery = {
       customerId: userId,
       itemId: req.body.itemId,
-    });
+    };
 
+    // Add portion-specific filters
+    if (isPortion) {
+      existingItemQuery.portionId = req.body.portionId;
+      existingItemQuery.isPortionItem = true;
+    } else {
+      existingItemQuery.isPortionItem = false;
+    }
+
+    // Find existing item that matches our criteria
+    let existingItem = await CartItem.findOne(existingItemQuery);
     let savedItem;
+    let itemPrice;
+
+    // Determine the price based on whether it's a portion or regular item
+    if (isPortion && dish.portions) {
+      const portion = dish.portions.find((p) => p._id === req.body.portionId);
+      if (!portion) {
+        return res.status(404).json({
+          status: 404,
+          message: "Portion not found for dish",
+        });
+      }
+      itemPrice = portion.price;
+    } else {
+      itemPrice = req.body.itemPrice || dish.price;
+    }
 
     if (existingItem) {
       // If item exists, increment quantity
       existingItem.quantity += req.body.quantity || 1;
-      // Recalculate total price based on updated quantity
       existingItem.totalPrice = existingItem.itemPrice * existingItem.quantity;
       savedItem = await existingItem.save();
     } else {
-      // Use the price from the request if provided, otherwise use price from dish
-      const itemPrice = req.body.itemPrice || dish.price;
-
-      // If item doesn't exist, create new cart item
+      // Create new cart item
       const newCartItem = new CartItem({
         customerId: userId,
         itemId: req.body.itemId,
@@ -184,8 +219,60 @@ const addCartItem = async (req, res) => {
         itemPrice: itemPrice,
         quantity: req.body.quantity || 1,
         totalPrice: itemPrice * (req.body.quantity || 1),
+        isPortionItem: isPortion,
       });
-      savedItem = await newCartItem.save();
+
+      // Only add portion fields if it's a portion item
+      if (isPortion) {
+        newCartItem.portionId = req.body.portionId;
+        newCartItem.portionName = req.body.portionName;
+      } else {
+        // Ensure portionId is null for non-portion items
+        newCartItem.portionId = null;
+        newCartItem.portionName = null;
+      }
+
+      try {
+        savedItem = await newCartItem.save();
+      } catch (saveError) {
+        console.error("Save error:", saveError);
+        if (saveError.code === 11000) {
+          // Handle rare race condition - try to find and update the existing item
+          console.log("Duplicate key error - trying alternative approach");
+
+          // Get the exact item that's causing the conflict
+          const conflictingItem = await CartItem.findOne(existingItemQuery);
+
+          if (conflictingItem) {
+            conflictingItem.quantity += req.body.quantity || 1;
+            conflictingItem.totalPrice =
+              conflictingItem.itemPrice * conflictingItem.quantity;
+            savedItem = await conflictingItem.save();
+          } else {
+            // If we still can't find the conflicting item, this is unexpected
+            throw new Error(
+              "Could not resolve duplicate key error. Please try again."
+            );
+          }
+        } else {
+          throw saveError;
+        }
+      }
+    }
+
+    // Get the dish details for the response
+    const dishDetails = {
+      name: dish.name,
+      imageUrls: dish.imageUrls,
+      description: dish.description,
+    };
+
+    // If it's a portion item, include portion details
+    if (savedItem.isPortionItem && dish.portions) {
+      const portion = dish.portions.find((p) => p._id === savedItem.portionId);
+      if (portion) {
+        dishDetails.portion = portion;
+      }
     }
 
     res.status(201).json({
@@ -195,15 +282,16 @@ const addCartItem = async (req, res) => {
       quantity: savedItem.quantity,
       itemPrice: savedItem.itemPrice,
       totalPrice: savedItem.totalPrice,
+      item: dishDetails,
+      ...(savedItem.isPortionItem && {
+        portionId: savedItem.portionId,
+        portionName: savedItem.portionName,
+        isPortionItem: true,
+        portion: dishDetails.portion,
+      }),
     });
   } catch (err) {
-    console.error(err);
-    // Check if error is due to duplicate key (item already in cart)
-    if (err.code === 11000) {
-      return res
-        .status(400)
-        .json({ status: 400, message: "Item already exists in cart" });
-    }
+    console.error("Cart add error:", err);
     return res
       .status(500)
       .json({ status: 500, message: err.message || "Internal Server Error" });
@@ -211,39 +299,14 @@ const addCartItem = async (req, res) => {
 };
 
 const updateCartItem = async (req, res) => {
+  const userId = req.user.id;
   const { id } = req.params;
+  const { quantity } = req.body;
+
   if (!id) {
     return res
       .status(400)
       .json({ status: 400, message: "Invalid request: missing cart item ID" });
-  }
-
-  // Use authenticated user ID from req.user
-  const userId = req.user.id;
-  const { quantity, restaurantId, itemId } = req.body;
-
-  // Fetch the restaurant details
-  const restaurant = await getRestaurantById(
-    req.headers.authorization,
-    restaurantId
-  );
-
-  if (!restaurant || !restaurant.data) {
-    return res
-      .status(404)
-      .json({ status: 404, message: "Restaurant not found" });
-  }
-
-  const dishesResponse = await getRestaurantDishes(
-    req.headers.authorization,
-    restaurantId
-  );
-
-  const dish = dishesResponse.data?.dishes.find((d) => d._id === itemId);
-  if (!dish) {
-    return res
-      .status(404)
-      .json({ status: 404, message: "Dish not found for restaurant" });
   }
 
   try {
@@ -264,13 +327,18 @@ const updateCartItem = async (req, res) => {
 
     // Update the cart item fields
     cartItem.quantity = quantity;
+    cartItem.totalPrice = cartItem.itemPrice * quantity;
 
     // Save updated cart item to MongoDB
     await cartItem.save();
 
-    // Send updated response with dish details
+    // Return updated cart item
     return res.status(200).json({
-      ...cartItem._doc,
+      status: 200,
+      data: {
+        ...cartItem._doc,
+        totalPrice: cartItem.totalPrice,
+      },
     });
   } catch (err) {
     console.error(err);
