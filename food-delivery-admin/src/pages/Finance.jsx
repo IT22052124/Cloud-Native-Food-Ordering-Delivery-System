@@ -41,7 +41,6 @@ const Finance = () => {
     { id: "overview", label: "Overview" },
     { id: "restaurantPayments", label: "Restaurant Payments" },
     { id: "driverPayments", label: "Driver Payments" },
-    { id: "payouts", label: "Payouts" },
   ];
 
   const periodOptions = [

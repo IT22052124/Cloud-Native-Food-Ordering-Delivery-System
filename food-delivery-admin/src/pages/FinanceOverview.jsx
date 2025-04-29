@@ -217,13 +217,14 @@ export default function FinanceOverview() {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-LK", {
       style: "currency",
-      currency: "USD",
+      currency: "LKR",
       minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(amount);
   };
-
+  
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
