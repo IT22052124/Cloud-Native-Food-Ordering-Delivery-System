@@ -45,7 +45,7 @@ const HeroBanner = ({
                 end={{ x: 1, y: 0 }}
                 style={styles.trendingBadge}
               >
-                <Text style={styles.trendingText}>Trending Now</Text>
+                <Text style={styles.trendingText}>Nearest Restaurant</Text>
               </LinearGradient>
             </View>
           )}

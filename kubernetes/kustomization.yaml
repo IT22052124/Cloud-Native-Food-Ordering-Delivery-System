@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: food-delivery
+
+resources:
+  - namespace.yaml
+  - mongodb.yaml
+  - kafka.yaml
+  - secrets.yaml
+  - auth-service.yaml
+  - restaurant-service.yaml
+  - order-service.yaml
+  - payment-service.yaml
+  - notification-service.yaml
+  - food-delivery-server.yaml
+  - admin-service.yaml
+  - frontend.yaml
+  - ingress.yaml

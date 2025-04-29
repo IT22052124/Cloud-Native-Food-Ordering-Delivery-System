@@ -9,6 +9,7 @@ import {
   Linking,
   ScrollView,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { Text, Card, Chip, Divider, IconButton } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -21,7 +22,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const { width, height } = Dimensions.get("window");
 
 // WebSocket URL - match it with your backend WebSocket server address
-const WS_URL = "ws://192.168.1.7:5002";
+const WS_URL = "ws://192.168.1.6:5002";
 
 const OrderTrackingScreen = ({ route, navigation }) => {
   const { orderId } = route.params;
@@ -34,6 +35,7 @@ const OrderTrackingScreen = ({ route, navigation }) => {
   const [region, setRegion] = useState(null);
   const [error, setError] = useState(null);
   const [connected, setConnected] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadOrderAndTracking();
@@ -57,6 +59,11 @@ const OrderTrackingScreen = ({ route, navigation }) => {
       clearInterval(pollingInterval);
     };
   }, [orderId, connected]);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    loadOrderAndTracking().finally(() => setRefreshing(false));
+  }, []);
 
   const initWebSocket = async () => {
     try {
@@ -100,18 +107,30 @@ const OrderTrackingScreen = ({ route, navigation }) => {
           const data = JSON.parse(event.data);
           console.log("WebSocket message received:", data);
 
+          // Show refresh indicator briefly
+          setRefreshing(true);
+
           if (data.type === "ORDER_UPDATE") {
             // Update order status
             if (data.order) {
-              setOrder((prevOrder) => ({
-                ...prevOrder,
-                ...data.order,
-                status: data.order.status,
-                statusUpdates: {
-                  ...prevOrder?.statusUpdates,
-                  ...data.order.statusUpdates,
-                },
-              }));
+              setOrder((prevOrder) => {
+                if (!prevOrder) return data.order;
+
+                return {
+                  ...prevOrder,
+                  ...data.order,
+                  status: data.order.status,
+                  statusUpdates: {
+                    ...(prevOrder.statusUpdates || {}),
+                    ...(data.order.statusUpdates || {}),
+                  },
+                };
+              });
+
+              // If significant status change, do a full refresh
+              if (order && data.order && data.order.status !== order.status) {
+                loadOrderAndTracking();
+              }
             }
           } else if (data.type === "TRACKING_UPDATE") {
             // Update tracking data
@@ -123,17 +142,33 @@ const OrderTrackingScreen = ({ route, navigation }) => {
 
               // Update map region if driver location changed
               if (data.tracking.driverLocation) {
-                setRegion({
-                  latitude: data.tracking.driverLocation.latitude,
-                  longitude: data.tracking.driverLocation.longitude,
-                  latitudeDelta: 0.01,
-                  longitudeDelta: 0.01,
-                });
+                // Ensure consistent format for coordinates
+                const driverLat =
+                  data.tracking.driverLocation.latitude ||
+                  data.tracking.driverLocation.lat;
+                const driverLng =
+                  data.tracking.driverLocation.longitude ||
+                  data.tracking.driverLocation.lng;
+
+                if (driverLat && driverLng) {
+                  setRegion({
+                    latitude: driverLat,
+                    longitude: driverLng,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  });
+                }
               }
             }
           }
+
+          // Hide refresh indicator after a short delay
+          setTimeout(() => {
+            setRefreshing(false);
+          }, 1000);
         } catch (err) {
           console.error("Error parsing WebSocket message:", err);
+          setRefreshing(false);
         }
       };
     } catch (error) {
@@ -155,6 +190,7 @@ const OrderTrackingScreen = ({ route, navigation }) => {
         return;
       }
 
+      console.log("response.order", response.order);
       setOrder(response.order);
 
       // Load tracking data
@@ -165,21 +201,62 @@ const OrderTrackingScreen = ({ route, navigation }) => {
         try {
           const trackingData = await dataService.getOrderTracking(orderId);
           setTracking(trackingData);
-          // Set map region
-          if (trackingData.driverLocation) {
-            setRegion({
-              latitude: trackingData.driverLocation.lat,
-              longitude: trackingData.driverLocation.lng,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            });
+
+          // Set map region based on order status
+          if (
+            response.order.status === ORDER_STATUS.READY_FOR_PICKUP &&
+            trackingData.restaurantLocation
+          ) {
+            // For READY_FOR_PICKUP, center map on restaurant
+            const restaurantLat =
+              trackingData.restaurantLocation.latitude ||
+              trackingData.restaurantLocation.lat;
+            const restaurantLng =
+              trackingData.restaurantLocation.longitude ||
+              trackingData.restaurantLocation.lng;
+
+            if (restaurantLat && restaurantLng) {
+              setRegion({
+                latitude: restaurantLat,
+                longitude: restaurantLng,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              });
+            }
+          } else if (trackingData.driverLocation) {
+            // For OUT_FOR_DELIVERY, center on driver
+            const driverLat =
+              trackingData.driverLocation.latitude ||
+              trackingData.driverLocation.lat;
+            const driverLng =
+              trackingData.driverLocation.longitude ||
+              trackingData.driverLocation.lng;
+
+            if (driverLat && driverLng) {
+              setRegion({
+                latitude: driverLat,
+                longitude: driverLng,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              });
+            }
           } else if (response.order.deliveryAddress) {
-            setRegion({
-              latitude: response.order.deliveryAddress.coordinates.lat,
-              longitude: response.order.deliveryAddress.coordinates.lng,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            });
+            // Fallback to delivery address
+            const addressLat =
+              response.order.deliveryAddress.coordinates.latitude ||
+              response.order.deliveryAddress.coordinates.lat;
+            const addressLng =
+              response.order.deliveryAddress.coordinates.longitude ||
+              response.order.deliveryAddress.coordinates.lng;
+
+            if (addressLat && addressLng) {
+              setRegion({
+                latitude: addressLat,
+                longitude: addressLng,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              });
+            }
           }
         } catch (trackingError) {
           console.error("Error loading tracking:", trackingError);
@@ -208,12 +285,21 @@ const OrderTrackingScreen = ({ route, navigation }) => {
 
       // Update region if driver moved
       if (trackingData.driverLocation) {
-        setRegion({
-          latitude: trackingData.driverLocation.latitude,
-          longitude: trackingData.driverLocation.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        });
+        const driverLat =
+          trackingData.driverLocation.latitude ||
+          trackingData.driverLocation.lat;
+        const driverLng =
+          trackingData.driverLocation.longitude ||
+          trackingData.driverLocation.lng;
+
+        if (driverLat && driverLng) {
+          setRegion({
+            latitude: driverLat,
+            longitude: driverLng,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          });
+        }
       }
     } catch (error) {
       console.error("Error refreshing tracking:", error);
@@ -309,11 +395,38 @@ const OrderTrackingScreen = ({ route, navigation }) => {
           style={styles.backButton}
         />
         <Text style={styles.headerTitle}>Track #{order.order.orderId}</Text>
+        {connected ? (
+          <Chip
+            style={styles.connectionChip}
+            textStyle={{ color: "white" }}
+            icon="wifi"
+          >
+            Live
+          </Chip>
+        ) : (
+          <Chip
+            style={[
+              styles.connectionChip,
+              { backgroundColor: theme.colors.warning },
+            ]}
+            textStyle={{ color: "white" }}
+            icon="wifi-off"
+          >
+            Offline
+          </Chip>
+        )}
       </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+          />
+        }
       >
         <View style={styles.content}>
           {showMap && region ? (
@@ -331,8 +444,12 @@ const OrderTrackingScreen = ({ route, navigation }) => {
                 {tracking.restaurantLocation && (
                   <Marker
                     coordinate={{
-                      latitude: tracking.restaurantLocation.lat,
-                      longitude: tracking.restaurantLocation.lng,
+                      latitude:
+                        tracking.restaurantLocation.lat ||
+                        tracking.restaurantLocation.latitude,
+                      longitude:
+                        tracking.restaurantLocation.lng ||
+                        tracking.restaurantLocation.longitude,
                     }}
                     title={order.restaurant.name}
                   >
@@ -342,7 +459,7 @@ const OrderTrackingScreen = ({ route, navigation }) => {
                       </View>
                       <View style={styles.markerLabelContainer}>
                         <Text style={styles.markerLabel}>
-                          {order.restaurantName}
+                          {order.restaurantName || order.restaurant.name}
                         </Text>
                       </View>
                     </View>
@@ -353,8 +470,12 @@ const OrderTrackingScreen = ({ route, navigation }) => {
                 {order.deliveryAddress && (
                   <Marker
                     coordinate={{
-                      latitude: order.deliveryAddress.coordinates.lat,
-                      longitude: order.deliveryAddress.coordinates.lng,
+                      latitude:
+                        order.deliveryAddress.coordinates.lat ||
+                        order.deliveryAddress.coordinates.latitude,
+                      longitude:
+                        order.deliveryAddress.coordinates.lng ||
+                        order.deliveryAddress.coordinates.longitude,
                     }}
                     title="Delivery Address"
                   >
@@ -364,31 +485,69 @@ const OrderTrackingScreen = ({ route, navigation }) => {
                   </Marker>
                 )}
 
-                {/* Driver Marker */}
-                {/* {tracking.driverLocation && (
-                  <Marker
-                    coordinate={{
-                      latitude: tracking.driverLocation.latitude,
-                      longitude: tracking.driverLocation.longitude,
-                    }}
-                    title={`Driver: ${order.driver?.name || "Your driver"}`}
-                  >
-                    <View style={styles.driverMarker}>
-                      <Ionicons name="car" size={24} color="white" />
-                    </View>
-                  </Marker>
-                )} */}
+                {/* Driver Marker - only show when OUT_FOR_DELIVERY */}
+                {tracking.driverLocation &&
+                  order.status === ORDER_STATUS.OUT_FOR_DELIVERY && (
+                    <Marker
+                      coordinate={{
+                        latitude:
+                          tracking.driverLocation.latitude ||
+                          tracking.driverLocation.lat,
+                        longitude:
+                          tracking.driverLocation.longitude ||
+                          tracking.driverLocation.lng,
+                      }}
+                      title={`Driver: ${order.driver?.name || "Your driver"}`}
+                    >
+                      <View style={styles.driverMarker}>
+                        <Ionicons name="car" size={24} color="white" />
+                      </View>
+                    </Marker>
+                  )}
 
-                {/* Route from driver to destination */}
-                {/* {tracking.driverLocation &&
+                {/* Route from driver to destination - only when OUT_FOR_DELIVERY */}
+                {tracking.driverLocation &&
                   order.deliveryAddress &&
-                  tracking.routeCoordinates && (
+                  tracking.routeCoordinates &&
+                  order.status === ORDER_STATUS.OUT_FOR_DELIVERY && (
                     <Polyline
-                      coordinates={tracking.routeCoordinates}
+                      coordinates={tracking.routeCoordinates.map((coord) => ({
+                        latitude: coord.latitude || coord.lat,
+                        longitude: coord.longitude || coord.lng,
+                      }))}
                       strokeColor={theme.colors.primary}
                       strokeWidth={4}
                     />
-                  )} */}
+                  )}
+
+                {/* Add restaurant to delivery address route for READY_FOR_PICKUP */}
+                {tracking.restaurantLocation &&
+                  order.deliveryAddress &&
+                  order.status === ORDER_STATUS.READY_FOR_PICKUP && (
+                    <Polyline
+                      coordinates={[
+                        {
+                          latitude:
+                            tracking.restaurantLocation.latitude ||
+                            tracking.restaurantLocation.lat,
+                          longitude:
+                            tracking.restaurantLocation.longitude ||
+                            tracking.restaurantLocation.lng,
+                        },
+                        {
+                          latitude:
+                            order.deliveryAddress.coordinates.latitude ||
+                            order.deliveryAddress.coordinates.lat,
+                          longitude:
+                            order.deliveryAddress.coordinates.longitude ||
+                            order.deliveryAddress.coordinates.lng,
+                        },
+                      ]}
+                      strokeColor={theme.colors.secondary}
+                      strokeWidth={4}
+                      strokePattern={[10, 5]} // Dashed line
+                    />
+                  )}
               </MapView>
             </View>
           ) : (
@@ -648,7 +807,7 @@ const OrderTrackingScreen = ({ route, navigation }) => {
               <Text style={styles.restaurantTitle}>Restaurant</Text>
               <View style={styles.restaurantInfo}>
                 <Image
-                  source={{ uri: order.restaurantImage }}
+                  source={{ uri: order.restaurant.imageUrls[0] }}
                   style={styles.restaurantImage}
                 />
                 <View style={styles.restaurantDetails}>
@@ -739,6 +898,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: "bold",
+    flex: 1,
+  },
+  connectionChip: {
+    backgroundColor: "#4CAF50",
+    height: 28,
   },
   content: {
     flex: 1,

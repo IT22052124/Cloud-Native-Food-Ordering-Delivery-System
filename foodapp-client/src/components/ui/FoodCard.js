@@ -67,10 +67,10 @@ const FoodCard = ({ item, onPress, onAddToCart, isTrending = false }) => {
 
         <View style={styles.footer}>
           <Text style={[styles.price, { color: theme.colors.primary }]}>
-            ${item.price.toFixed(2)}
+            LKR {item.price.toFixed(2)}
           </Text>
 
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={[
               styles.addButton,
               { backgroundColor: theme.colors.primary },
@@ -79,7 +79,7 @@ const FoodCard = ({ item, onPress, onAddToCart, isTrending = false }) => {
             activeOpacity={0.8}
           >
             <Ionicons name="add" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
       </View>
     </TouchableOpacity>

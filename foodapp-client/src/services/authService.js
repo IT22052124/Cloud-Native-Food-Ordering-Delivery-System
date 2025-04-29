@@ -7,7 +7,7 @@ import {
 } from "../utils/firebase/imageUtils";
 
 // Use consistent API URL configuration
-const API_BASE_URL = "http://192.168.8.196:5001/api";
+const API_BASE_URL = "http://192.168.1.6:5001/api";
 const AUTH_API_URL = `${API_BASE_URL}/auth`;
 
 // Create axios instance

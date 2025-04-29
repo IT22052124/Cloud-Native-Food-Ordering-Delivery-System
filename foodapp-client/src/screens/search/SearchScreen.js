@@ -992,7 +992,7 @@ const SearchScreen = ({ navigation, route }) => {
       {renderLocationInfo()}
 
       {/* Filter tabs with improved styling */}
-      <View style={styles.filterContainer}>{renderSearchTypeSelector()}</View>
+      {/* <View style={styles.filterContainer}>{renderSearchTypeSelector()}</View> */}
 
       <ScrollView
         showsVerticalScrollIndicator={false}

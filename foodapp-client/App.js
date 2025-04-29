@@ -11,6 +11,7 @@ import { CartProvider } from "./src/context/CartContext";
 import { LocationProvider } from "./src/context/LocationContext";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { StripeProvider } from "@stripe/stripe-react-native";
+import { LogBox } from "react-native";
 
 // Define paper theme to match our app theme
 const paperTheme = {
@@ -23,6 +24,7 @@ const paperTheme = {
 };
 
 export default function App() {
+  LogBox.ignoreAllLogs();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

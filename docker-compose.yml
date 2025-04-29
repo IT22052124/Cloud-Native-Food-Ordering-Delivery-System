@@ -1,0 +1,238 @@
+version: "3.8"
+
+services:
+  # Auth Service
+  auth-service:
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=development
+      - MONGOURL=mongodb://mongo:27017/food-auth
+      - JWT_SECRET=your_jwt_secret
+      - JWT_EXPIRE=24h
+      - JWT_REFRESH_SECRET=your_refresh_secret
+    depends_on:
+      - mongo
+      - kafka
+    restart: unless-stopped
+
+  # Restaurant Service
+  restaurant-service:
+    build:
+      context: ./restaurant
+      dockerfile: Dockerfile
+    container_name: restaurant-service
+    ports:
+      - "5006:5006"
+    environment:
+      - PORT=5006
+      - NODE_ENV=development
+      - MONGOURL=mongodb://mongo:27017/food-restaurant
+      - JWT_SECRET=your_jwt_secret
+      - ORDERS_SERVICE_URL=http://order-service:5005
+    depends_on:
+      - mongo
+      - auth-service
+    restart: unless-stopped
+
+  # Order Service
+  order-service:
+    build:
+      context: ./order
+      dockerfile: Dockerfile
+    container_name: order-service
+    ports:
+      - "5005:5005"
+    environment:
+      - PORT=5005
+      - NODE_ENV=development
+      - MONGOURL=mongodb://mongo:27017/food-order
+      - JWT_SECRET=your_jwt_secret
+      - KAFKA_BROKERS=kafka:9092
+      - RESTAURANT_SERVICE_URL=http://restaurant-service:5006
+      - PAYMENT_SERVICE_URL=http://payment-service:5007
+    depends_on:
+      - mongo
+      - kafka
+      - restaurant-service
+    restart: unless-stopped
+
+  # Payment Service
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    ports:
+      - "5007:5007"
+    environment:
+      - PORT=5007
+      - NODE_ENV=development
+      - MONGOURL=mongodb://mongo:27017/food-payment
+      - JWT_SECRET=your_jwt_secret
+      - KAFKA_BROKERS=kafka:9092
+      - ORDER_SERVICE_URL=http://order-service:5005
+    depends_on:
+      - mongo
+      - kafka
+    restart: unless-stopped
+
+  # Notification Service
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    ports:
+      - "5008:5008"
+    environment:
+      - PORT=5008
+      - NODE_ENV=development
+      - MONGOURL=mongodb://mongo:27017/food-notification
+      - JWT_SECRET=your_jwt_secret
+      - KAFKA_BROKERS=kafka:9092
+      - EMAIL_SERVICE=smtp
+      - EMAIL_HOST=smtp.example.com
+      - EMAIL_PORT=587
+      - EMAIL_USER=your_email
+      - EMAIL_PASS=your_password
+    depends_on:
+      - mongo
+      - kafka
+    restart: unless-stopped
+
+  # Delivery Server
+  food-delivery-server:
+    build:
+      context: ./food-delivery-server
+      dockerfile: Dockerfile
+    container_name: food-delivery-server
+    ports:
+      - "5004:5004"
+    environment:
+      - PORT=5004
+      - NODE_ENV=development
+      - MONGOURL=mongodb://mongo:27017/food-delivery
+      - JWT_SECRET=your_jwt_secret
+      - KAFKA_BROKERS=kafka:9092
+      - ORDER_SERVICE_URL=http://order-service:5005
+    depends_on:
+      - mongo
+      - kafka
+      - order-service
+    restart: unless-stopped
+
+  # Client App
+  foodapp-client:
+    build:
+      context: ./foodapp-client
+      dockerfile: Dockerfile
+    container_name: foodapp-client
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - restaurant-service
+      - order-service
+    restart: unless-stopped
+
+  # Restaurant Dashboard
+  restaurant-dashboard:
+    build:
+      context: ./food-delivery-restuarant-web
+      dockerfile: Dockerfile
+    container_name: restaurant-dashboard
+    ports:
+      - "3001:3000"
+    depends_on:
+      - auth-service
+      - restaurant-service
+      - order-service
+    restart: unless-stopped
+
+  # Admin Dashboard
+  admin-dashboard:
+    build:
+      context: ./food-delivery-admin
+      dockerfile: Dockerfile
+    container_name: admin-dashboard
+    ports:
+      - "3002:3000"
+    depends_on:
+      - auth-service
+      - admin-service
+    restart: unless-stopped
+
+  # Client Delivery App
+  client-delivery-app:
+    build:
+      context: ./client-delivery-app
+      dockerfile: Dockerfile
+    container_name: client-delivery-app
+    ports:
+      - "19000:19000"
+      - "19001:19001"
+      - "19002:19002"
+    depends_on:
+      - food-delivery-server
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+
+  # Admin Service
+  admin-service:
+    build:
+      context: ./admin-service
+      dockerfile: Dockerfile
+    container_name: admin-service
+    ports:
+      - "5010:5010"
+    environment:
+      - PORT=5010
+      - NODE_ENV=development
+      - MONGOURL=mongodb://mongo:27017/food-admin
+      - JWT_SECRET=your_jwt_secret
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  # MongoDB
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+
+  # Kafka
+  zookeeper:
+    image: wurstmeister/zookeeper:latest
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    restart: unless-stopped
+
+  kafka:
+    image: wurstmeister/kafka:latest
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CREATE_TOPICS: "notifications:1:1,orders:1:1,payments:1:1,deliveries:1:1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - zookeeper
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
