@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: 'http://localhost:5006/api',
 });
 
 api.interceptors.request.use((config) => {
@@ -23,13 +23,13 @@ export const signup = async (credentials) => {
 };
 
 export const loginRestaurantAdmin = async (credentials) => {
-  const response = await axios.post('http://localhost:3000/api/branch/login', credentials);
+  const response = await axios.post('http://localhost:5006/api/branch/login', credentials);
   return response.data;
 };
 export const addRestaurant = async (restaurantData) => {
   try {
     const token = localStorage.getItem('ownerToken');
-    const response = await axios.post('http://localhost:3000/api/restaurants/add', restaurantData, {
+    const response = await axios.post('http://localhost:5006/api/restaurants/add', restaurantData, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -44,7 +44,7 @@ export const addRestaurant = async (restaurantData) => {
 export const getRestaurants = async () => {
   try {
     const token = localStorage.getItem('ownerToken');
-    const response = await axios.get('http://localhost:3000/api/owner/restaurants', {
+    const response = await axios.get('http://localhost:5006/api/owner/restaurants', {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -60,7 +60,7 @@ export const getRestaurants = async () => {
 export const getPendingRestaurants = async () => {
   try {
     const token = localStorage.getItem('ownerToken');
-    const response = await axios.get('http://localhost:3000/api/owner/restaurants/pending', {
+    const response = await axios.get('http://localhost:5006/api/owner/restaurants/pending', {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -96,7 +96,7 @@ export const getRestaurantById = async (id) => {
     const token = localStorage.getItem('ownerToken');
     if (!token) throw new Error('No owner token found');
 
-    const response = await axios.get(`http://localhost:3000/api/restaurants/${id}`, {
+    const response = await axios.get(`http://localhost:5006/api/restaurants/${id}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -114,7 +114,7 @@ export const updateRestaurantStatus = async (id, isActive) => {
     if (!token) throw new Error('No owner token found');
 
     const response = await axios.patch(
-      `http://localhost:3000/api/restaurants/${id}/status`,
+      `http://localhost:5006/api/restaurants/${id}/status`,
       { isActive },
       {
         headers: {
@@ -132,7 +132,7 @@ export const updateRestaurantStatus = async (id, isActive) => {
 export const updateRestaurant = async (id, data) => {
   const token = localStorage.getItem('ownerToken');
   if (!token) throw new Error('No owner token found');
-  const response = await axios.put(`http://localhost:3000/api/restaurants/${id}`, data,{
+  const response = await axios.put(`http://localhost:5006/api/restaurants/${id}`, data,{
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -144,7 +144,7 @@ export const deleteRestaurant = async (id) => {
   const token = localStorage.getItem('ownerToken');
   if (!token) throw new Error('No owner token found');
 
-  const response = await axios.delete(`http://localhost:3000/api/restaurants/${id}`, {
+  const response = await axios.delete(`http://localhost:5006/api/restaurants/${id}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -258,7 +258,7 @@ export const updateProfile = async (token, updates) => {
 export const AdmingetRestaurantById = async (id) => {
   try {
     const token = localStorage.getItem('adminToken');
-    const response = await axios.get(`http://localhost:3000/api/branch/restaurants/${id}`, {
+    const response = await axios.get(`http://localhost:5006/api/branch/restaurants/${id}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -273,7 +273,7 @@ export const AdmingetRestaurantById = async (id) => {
 export const AdminupdateRestaurant = async (id, data) => {
   const token = localStorage.getItem('adminToken');
   console.log('Sending data:', data);
-  const response = await axios.put(`http://localhost:3000/api/branch/restaurants/${id}`, data,{
+  const response = await axios.put(`http://localhost:5006/api/branch/restaurants/${id}`, data,{
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -287,7 +287,7 @@ export const AdminupdateRestaurantStatus = async (id, isActive) => {
     const token = localStorage.getItem('adminToken');
     if (!token) throw new Error('No admin token found');
     const response = await axios.patch(
-      `http://localhost:3000/api/branch/restaurants/${id}/status`,
+      `http://localhost:5006/api/branch/restaurants/${id}/status`,
       { isActive },
       {
         headers: {
@@ -306,7 +306,7 @@ export const getRestaurantUsernames = async (restaurantId) => {
   try {
     const token = localStorage.getItem('adminToken');
     if (!token) throw new Error('No admin token found');
-    const response = await axios.get(`http://localhost:3000/api/branch/restaurants/${restaurantId}/usernames`,{
+    const response = await axios.get(`http://localhost:5006/api/branch/restaurants/${restaurantId}/usernames`,{
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -328,7 +328,7 @@ export const updateRestaurantCredentials = async (restaurantId, credentials) => 
   try {
     const token = localStorage.getItem('adminToken');
     if (!token) throw new Error('No admin token found');
-    const response =  await axios.patch(`http://localhost:3000/api/branch/restaurants/${restaurantId}/credentials`, credentials,{
+    const response =  await axios.patch(`http://localhost:5006/api/branch/restaurants/${restaurantId}/credentials`, credentials,{
       headers: {
         Authorization: `Bearer ${token}`,
       },
