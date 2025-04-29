@@ -7,23 +7,22 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  ScrollView,
+  StatusBar,
+  Dimensions,
 } from "react-native";
-import {
-  Text,
-  Divider,
-  Button,
-  IconButton,
-  Card,
-  Title,
-  Modal,
-  Portal,
-  Chip,
-} from "react-native-paper";
+import { Text, Divider, Modal, Portal } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../../context/ThemeContext";
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
+
+// Import UI components
+import GradientButton from "../../components/ui/GradientButton";
+
+const { width } = Dimensions.get("window");
 
 const CartScreen = ({ navigation }) => {
   const theme = useTheme();
@@ -63,6 +62,12 @@ const CartScreen = ({ navigation }) => {
   };
 
   const handleQuantityUpdate = async (cartId, itemId, newQuantity) => {
+    if (newQuantity < 1) {
+      // If the new quantity is 0 or less, remove the item
+      removeItem(cartId);
+      return;
+    }
+
     setQuantityUpdateLoading(true);
     try {
       await updateQuantity(cartId, itemId, newQuantity);
@@ -74,111 +79,183 @@ const CartScreen = ({ navigation }) => {
   };
 
   const renderCartItem = ({ item }) => (
-    <Card style={[styles.cartItem, { ...theme.shadow.small }]}>
+    <View
+      style={[
+        styles.cartItem,
+        {
+          backgroundColor: theme.colors.card,
+          ...theme.shadow.small,
+        },
+      ]}
+    >
       <View style={styles.cartItemContent}>
         <Image
-          source={
-            item.image
-              ? { uri: item.image }
-              : require("../../assets/no-image.png")
-          }
+          source={{ uri: item.image }}
           style={styles.itemImage}
+          resizeMode="cover"
         />
-
         <View style={styles.itemDetails}>
-          <Text style={styles.itemName}>{item.name}</Text>
-          <Text style={styles.itemPrice}>
+          <Text
+            style={[styles.itemName, { color: theme.colors.text }]}
+            numberOfLines={2}
+          >
+            {item.name}
+          </Text>
+
+          {item.isPortionItem && (
+            <Text style={[styles.portionText, { color: theme.colors.gray }]}>
+              {item.portionName} Portion
+            </Text>
+          )}
+
+          <Text style={[styles.itemPrice, { color: theme.colors.primary }]}>
+            LKR {item.price.toFixed(2)}
+          </Text>
+
+          <View style={styles.quantityContainer}>
+            <TouchableOpacity
+              onPress={() =>
+                handleQuantityUpdate(item.id, item.itemId, item.quantity - 1)
+              }
+              style={[
+                styles.quantityButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+              disabled={quantityUpdateLoading}
+            >
+              <Ionicons name="remove" size={16} color="white" />
+            </TouchableOpacity>
+
+            <Text style={[styles.quantityText, { color: theme.colors.text }]}>
+              {item.quantity}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() =>
+                handleQuantityUpdate(item.id, item.itemId, item.quantity + 1)
+              }
+              style={[
+                styles.quantityButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+              disabled={quantityUpdateLoading}
+            >
+              <Ionicons name="add" size={16} color="white" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.itemActions}>
+          <Text style={[styles.totalPrice, { color: theme.colors.primary }]}>
             LKR {(item.price * item.quantity).toFixed(2)}
           </Text>
-        </View>
 
-        <View style={styles.quantityContainer}>
-          <IconButton
-            icon="minus"
-            size={16}
-            onPress={() =>
-              handleQuantityUpdate(item.id, item.itemId, item.quantity - 1)
-            }
-            style={styles.quantityButton}
-            iconColor={theme.colors.primary}
-            disabled={quantityUpdateLoading}
-          />
-          <Text style={styles.quantityText}>{item.quantity}</Text>
-          <IconButton
-            icon="plus"
-            size={16}
-            onPress={() =>
-              handleQuantityUpdate(item.id, item.itemId, item.quantity + 1)
-            }
-            style={styles.quantityButton}
-            iconColor={theme.colors.primary}
-            disabled={quantityUpdateLoading}
-          />
+          <TouchableOpacity
+            onPress={() => removeItem(item.id)}
+            style={styles.removeButton}
+          >
+            <Ionicons
+              name="trash-outline"
+              size={20}
+              color={theme.colors.error}
+            />
+          </TouchableOpacity>
         </View>
-
-        <IconButton
-          icon="delete-outline"
-          size={20}
-          onPress={() => removeItem(item.id, item.itemId)}
-          style={styles.deleteButton}
-          iconColor={theme.colors.error}
-          disabled={quantityUpdateLoading}
-        />
       </View>
-    </Card>
+    </View>
   );
 
   const renderHeader = () => {
     if (!restaurant) return null;
-    const hasDeliveryOnly =
-      restaurant.serviceType?.delivery && !restaurant.serviceType?.pickup;
-    const hasPickupOnly =
-      restaurant.serviceType?.pickup && !restaurant.serviceType?.delivery;
 
     return (
-      <View style={styles.restaurantContainer}>
-        <TouchableOpacity
-          style={styles.restaurantHeader}
-          onPress={() =>
-            navigation.navigate("Restaurants", {
-              screen: "RestaurantDetail",
-              params: { restaurantId: restaurant.id },
-            })
+      <TouchableOpacity
+        style={[
+          styles.restaurantContainer,
+          {
+            backgroundColor: theme.colors.card,
+            ...theme.shadow.small,
+          },
+        ]}
+        onPress={() =>
+          navigation.navigate("Restaurants", {
+            screen: "RestaurantDetail",
+            params: { restaurantId: restaurant.id },
+          })
+        }
+        activeOpacity={0.9}
+      >
+        <Image
+          source={
+            restaurant.image
+              ? { uri: restaurant.image }
+              : require("../../assets/no-image-restaurant.png")
           }
-        >
-          <Image
-            source={
-              restaurant.image
-                ? { uri: restaurant.image }
-                : require("../../assets/no-image-restaurant.png")
-            }
-            style={styles.restaurantImage}
-          />
-          <View style={styles.restaurantInfo}>
-            <Text style={styles.restaurantName}>{restaurant.name}</Text>
-            <Text style={styles.restaurantAddress}>
-              {restaurant.address.street}, {restaurant.address.province} ,{" "}
-              {restaurant.address.city}
-            </Text>
-            {(hasDeliveryOnly || hasPickupOnly) && (
-              <View style={styles.disclaimerContainer}>
-                <Chip
-                  style={styles.disclaimerChip}
-                  textStyle={styles.disclaimerChipText}
-                  icon="information-outline"
+          style={styles.restaurantImage}
+        />
+
+        <View style={styles.restaurantInfo}>
+          <Text style={[styles.restaurantName, { color: theme.colors.text }]}>
+            {restaurant.name}
+          </Text>
+
+          <Text
+            style={[styles.restaurantAddress, { color: theme.colors.gray }]}
+          >
+            {restaurant.address.street}, {restaurant.address.city}
+          </Text>
+
+          <View style={styles.serviceTypeContainer}>
+            {restaurant.serviceType?.delivery && (
+              <View
+                style={[
+                  styles.serviceTypeTag,
+                  { backgroundColor: theme.colors.primary + "20" }, // 20% opacity
+                ]}
+              >
+                <Ionicons
+                  name="bicycle"
+                  size={14}
+                  color={theme.colors.primary}
+                />
+                <Text
+                  style={[
+                    styles.serviceTypeText,
+                    { color: theme.colors.primary },
+                  ]}
                 >
-                  {hasDeliveryOnly ? "Delivery only" : "Pickup only"}
-                </Chip>
+                  Delivery
+                </Text>
+              </View>
+            )}
+
+            {restaurant.serviceType?.pickup && (
+              <View
+                style={[
+                  styles.serviceTypeTag,
+                  { backgroundColor: theme.colors.secondary + "20" }, // 20% opacity
+                ]}
+              >
+                <Ionicons
+                  name="bag-handle"
+                  size={14}
+                  color={theme.colors.secondary}
+                />
+                <Text
+                  style={[
+                    styles.serviceTypeText,
+                    { color: theme.colors.secondary },
+                  ]}
+                >
+                  Pickup
+                </Text>
               </View>
             )}
           </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={theme.colors.gray}
-          />
-        </TouchableOpacity>
-      </View>
+        </View>
+
+        <Ionicons name="chevron-forward" size={20} color={theme.colors.gray} />
+      </TouchableOpacity>
     );
   };
 
@@ -186,68 +263,95 @@ const CartScreen = ({ navigation }) => {
     if (items.length === 0) return null;
 
     const subtotal = getSubtotal();
-    // Calculate 5% tax on subtotal (delivery fee will be added at checkout)
+    // Calculate tax on subtotal
     const estimatedTax = subtotal * 0.05;
     // Estimate of total (excluding delivery fee which will be calculated at checkout)
     const estimatedTotal = subtotal + estimatedTax;
 
     return (
-      <View style={styles.summaryContainer}>
-        <Text style={styles.summaryTitle}>Order Summary</Text>
+      <View
+        style={[
+          styles.summaryContainer,
+          {
+            backgroundColor: theme.colors.card,
+            ...theme.shadow.medium,
+          },
+        ]}
+      >
+        <Text style={[styles.summaryTitle, { color: theme.colors.text }]}>
+          Order Summary
+        </Text>
 
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryText}>Subtotal</Text>
-          <Text style={styles.summaryValue}>LKR {subtotal.toFixed(2)}</Text>
+          <Text style={[styles.summaryLabel, { color: theme.colors.text }]}>
+            Subtotal
+          </Text>
+          <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
+            LKR {subtotal.toFixed(2)}
+          </Text>
         </View>
 
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryText}>Tax (5%)</Text>
-          <Text style={styles.summaryValue}>LKR {estimatedTax.toFixed(2)}</Text>
+          <Text style={[styles.summaryLabel, { color: theme.colors.text }]}>
+            Tax (5%)
+          </Text>
+          <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
+            LKR {estimatedTax.toFixed(2)}
+          </Text>
         </View>
 
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryText}>Delivery Fee</Text>
-          <Text style={styles.summaryValue}>(Calculated at checkout)</Text>
+          <Text style={[styles.summaryLabel, { color: theme.colors.text }]}>
+            Delivery Fee
+          </Text>
+          <Text style={[styles.summaryValue, { color: theme.colors.gray }]}>
+            Calculated at checkout
+          </Text>
         </View>
 
         <Divider style={styles.divider} />
 
         <View style={styles.totalRow}>
-          <Text style={styles.totalText}>Estimated Total</Text>
-          <Text style={styles.totalValue}>LKR {estimatedTotal.toFixed(2)}</Text>
+          <Text style={[styles.totalLabel, { color: theme.colors.text }]}>
+            Estimated Total
+          </Text>
+          <Text style={[styles.totalValue, { color: theme.colors.primary }]}>
+            ${estimatedTotal.toFixed(2)}
+          </Text>
         </View>
 
-        <Button
-          mode="contained"
-          style={[
-            styles.checkoutButton,
-            { backgroundColor: theme.colors.primary },
-          ]}
-          labelStyle={styles.checkoutButtonLabel}
+        <GradientButton
+          title="Proceed to Checkout"
           onPress={handleCheckoutRequest}
-          loading={orderLoading}
-          disabled={orderLoading}
-        >
-          Checkout
-        </Button>
+          fullWidth
+          style={styles.checkoutButton}
+          icon={
+            <Ionicons
+              name="cart-outline"
+              size={20}
+              color="#FFFFFF"
+              style={{ marginRight: 8 }}
+            />
+          }
+        />
       </View>
     );
   };
 
   const renderEmptyCart = () => (
-    <View style={styles.emptyContainer}>
-      <Ionicons name="cart-outline" size={80} color={theme.colors.gray} />
-      <Text style={styles.emptyTitle}>Your cart is empty</Text>
-      <Text style={styles.emptyText}>
-        Add items from restaurants to start an order
+    <View style={styles.emptyCartContainer}>
+      <Ionicons name="cart-outline" size={100} color={theme.colors.gray} />
+      <Text style={[styles.emptyCartTitle, { color: theme.colors.text }]}>
+        Your cart is empty
       </Text>
-      <Button
-        mode="contained"
-        style={[styles.browseButton, { backgroundColor: theme.colors.primary }]}
-        onPress={() => navigation.navigate("Restaurants")}
-      >
-        Browse Restaurants
-      </Button>
+      <Text style={[styles.emptyCartSubtitle, { color: theme.colors.gray }]}>
+        Add some items to your cart to get started
+      </Text>
+      <GradientButton
+        title="Explore Restaurants"
+        onPress={() => navigation.navigate("Home")}
+        style={styles.exploreButton}
+      />
     </View>
   );
 
@@ -259,57 +363,122 @@ const CartScreen = ({ navigation }) => {
           onDismiss={() => setCheckoutConfirmVisible(false)}
           contentContainerStyle={[
             styles.modalContainer,
-            { backgroundColor: theme.colors.surface },
+            { backgroundColor: theme.colors.card },
           ]}
         >
-          <Title style={styles.modalTitle}>Confirm Checkout</Title>
-          <Text style={styles.modalText}>
-            Are you sure you want to proceed to checkout?
-          </Text>
-          <View style={styles.modalButtons}>
-            <Button
-              mode="outlined"
-              onPress={() => setCheckoutConfirmVisible(false)}
-              style={[styles.modalButton, styles.cancelButton]}
-            >
-              Cancel
-            </Button>
-            <Button
-              mode="contained"
-              onPress={handleConfirmCheckout}
-              style={[
-                styles.modalButton,
-                styles.confirmButton,
-                { backgroundColor: theme.colors.primary },
-              ]}
-            >
-              Proceed
-            </Button>
+          <View style={styles.modalContent}>
+            <Ionicons name="cart" size={50} color={theme.colors.primary} />
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+              Ready to checkout?
+            </Text>
+            <Text style={[styles.modalBody, { color: theme.colors.gray }]}>
+              You're about to proceed to checkout with {items.length}{" "}
+              {items.length === 1 ? "item" : "items"} from {restaurant?.name}.
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.cancelButton,
+                  { borderColor: theme.colors.gray },
+                ]}
+                onPress={() => setCheckoutConfirmVisible(false)}
+              >
+                <Text
+                  style={[
+                    styles.cancelButtonText,
+                    { color: theme.colors.gray },
+                  ]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <GradientButton
+                title="Continue"
+                onPress={handleConfirmCheckout}
+                style={styles.continueButton}
+              />
+            </View>
           </View>
         </Modal>
       </Portal>
     );
   };
 
+  const renderEmptyCartModal = () => {
+    return (
+      <Portal>
+        <Modal
+          visible={emptyCartModalVisible}
+          onDismiss={() => setEmptyCartModalVisible(false)}
+          contentContainerStyle={[
+            styles.modalContainer,
+            { backgroundColor: theme.colors.card },
+          ]}
+        >
+          <View style={styles.modalContent}>
+            <Ionicons
+              name="cart-outline"
+              size={50}
+              color={theme.colors.error}
+            />
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+              Empty Cart
+            </Text>
+            <Text style={[styles.modalBody, { color: theme.colors.gray }]}>
+              Your cart is empty. Add some items to your cart to proceed to
+              checkout.
+            </Text>
+
+            <GradientButton
+              title="OK"
+              onPress={() => setEmptyCartModalVisible(false)}
+              style={styles.okButton}
+            />
+          </View>
+        </Modal>
+      </Portal>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: theme.colors.background },
+        ]}
+      >
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      {quantityUpdateLoading && (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="small" color={theme.colors.primary} />
-        </View>
-      )}
+      <StatusBar
+        barStyle={theme.mode === "dark" ? "light-content" : "dark-content"}
+        backgroundColor={theme.colors.background}
+      />
 
       <View style={styles.header}>
-        <Title style={styles.headerTitle}>My Cart</Title>
+        <View style={styles.titleContainer}>
+          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
+            My Cart
+          </Text>
+        </View>
+
         {items.length > 0 && (
           <TouchableOpacity
             style={styles.clearButton}
             onPress={() => {
               Alert.alert(
                 "Clear Cart",
-                "Are you sure you want to clear your cart?",
+                "Are you sure you want to remove all items from your cart?",
                 [
                   {
                     text: "Cancel",
@@ -317,106 +486,33 @@ const CartScreen = ({ navigation }) => {
                   },
                   {
                     text: "Clear",
-                    onPress: () => clearCart(),
+                    onPress: clearCart,
                     style: "destructive",
                   },
                 ]
               );
             }}
           >
-            <Text style={[styles.clearText, { color: theme.colors.error }]}>
-              Clear
-            </Text>
+            <Text style={{ color: theme.colors.error }}>Clear Cart</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      <FlatList
-        data={items}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderCartItem}
-        ListHeaderComponent={renderHeader}
-        ListFooterComponent={renderFooter}
-        ListEmptyComponent={renderEmptyCart}
-        contentContainerStyle={styles.listContent}
-      />
+      {items.length === 0 ? (
+        renderEmptyCart()
+      ) : (
+        <FlatList
+          data={items}
+          renderItem={renderCartItem}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.cartItemsList}
+          ListHeaderComponent={renderHeader}
+          ListFooterComponent={renderFooter}
+        />
+      )}
 
       {renderCheckoutConfirmDialog()}
-
-      {/* Success Modal */}
-      <Portal>
-        <Modal
-          visible={sucessModalVisible}
-          onDismiss={() => setSuccessModalVisible(false)}
-          contentContainerStyle={[
-            styles.modal,
-            { backgroundColor: theme.colors.background },
-          ]}
-        >
-          <View style={styles.modalContent}>
-            <Ionicons
-              name="checkmark-circle"
-              size={70}
-              color={theme.colors.success}
-            />
-            <Text style={styles.modalTitle}>Order Placed!</Text>
-            <Text style={styles.modalText}>
-              Your order from {orderDetails?.restaurantName} has been placed
-              successfully.
-            </Text>
-            <Button
-              mode="contained"
-              style={[
-                styles.modalButton,
-                { backgroundColor: theme.colors.primary },
-              ]}
-              onPress={() => {
-                setSuccessModalVisible(false);
-                navigation.navigate("Orders");
-              }}
-            >
-              Track Order
-            </Button>
-          </View>
-        </Modal>
-      </Portal>
-
-      {/* Empty Cart Modal */}
-      <Portal>
-        <Modal
-          visible={emptyCartModalVisible}
-          onDismiss={() => setEmptyCartModalVisible(false)}
-          contentContainerStyle={[
-            styles.modal,
-            { backgroundColor: theme.colors.background },
-          ]}
-        >
-          <View style={styles.modalContent}>
-            <Ionicons
-              name="information-circle"
-              size={70}
-              color={theme.colors.info}
-            />
-            <Text style={styles.modalTitle}>Cart Empty</Text>
-            <Text style={styles.modalText}>
-              Your cart is empty. Add items to your cart before checking out.
-            </Text>
-            <Button
-              mode="contained"
-              style={[
-                styles.modalButton,
-                { backgroundColor: theme.colors.primary },
-              ]}
-              onPress={() => {
-                setEmptyCartModalVisible(false);
-                navigation.navigate("Restaurants");
-              }}
-            >
-              Browse Restaurants
-            </Button>
-          </View>
-        </Modal>
-      </Portal>
+      {renderEmptyCartModal()}
     </SafeAreaView>
   );
 };
@@ -435,36 +531,33 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 16,
   },
+  
   headerTitle: {
-    fontSize: 22,
+    fontSize: 24,
+    fontFamily: "Poppins-Bold",
+    fontWeight: "700",
   },
   clearButton: {
-    padding: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
   },
-  clearText: {
-    fontSize: 14,
-  },
-  listContent: {
-    padding: 16,
-    paddingTop: 8,
-    flexGrow: 1,
+  cartItemsList: {
+    paddingHorizontal: 16,
+    paddingBottom: 100,
   },
   restaurantContainer: {
-    marginBottom: 16,
-  },
-  restaurantHeader: {
     flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    backgroundColor: "#f9f9f9",
     borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    alignItems: "center",
   },
   restaurantImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 60,
+    height: 60,
+    borderRadius: 8,
   },
   restaurantInfo: {
     flex: 1,
@@ -472,35 +565,43 @@ const styles = StyleSheet.create({
   },
   restaurantName: {
     fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 2,
+    fontFamily: "Poppins-SemiBold",
+    fontWeight: "600",
+    marginBottom: 4,
   },
   restaurantAddress: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: 12,
+    fontFamily: "Poppins-Regular",
+    marginBottom: 6,
   },
-  disclaimerContainer: {
-    marginTop: 6,
+  serviceTypeContainer: {
+    flexDirection: "row",
   },
-  disclaimerChip: {
-    alignSelf: "flex-start",
+  serviceTypeTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginRight: 8,
   },
-  disclaimerChipText: {
+  serviceTypeText: {
     fontSize: 10,
+    fontFamily: "Poppins-Medium",
+    marginLeft: 4,
   },
   cartItem: {
-    marginBottom: 12,
     borderRadius: 12,
+    marginBottom: 12,
     overflow: "hidden",
   },
   cartItemContent: {
     flexDirection: "row",
     padding: 12,
-    alignItems: "center",
   },
   itemImage: {
-    width: 60,
-    height: 60,
+    width: 70,
+    height: 70,
     borderRadius: 8,
   },
   itemDetails: {
@@ -508,176 +609,168 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   itemName: {
-    fontSize: 16,
+    fontSize: 14,
+    fontFamily: "Poppins-SemiBold",
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  portionText: {
+    fontSize: 12,
+    fontFamily: "Poppins-Regular",
     marginBottom: 4,
   },
   itemPrice: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 14,
+    fontFamily: "Poppins-SemiBold",
+    fontWeight: "600",
+    marginBottom: 8,
   },
   quantityContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginRight: 8,
   },
   quantityButton: {
-    margin: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
   quantityText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginHorizontal: 4,
+    marginHorizontal: 12,
+    fontSize: 14,
+    fontFamily: "Poppins-Medium",
   },
-  deleteButton: {
-    marginLeft: 5,
+  itemActions: {
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+  },
+  totalPrice: {
+    fontSize: 16,
+    fontFamily: "Poppins-Bold",
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  removeButton: {
+    padding: 4,
   },
   summaryContainer: {
-    backgroundColor: "#f9f9f9",
     borderRadius: 12,
     padding: 16,
     marginTop: 16,
+    marginBottom: 24,
   },
   summaryTitle: {
     fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 12,
+    fontFamily: "Poppins-Bold",
+    fontWeight: "700",
+    marginBottom: 16,
   },
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 10,
   },
-  summaryText: {
-    fontSize: 16,
-    color: "#666",
+  summaryLabel: {
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
   },
   summaryValue: {
-    fontSize: 16,
+    fontSize: 14,
+    fontFamily: "Poppins-Medium",
   },
   divider: {
-    marginVertical: 10,
+    marginVertical: 12,
   },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginVertical: 10,
+    marginBottom: 20,
   },
-  totalText: {
-    fontSize: 18,
-    fontWeight: "bold",
+  totalLabel: {
+    fontSize: 16,
+    fontFamily: "Poppins-Bold",
+    fontWeight: "700",
   },
   totalValue: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontFamily: "Poppins-Bold",
+    fontWeight: "700",
   },
   checkoutButton: {
-    marginTop: 16,
-    paddingVertical: 8,
+    marginTop: 8,
   },
-  checkoutButtonLabel: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  emptyContainer: {
+  emptyCartContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 40,
+    paddingHorizontal: 32,
   },
-  emptyTitle: {
+  emptyCartTitle: {
     fontSize: 20,
-    fontWeight: "bold",
+    fontFamily: "Poppins-Bold",
+    fontWeight: "700",
     marginTop: 20,
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  emptyText: {
-    fontSize: 16,
+  emptyCartSubtitle: {
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
     textAlign: "center",
-    marginBottom: 30,
-    color: "#666",
+    marginBottom: 24,
   },
-  browseButton: {
-    paddingHorizontal: 20,
-  },
-  modal: {
-    margin: 20,
-    borderRadius: 16,
-    padding: 20,
-    alignItems: "center",
-  },
-  modalContent: {
-    alignItems: "center",
-    width: "100%",
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  modalText: {
-    fontSize: 16,
-    textAlign: "center",
-    marginBottom: 25,
-    color: "#444",
-  },
-  modalButton: {
-    paddingHorizontal: 30,
+  exploreButton: {
+    marginTop: 16,
   },
   modalContainer: {
     margin: 20,
-    borderRadius: 8,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  modalContent: {
     padding: 20,
     alignItems: "center",
   },
   modalTitle: {
-    marginBottom: 16,
-    textAlign: "center",
+    fontSize: 20,
+    fontFamily: "Poppins-Bold",
+    fontWeight: "700",
+    marginTop: 16,
+    marginBottom: 8,
   },
-  modalText: {
-    fontSize: 16,
-    marginBottom: 24,
+  modalBody: {
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
     textAlign: "center",
+    marginBottom: 20,
   },
-  modalButtons: {
+  modalActions: {
     flexDirection: "row",
     justifyContent: "space-between",
     width: "100%",
   },
   modalButton: {
     flex: 1,
-    margin: 8,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
   cancelButton: {
-    borderColor: "#757575",
+    borderWidth: 1,
+    marginRight: 8,
   },
-  confirmButton: {
-    backgroundColor: "#FF6B6B",
-  },
-  quantityUpdateModal: {
-    position: "absolute",
-    bottom: 20,
-    right: 20,
-    padding: 16,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  quantityUpdateText: {
-    marginLeft: 8,
+  cancelButtonText: {
     fontSize: 14,
+    fontFamily: "Poppins-Medium",
   },
-  loaderContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.7)",
-    zIndex: 1000,
+  continueButton: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  okButton: {
+    marginTop: 8,
+    paddingHorizontal: 32,
   },
 });
 

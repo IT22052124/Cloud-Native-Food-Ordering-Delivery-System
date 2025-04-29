@@ -5,6 +5,10 @@ import {
   markAllAsRead,
   deleteNotification,
 } from "../controllers/notificationController.js";
+import {
+  sendEmailNotification,
+  sendSmsNotification,
+} from "../controllers/notificationApiController.js";
 import { protect, authorize } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
@@ -16,5 +20,9 @@ router.get("/", authorize("admin"), getNotifications);
 router.put("/:id/read", authorize("admin"), markAsRead);
 router.put("/read-all", authorize("admin"), markAllAsRead);
 router.delete("/:id", authorize("admin"), deleteNotification);
+
+// New notification API routes
+router.post("/email", sendEmailNotification);
+router.post("/sms", sendSmsNotification);
 
 export default router;

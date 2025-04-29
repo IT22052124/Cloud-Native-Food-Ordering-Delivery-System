@@ -28,6 +28,7 @@ global.gConfig = {
   notification_url: process.env.NOTIFICATION_SERVICE_URL,
   order_url: process.env.ORDER_SERVICE_URL,
 };
+
 // Routes
 app.use("/api/notifications", notificationRoutes);
 

@@ -90,19 +90,37 @@ const createOrder = async (req, res) => {
         throw new Error(`Menu item ${cartItem.itemId} not found`);
       }
 
-      return {
+      // Base order item
+      const orderItem = {
         itemId: cartItem.itemId,
         name: menuItem.name,
-        price: menuItem.price,
+        price: cartItem.itemPrice, // Use the stored item price from cart which already accounts for portions
         quantity: cartItem.quantity,
         specialInstructions: cartItem.specialInstructions || "",
       };
+
+      // Add portion information if it's a portion item
+      if (cartItem.isPortionItem) {
+        const portion = menuItem.portions?.find(
+          (p) => p._id.toString() === cartItem.portionId.toString()
+        );
+        if (!portion) {
+          throw new Error(
+            `Portion ${cartItem.portionId} not found for item ${cartItem.itemId}`
+          );
+        }
+        orderItem.portionId = cartItem.portionId;
+        orderItem.portionName = cartItem.portionName;
+        orderItem.isPortionItem = true;
+      }
+
+      return orderItem;
     });
 
-    // Calculate subtotal
+    // Calculate subtotal using the cart item's stored total prices
     const subtotal =
       req.body.subtotal ||
-      items.reduce((total, item) => total + item.price * item.quantity, 0);
+      cartItems.reduce((total, item) => total + item.totalPrice, 0);
 
     const orderType = req.body.type || "DELIVERY";
 
@@ -123,6 +141,7 @@ const createOrder = async (req, res) => {
     // Calculate total amount
     const totalAmount = subtotal + tax + deliveryFee;
 
+    console.log(restaurant.imageUrls[0], restaurant.coverImageUrl);
     // Create new order
     const orderData = {
       orderId: `ORD-${Date.now().toString().slice(-6)}`,
@@ -138,6 +157,7 @@ const createOrder = async (req, res) => {
           lat: restaurant.address.coordinates.lat,
           lng: restaurant.address.coordinates.lng,
         },
+        restaurantImage: restaurant.imageUrls[0] || restaurant.coverImageUrl,
         items,
         subtotal,
         tax,
@@ -178,7 +198,7 @@ const createOrder = async (req, res) => {
     // Call settlement service to record this order
     try {
       await axios.post(
-        `${global.gConfig.admin_url}/api/settlements/add-order`,
+        ${global.gConfig.admin_url}/api/settlements/add-order,
         {
           restaurantId: savedOrder.restaurantOrder.restaurantId,
           orderId: savedOrder._id,
@@ -194,7 +214,6 @@ const createOrder = async (req, res) => {
         err
       );
     }
-
     // Clear cart after successful order
     await CartItem.deleteMany({ customerId });
 
@@ -367,6 +386,7 @@ const getUserOrders = async (req, res) => {
       status: order.restaurantOrder.status,
       items: order.restaurantOrder.items,
       restaurant: order.restaurantOrder.restaurantName,
+      restaurantImage: order.restaurantOrder.restaurantImage,
       totalItems: order.restaurantOrder.items.reduce(
         (total, item) => total + item.quantity,
         0
@@ -765,6 +785,7 @@ const getAllOrders = async (req, res) => {
       createdAt: order.createdAt,
       customerName: order.customerName,
       restaurant: order.restaurantOrder.restaurantName,
+      restaurantImage: order.restaurantOrder.imageUrls[0],
       itemCount: order.restaurantOrder.items.reduce(
         (total, item) => total + item.quantity,
         0

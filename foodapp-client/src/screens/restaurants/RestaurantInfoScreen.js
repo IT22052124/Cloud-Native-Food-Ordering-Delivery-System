@@ -99,15 +99,114 @@ const RestaurantInfoScreen = ({ route, navigation }) => {
     );
   }
 
+  const formatOpeningHours = (openingHours) => {
+    if (!openingHours || openingHours.length === 0) {
+      return [{ days: "Monday - Sunday", hours: "Closed", isClosed: true }];
+    }
+
+    // Group days with same hours together
+    const daysOrder = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ];
+
+    // First, process the opening hours to make them consistent
+    const processedHours = openingHours.map((day) => {
+      if (day.isClosed) {
+        return { ...day, open: "", close: "" };
+      }
+      return day;
+    });
+
+    // Then group them
+    const groupedHours = [];
+    let currentGroup = null;
+
+    daysOrder.forEach((day, index) => {
+      const dayData = processedHours.find((d) => d.day === day);
+      if (!dayData) return;
+
+      const hoursKey = `${dayData.open}-${dayData.close}-${dayData.isClosed}`;
+
+      if (!currentGroup || currentGroup.hoursKey !== hoursKey) {
+        currentGroup = {
+          days: [day],
+          open: dayData.open,
+          close: dayData.close,
+          isClosed: dayData.isClosed,
+          hoursKey,
+        };
+        groupedHours.push(currentGroup);
+      } else {
+        currentGroup.days.push(day);
+      }
+    });
+
+    // Format the grouped hours for display
+    return groupedHours.map((group) => {
+      const days = group.days;
+      let dayRange;
+
+      if (days.length === 1) {
+        dayRange = days[0];
+      } else if (
+        days.length === 7 &&
+        days[0] === "Monday" &&
+        days[6] === "Sunday"
+      ) {
+        dayRange = "All Week";
+      } else if (
+        days.length === 5 &&
+        days[0] === "Monday" &&
+        days[4] === "Friday"
+      ) {
+        dayRange = "Weekdays";
+      } else if (
+        days.length === 2 &&
+        days.includes("Saturday") &&
+        days.includes("Sunday")
+      ) {
+        dayRange = "Weekends";
+      } else {
+        // Find consecutive days
+        const firstDay = days[0];
+        const lastDay = days[days.length - 1];
+        dayRange = `${firstDay} - ${lastDay}`;
+      }
+
+      let hoursText;
+      if (group.isClosed) {
+        hoursText = "Closed";
+      } else {
+        const formatTime = (time) => {
+          if (!time) return "";
+          const [hours, minutes] = time.split(":");
+          const hourInt = parseInt(hours, 10);
+          const ampm = hourInt >= 12 ? "PM" : "AM";
+          const displayHour = hourInt % 12 || 12;
+          return `${displayHour}:${minutes} ${ampm}`;
+        };
+
+        hoursText = `${formatTime(group.open)} - ${formatTime(group.close)}`;
+      }
+
+      return {
+        days: dayRange,
+        hours: hoursText,
+        isClosed: group.isClosed,
+      };
+    });
+  };
+
   // Sample data for fields that might be missing
   const cuisineTypes = restaurant.cuisineType
     ? [restaurant.cuisineType]
     : ["Rice & Curry", "Bakery"];
-  const rating = { percentage: 94, count: 500 };
-  const openingHours = restaurant.openingHours || {
-    days: "Monday - Sunday",
-    hours: "07:00AM-06:30PM",
-  };
   const estimatedDeliveryTime = restaurant.estimatedPrepTime
     ? `Est: ${restaurant.estimatedPrepTime}mins`
     : "Est: 30mins";
@@ -131,10 +230,6 @@ const RestaurantInfoScreen = ({ route, navigation }) => {
           >
             <Ionicons name="arrow-back" size={24} color="black" />
           </TouchableOpacity>
-
-          {/* <TouchableOpacity style={styles.shareButton}>
-            <Ionicons name="share-social-outline" size={24} color="black" />
-          </TouchableOpacity> */}
         </View>
 
         {/* Restaurant Cover Image */}
@@ -201,17 +296,26 @@ const RestaurantInfoScreen = ({ route, navigation }) => {
           {/* Opening Hours */}
           <View style={styles.infoSection}>
             <Text style={styles.sectionTitle}>Opening Hours</Text>
-            <View style={styles.hoursContainer}>
-              <Text style={styles.daysText}>{openingHours.days}</Text>
-              <Text style={styles.hoursText}>{openingHours.hours}</Text>
-            </View>
+            {formatOpeningHours(restaurant.openingHours).map((hours, index) => (
+              <View key={index} style={styles.hoursContainer}>
+                <Text style={styles.daysText}>{hours.days}</Text>
+                <Text
+                  style={[
+                    styles.hoursText,
+                    hours.isClosed && { color: theme.colors.error },
+                  ]}
+                >
+                  {hours.hours}
+                </Text>
+              </View>
+            ))}
           </View>
 
           <Divider style={styles.divider} />
 
           {/* Delivery Information */}
           <View style={styles.infoSection}>
-            <Text style={styles.sectionTitle}>Delivery Information</Text>
+            <Text style={styles.sectionTitle}>Restaurant Location</Text>
 
             {/* Map Preview */}
             <TouchableOpacity
@@ -392,7 +496,7 @@ const styles = StyleSheet.create({
   },
   coverImage: {
     width: "100%",
-    height: 220,
+    height: 180,
   },
   logoContainer: {
     alignItems: "center",
@@ -413,19 +517,18 @@ const styles = StyleSheet.create({
   titleContainer: {
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingTop: 5,
   },
   restaurantName: {
     fontSize: 24,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 3,
+    marginBottom: 2,
   },
   categoriesRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 1,
   },
   categoryText: {
     color: "#666",
@@ -450,7 +553,6 @@ const styles = StyleSheet.create({
   },
   infoContainer: {
     paddingHorizontal: 20,
-    marginTop: 1,
   },
   infoSection: {
     paddingVertical: 15,
