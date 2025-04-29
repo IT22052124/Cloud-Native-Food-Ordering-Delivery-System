@@ -208,7 +208,7 @@ export const updateOrderStatus = async (id, status, notes = '', estimatedReadyMi
       payload,
       {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('ownerToken')}`,
+          Authorization: `Bearer ${localStorage.getItem('adminToken')}`,
         },
       }
     );
@@ -297,5 +297,41 @@ export const AdminupdateRestaurantStatus = async (id, isActive) => {
   }
 };
 
+export const getRestaurantUsernames = async (restaurantId) => {
+  try {
+    const token = localStorage.getItem('adminToken');
+    if (!token) throw new Error('No admin token found');
+    const response = await axios.get(`http://localhost:3000/api/branch/restaurants/${restaurantId}/usernames`,{
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;;
+  } catch (error) {
+    console.error('getRestaurantUsernames: Error:', error);
+    throw error.response?.data || { success: false, message: 'Failed to fetch usernames' };
+  }
+};
 
+/**
+ * Update username and/or password for a restaurant admin
+ * @param {string} restaurantId - The ID of the restaurant
+ * @param {Object} credentials - Object containing currentUsername, newUsername, and/or newPassword
+ * @returns {Promise<Object>} - Response containing update status
+ */
+export const updateRestaurantCredentials = async (restaurantId, credentials) => {
+  try {
+    const token = localStorage.getItem('adminToken');
+    if (!token) throw new Error('No admin token found');
+    const response =  await axios.patch(`http://localhost:3000/api/branch/restaurants/${restaurantId}/credentials`, credentials,{
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('updateRestaurantCredentials: Error:', error);
+    throw error.response?.data || { success: false, message: 'Failed to update credentials' };
+  }
+};
 
