@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import express from "express";
 import mongoose from "mongoose";
-import RestaurantPayment from "./routes/restaurantPaymentRoutes.js";
+import RestaurantSettlement from "./routes/restaurantPaymentRoutes.js";
 
 dotenv.config();
 
@@ -20,7 +20,7 @@ global.gConfig = {
 };
 
 // Routes
-app.use("/api/restaurant-payments/", RestaurantPayment);
+app.use("/api/settlements", RestaurantSettlement );
 
 // Database Connection
 mongoose

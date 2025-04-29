@@ -172,6 +172,29 @@ const createOrder = async (req, res) => {
     const newOrder = new Order(orderData);
     const savedOrder = await newOrder.save();
 
+    // Calculate platform fee (example: 20% of subtotal)
+    const platformFee = savedOrder.restaurantOrder.subtotal * 0.2;
+
+    // Call settlement service to record this order
+    try {
+      await axios.post(
+        `${global.gConfig.admin_url}/api/settlements/add-order`,
+        {
+          restaurantId: savedOrder.restaurantOrder.restaurantId,
+          orderId: savedOrder._id,
+          subtotal: savedOrder.restaurantOrder.subtotal,
+          platformFee: platformFee,
+          weekEnding: getNextSunday(), // Helper function below
+        },
+        { headers: { Authorization: req.headers.authorization } }
+      );
+    } catch (err) {
+      console.error(
+        "Failed to update restaurant settlement (non-critical):",
+        err
+      );
+    }
+
     // Clear cart after successful order
     await CartItem.deleteMany({ customerId });
 
