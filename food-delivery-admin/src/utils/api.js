@@ -278,3 +278,37 @@ export const getAllUsers = async () => {
     return []; // Return empty array on error
   }
 };
+
+export const getAllRestaurantSettlements = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.get("http://localhost:5008/api/settlements", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    console.log("getAllRestaurantSettlements: API response:", response.data);
+    return response.data.settlements || [];
+  } catch (error) {
+    console.error("getAllRestaurantSettlements: Error:", error);
+    return [];
+  }
+};
+
+export const processWeeklySettlements = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.post(
+      "http://localhost:5008/api/settlements/process-weekly",
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Settlement processing failed:",
+      error.response?.data || error
+    );
+    throw error;
+  }
+};

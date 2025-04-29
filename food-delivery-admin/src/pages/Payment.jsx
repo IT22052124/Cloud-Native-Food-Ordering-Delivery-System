@@ -1,337 +1,242 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import {
+  getAllRestaurantSettlements,
+  processWeeklySettlements,
+} from "../utils/api.js";
 
-// Simplified Restaurant Payment Management Component
 const RestaurantPayments = () => {
-  // State for payment filters
-  const [paymentStatus, setPaymentStatus] = useState("all");
+  // State for settlements and filters
+  const [settlements, setSettlements] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState("all");
   const [selectedRestaurant, setSelectedRestaurant] = useState("all");
-  const [paymentPeriod, setPaymentPeriod] = useState("weekly");
-  const [currentWeek, setCurrentWeek] = useState(17); // Current week number
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [restaurants, setRestaurants] = useState([]);
 
-  // Sample restaurant payment data - you would fetch this from your backend
-  const restaurantPayments = [
-    // Weekly payments for week 17 (current)
-    {
-      id: "WP001",
-      weekNumber: 17,
-      weekStartDate: "2025-04-21",
-      weekEndDate: "2025-04-27",
-      restaurantId: "rest1",
-      restaurantName: "Burger King",
-      ordersCount: 32,
-      salesAmount: 5390.45,
-      commissionRate: 0.15,
-      commissionAmount: 808.57,
-      taxAmount: 269.52,
-      netPayable: 4312.36,
-      paymentStatus: "scheduled",
-      paymentDate: "2025-04-28",
-      paymentMethod: "Direct Deposit",
-      paymentPeriod: "weekly",
-    },
-    {
-      id: "WP002",
-      weekNumber: 17,
-      weekStartDate: "2025-04-21",
-      weekEndDate: "2025-04-27",
-      restaurantId: "rest2",
-      restaurantName: "Pizza Hut",
-      ordersCount: 27,
-      salesAmount: 4215.8,
-      commissionRate: 0.18,
-      commissionAmount: 758.84,
-      taxAmount: 210.79,
-      netPayable: 3246.17,
-      paymentStatus: "scheduled",
-      paymentDate: "2025-04-28",
-      paymentMethod: "Bank Transfer",
-      paymentPeriod: "weekly",
-    },
-    {
-      id: "WP003",
-      weekNumber: 17,
-      weekStartDate: "2025-04-21",
-      weekEndDate: "2025-04-27",
-      restaurantId: "rest3",
-      restaurantName: "The Fancy Plate",
-      ordersCount: 18,
-      salesAmount: 3580.65,
-      commissionRate: 0.2,
-      commissionAmount: 716.13,
-      taxAmount: 179.03,
-      netPayable: 2685.49,
-      paymentStatus: "pending",
-      paymentDate: "2025-04-28",
-      paymentMethod: "Direct Deposit",
-      paymentPeriod: "weekly",
-    },
-    // Weekly payments for week 16 (previous)
-    {
-      id: "WP004",
-      weekNumber: 16,
-      weekStartDate: "2025-04-14",
-      weekEndDate: "2025-04-20",
-      restaurantId: "rest1",
-      restaurantName: "Burger King",
-      ordersCount: 35,
-      salesAmount: 6120.25,
-      commissionRate: 0.15,
-      commissionAmount: 918.04,
-      taxAmount: 306.01,
-      netPayable: 4896.2,
-      paymentStatus: "paid",
-      paymentDate: "2025-04-21",
-      paymentMethod: "Direct Deposit",
-      paymentPeriod: "weekly",
-    },
-    {
-      id: "WP005",
-      weekNumber: 16,
-      weekStartDate: "2025-04-14",
-      weekEndDate: "2025-04-20",
-      restaurantId: "rest2",
-      restaurantName: "Pizza Hut",
-      ordersCount: 24,
-      salesAmount: 3895.6,
-      commissionRate: 0.18,
-      commissionAmount: 701.21,
-      taxAmount: 194.78,
-      netPayable: 2999.61,
-      paymentStatus: "paid",
-      paymentDate: "2025-04-21",
-      paymentMethod: "Bank Transfer",
-      paymentPeriod: "weekly",
-    },
-    // Monthly payments
-    {
-      id: "MP001",
-      month: "April",
-      monthStartDate: "2025-04-01",
-      monthEndDate: "2025-04-30",
-      restaurantId: "rest1",
-      restaurantName: "Burger King",
-      ordersCount: 142,
-      salesAmount: 24750.8,
-      commissionRate: 0.15,
-      commissionAmount: 3712.62,
-      taxAmount: 1237.54,
-      netPayable: 19800.64,
-      paymentStatus: "pending",
-      paymentDate: "2025-05-01",
-      paymentMethod: "Direct Deposit",
-      paymentPeriod: "monthly",
-    },
-    {
-      id: "MP002",
-      month: "April",
-      monthStartDate: "2025-04-01",
-      monthEndDate: "2025-04-30",
-      restaurantId: "rest2",
-      restaurantName: "Pizza Hut",
-      ordersCount: 109,
-      salesAmount: 18632.45,
-      commissionRate: 0.18,
-      commissionAmount: 3353.84,
-      taxAmount: 931.62,
-      netPayable: 14347.99,
-      paymentStatus: "pending",
-      paymentDate: "2025-05-01",
-      paymentMethod: "Bank Transfer",
-      paymentPeriod: "monthly",
-    },
-    {
-      id: "MP003",
-      month: "March",
-      monthStartDate: "2025-03-01",
-      monthEndDate: "2025-03-31",
-      restaurantId: "rest3",
-      restaurantName: "The Fancy Plate",
-      ordersCount: 78,
-      salesAmount: 15980.25,
-      commissionRate: 0.2,
-      commissionAmount: 3196.05,
-      taxAmount: 799.01,
-      netPayable: 11985.19,
-      paymentStatus: "paid",
-      paymentDate: "2025-04-01",
-      paymentMethod: "Direct Deposit",
-      paymentPeriod: "monthly",
-    },
-  ];
+  useEffect(() => {
+    const fetchSettlements = async () => {
+      try {
+        setLoading(true);
 
-  // Filter payments based on selected filters
-  const filteredPayments = restaurantPayments.filter((payment) => {
-    // Filter by payment status
-    if (paymentStatus !== "all" && payment.paymentStatus !== paymentStatus) {
+        const settlements = await getAllRestaurantSettlements();
+
+        setSettlements(settlements);
+
+        const uniqueRestaurants = settlements.reduce((acc, item) => {
+          if (!acc.some((rest) => rest.id === item.restaurantId)) {
+            acc.push({
+              id: item.restaurantId,
+              name: item.restaurantName,
+            });
+          }
+          return acc;
+        }, []);
+
+        setRestaurants(uniqueRestaurants);
+      } catch (error) {
+        console.error("Error fetching settlements:", error);
+        // Optional: set error state
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSettlements();
+  }, []);
+
+  // Filter settlements based on selected filters
+  const filteredSettlements = settlements.filter((settlement) => {
+    // Filter by status
+    if (status !== "all" && settlement.status !== status) {
       return false;
     }
 
     // Filter by restaurant
     if (
       selectedRestaurant !== "all" &&
-      payment.restaurantId !== selectedRestaurant
+      settlement.restaurantId !== selectedRestaurant
     ) {
-      return false;
-    }
-
-    // Filter by payment period
-    if (payment.paymentPeriod !== paymentPeriod) {
       return false;
     }
 
     return true;
   });
 
-  // Get unique restaurant list for the filter dropdown
-  const restaurants = [
-    ...new Set(restaurantPayments.map((p) => p.restaurantId)),
-  ].map((id) => {
-    const restaurant = restaurantPayments.find((p) => p.restaurantId === id);
-    return {
-      id: restaurant.restaurantId,
-      name: restaurant.restaurantName,
-    };
-  });
-
-  // Get counts for summary cards
-  const scheduledCount = restaurantPayments.filter(
-    (p) => p.paymentStatus === "scheduled" && p.paymentPeriod === paymentPeriod
+  // Calculate summary statistics
+  const pendingPayments = filteredSettlements.filter(
+    (s) => s.status === "PENDING"
   ).length;
-  const pendingCount = restaurantPayments.filter(
-    (p) => p.paymentStatus === "pending" && p.paymentPeriod === paymentPeriod
-  ).length;
-  const totalPayable = restaurantPayments
-    .filter((p) => p.paymentPeriod === paymentPeriod)
-    .reduce((sum, payment) => sum + payment.netPayable, 0);
+  const totalAmountDue = filteredSettlements.reduce(
+    (sum, s) => sum + s.amountDue,
+    0
+  );
 
-  // Format currency function
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat("en-US", {
+  const processWeeklyPayments = async () => {
+    try {
+      // 1. Process weekly settlements using your API method
+      const result = await processWeeklySettlements();
+
+      if (result.success) {
+        // 2. Refresh the settlements data
+        const updatedSettlements = await getAllRestaurantSettlements();
+        setSettlements(updatedSettlements);
+
+        // 3. Show success notification
+        alert(
+          `Successfully processed ${result.successful} payments. ${result.failed} failed.`
+        );
+
+        // Optional: return the result for further processing
+        return result;
+      } else {
+        throw new Error(result.message || "Payment processing failed");
+      }
+    } catch (error) {
+      console.error("Error processing weekly payments:", error);
+
+      // More specific error handling
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "An unexpected error occurred";
+
+      alert(`Payment processing failed: ${errorMessage}`);
+
+      // Optional: re-throw for error boundaries
+      throw error;
+    }
+  };
+
+  // Format currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat("en-LK", {
       style: "currency",
-      currency: "USD",
+      currency: "LKR",
       minimumFractionDigits: 2,
-    }).format(value);
+      maximumFractionDigits: 2,
+    }).format(amount);
   };
 
-  // Format date function
+  // Format date
   const formatDate = (dateString) => {
-    const options = { year: "numeric", month: "short", day: "numeric" };
-    return new Date(dateString).toLocaleDateString("en-US", options);
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   };
 
-  // Helper function for payment status badge styling
+  // Get week range from weekEnding date (which is Sunday)
+  const getWeekRange = (weekEnding) => {
+    const endDate = new Date(weekEnding);
+    const startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - 6); // Monday to Sunday
+
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+  };
+
+  // Status badge styling
   const getStatusBadgeClass = (status) => {
     switch (status) {
-      case "paid":
+      case "PAID":
         return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
-      case "pending":
+      case "PENDING":
         return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
-      case "scheduled":
+      case "PROCESSING":
         return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
-      case "failed":
+      case "FAILED":
         return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
     }
   };
 
-  // Process selected payments function
-  const processSelectedPayments = () => {
-    // Logic to process payments would go here
-    alert("Processing selected payments...");
-  };
-
   return (
-    <div>
-      <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center">
-        <h2 className="text-xl font-bold mb-4 md:mb-0 dark:text-white">
-          Restaurant Payments
+    <div className="p-4">
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+        <h2 className="text-xl font-bold mb-4 sm:mb-0 dark:text-white">
+          Restaurant Settlements
         </h2>
-        <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
-          <div>
-            <select
-              className="form-select rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              value={paymentPeriod}
-              onChange={(e) => setPaymentPeriod(e.target.value)}
-            >
-              <option value="weekly">Weekly Payments</option>
-              <option value="monthly">Monthly Payments</option>
-            </select>
-          </div>
-          <div>
-            <select
-              className="form-select rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              value={paymentStatus}
-              onChange={(e) => setPaymentStatus(e.target.value)}
-            >
-              <option value="all">All Statuses</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="pending">Pending</option>
-              <option value="paid">Paid</option>
-              <option value="failed">Failed</option>
-            </select>
-          </div>
-          <div>
-            <select
-              className="form-select rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              value={selectedRestaurant}
-              onChange={(e) => setSelectedRestaurant(e.target.value)}
-            >
-              <option value="all">All Restaurants</option>
-              {restaurants.map((restaurant) => (
-                <option key={restaurant.id} value={restaurant.id}>
-                  {restaurant.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+          <select
+            className="form-select rounded-md border border-gray-300 shadow-sm p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="all">All Statuses</option>
+            <option value="PENDING">Pending</option>
+            <option value="PROCESSING">Processing</option>
+            <option value="PAID">Paid</option>
+            <option value="FAILED">Failed</option>
+          </select>
+
+          <select
+            className="form-select rounded-md border border-gray-300 shadow-sm p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            value={selectedRestaurant}
+            onChange={(e) => setSelectedRestaurant(e.target.value)}
+          >
+            <option value="all">All Restaurants</option>
+            {restaurants.map((restaurant) => (
+              <option key={restaurant.id} value={restaurant.id}>
+                {restaurant.name}
+              </option>
+            ))}
+          </select>
+
           <button
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-            onClick={processSelectedPayments}
+            onClick={processWeeklyPayments}
           >
-            Process Payments
+            Process Weekly Payments
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold mb-2 dark:text-white">
-            {paymentPeriod === "weekly" ? "Current Week" : "Current Month"}
-          </h3>
-          <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-            {paymentPeriod === "weekly" ? `Week ${currentWeek}` : "April 2025"}
-          </p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {paymentPeriod === "weekly"
-              ? "April 21 - April 27, 2025"
-              : "April 1 - April 30, 2025"}
-          </p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold mb-2 dark:text-white">
-            {scheduledCount > 0 ? "Scheduled Payments" : "Pending Payments"}
+            Pending Settlements
           </h3>
           <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
-            {scheduledCount > 0 ? scheduledCount : pendingCount}
+            {pendingPayments}
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {scheduledCount > 0
-              ? `Next payment date: ${
-                  paymentPeriod === "weekly" ? "April 28, 2025" : "May 1, 2025"
-                }`
-              : "Awaiting processing"}
+            Awaiting processing
           </p>
         </div>
+
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold mb-2 dark:text-white">
-            Total Payable
+            Total Due to Restaurants
           </h3>
           <p className="text-3xl font-bold text-green-600 dark:text-green-400">
-            {formatCurrency(totalPayable)}
+            {formatCurrency(totalAmountDue)}
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            For all restaurants
+            Sum of all settlements
+          </p>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold mb-2 dark:text-white">
+            Current Week
+          </h3>
+          <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+            {new Date().toLocaleDateString("en-US", { weekday: "long" })}
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {(() => {
+              const now = new Date();
+              const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+              const startOfWeek = new Date(now);
+              startOfWeek.setDate(
+                now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
+              ); // Start on Monday
+              const endOfWeek = new Date(startOfWeek);
+              endOfWeek.setDate(startOfWeek.getDate() + 6); // End on Sunday
+              return `${formatDate(startOfWeek)} - ${formatDate(endOfWeek)}`;
+            })()}
           </p>
         </div>
       </div>
@@ -339,178 +244,146 @@ const RestaurantPayments = () => {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold dark:text-white">
-            {paymentPeriod === "weekly"
-              ? "Weekly Payment History"
-              : "Monthly Payment History"}
+            Settlement History
           </h3>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700">
-              <tr>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                >
-                  <input
-                    type="checkbox"
-                    className="form-checkbox h-5 w-5 text-blue-600"
-                  />
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                >
-                  Restaurant
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                >
-                  {paymentPeriod === "weekly" ? "Week Period" : "Month"}
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                >
-                  Orders
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                >
-                  Sales
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                >
-                  Commission
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                >
-                  Net Payable
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                >
-                  Status
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                >
-                  Payment Date
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                >
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
-              {filteredPayments.map((payment) => (
-                <tr
-                  key={payment.id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <input
-                      type="checkbox"
-                      className="form-checkbox h-5 w-5 text-blue-600"
-                      disabled={payment.paymentStatus === "paid"}
-                    />
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {payment.restaurantName}
+
+        {loading ? (
+          <div className="text-center p-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+            <p className="mt-2 text-gray-600 dark:text-gray-400">
+              Loading settlements...
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Restaurant
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Week Period
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Orders
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Subtotal
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Platform Fee
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Amount Due
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                {filteredSettlements.length > 0 ? (
+                  filteredSettlements.map((settlement) => (
+                    <tr
+                      key={settlement._id}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              {settlement.restaurantName}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {getWeekRange(settlement.weekEnding)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {settlement.totalOrders}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {formatCurrency(settlement.orderSubtotal)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {formatCurrency(settlement.platformFee)}
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
-                          ID: {payment.restaurantId}
+                          (
+                          {(
+                            (settlement.platformFee /
+                              settlement.orderSubtotal) *
+                            100
+                          ).toFixed(1)}
+                          %)
                         </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-white">
-                      {paymentPeriod === "weekly"
-                        ? `Week ${payment.weekNumber}`
-                        : payment.month}
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {paymentPeriod === "weekly"
-                        ? `${formatDate(payment.weekStartDate)} - ${formatDate(
-                            payment.weekEndDate
-                          )}`
-                        : `${formatDate(payment.monthStartDate)} - ${formatDate(
-                            payment.monthEndDate
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                        {formatCurrency(settlement.amountDue)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(
+                            settlement.status
                           )}`}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {payment.ordersCount}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {formatCurrency(payment.salesAmount)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-white">
-                      {formatCurrency(payment.commissionAmount)}
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      ({(payment.commissionRate * 100).toFixed(1)}%)
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                    {formatCurrency(payment.netPayable)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(
-                        payment.paymentStatus
-                      )}`}
+                        >
+                          {settlement.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan="9"
+                      className="px-6 py-4 text-center text-gray-500 dark:text-gray-400"
                     >
-                      {payment.paymentStatus.charAt(0).toUpperCase() +
-                        payment.paymentStatus.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {formatDate(payment.paymentDate)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3">
-                      View
-                    </button>
-                    {(payment.paymentStatus === "scheduled" ||
-                      payment.paymentStatus === "pending") && (
-                      <button className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300">
-                        Process
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      No settlements found matching your filters
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 flex justify-between items-center">
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            Showing {filteredPayments.length} payments
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 flex flex-col sm:flex-row justify-between items-center">
+          <div className="text-sm text-gray-500 dark:text-gray-400 mb-3 sm:mb-0">
+            Showing {filteredSettlements.length} settlements
           </div>
           <div>
-            <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg mr-2">
-              Process Selected
-            </button>
-            <button className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">
-              Download Report
+            <button
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+              onClick={processWeeklyPayments}
+            >
+              Process Weekly Payments
             </button>
           </div>
         </div>
@@ -519,6 +392,7 @@ const RestaurantPayments = () => {
   );
 };
 
+export default RestaurantPayments;
 
 import { PieChart, BarChart } from "recharts";
 import {

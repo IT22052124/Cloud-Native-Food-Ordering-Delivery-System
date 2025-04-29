@@ -198,15 +198,19 @@ const createOrder = async (req, res) => {
     // Call settlement service to record this order
     try {
       await axios.post(
-        ${global.gConfig.admin_url}/api/settlements/add-order,
+        `${global.gConfig.admin_url}/api/settlements/add-order`,
         {
           restaurantId: savedOrder.restaurantOrder.restaurantId,
+          restaurantName: savedOrder.restaurantOrder.restaurantName,
           orderId: savedOrder._id,
           subtotal: savedOrder.restaurantOrder.subtotal,
           platformFee: platformFee,
           weekEnding: getNextSunday(), // Helper function below
         },
-        { headers: { Authorization: req.headers.authorization } }
+        {
+          headers: { Authorization: req.headers.authorization },
+          "Content-Type": "application/json",
+        }
       );
     } catch (err) {
       console.error(
@@ -251,6 +255,13 @@ const createOrder = async (req, res) => {
     });
   }
 };
+
+function getNextSunday() {
+  const today = new Date();
+  const nextSunday = new Date(today);
+  nextSunday.setDate(today.getDate() + (7 - today.getDay()));
+  return nextSunday.toISOString().split("T")[0];
+}
 
 /**
  * Get order by ID

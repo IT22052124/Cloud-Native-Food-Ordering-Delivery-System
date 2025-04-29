@@ -3,11 +3,16 @@ import cors from "cors";
 import express from "express";
 import mongoose from "mongoose";
 import RestaurantSettlement from "./routes/restaurantPaymentRoutes.js";
+import { processWeeklySettlements } from "./controllers/settlementController.js";
+import cron from "node-cron";
 
 dotenv.config();
 
 // Initialize Express
 const app = express();
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Apply CORS globally
 app.use(cors());
@@ -19,8 +24,25 @@ global.gConfig = {
   order_url: process.env.ORDER_SERVICE_URL,
 };
 
+// Run every Sunday at 11:30 PM
+cron.schedule(
+  "30 23 * * 0",
+  async () => {
+    try {
+      console.log("Auto-processing weekly settlements...");
+      await processWeeklySettlements();
+    } catch (error) {
+      console.error("Auto-settlement failed:", error);
+    }
+  },
+  {
+    timezone: "Asia/Colombo",
+    name: "WeeklySettlements",
+  }
+);
+
 // Routes
-app.use("/api/settlements", RestaurantSettlement );
+app.use("/api/settlements", RestaurantSettlement);
 
 // Database Connection
 mongoose
