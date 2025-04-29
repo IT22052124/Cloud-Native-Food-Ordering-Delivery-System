@@ -31,7 +31,7 @@ export const loginUser = async (email, password) => {
 export const getRestaurants = async () => {
   try {
     const token = localStorage.getItem("token");
-    const response = await axios.get("http://localhost:3000/api/restaurants", {
+    const response = await axios.get("http://localhost:5006/api/restaurants", {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -50,7 +50,7 @@ export const getRestaurants = async () => {
 export const updateRestaurantVerification = async (restaurantId, status) => {
   try {
     const response = await fetch(
-      `http://localhost:3000/api/restaurants/${restaurantId}/verfication`,
+      `http://localhost:5006/api/restaurants/${restaurantId}/verfication`,
       {
         method: "PATCH",
         headers: {

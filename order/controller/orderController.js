@@ -757,6 +757,7 @@ const updateOrderStatus = async (req, res) => {
  * @access Private - Admin
  */
 const getAllOrders = async (req, res) => {
+
   try {
     const {
       status,
@@ -787,6 +788,7 @@ const getAllOrders = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
+
 
     const total = await Order.countDocuments(query);
 
