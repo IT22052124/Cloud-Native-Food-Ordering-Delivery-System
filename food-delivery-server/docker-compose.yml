@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:6.0
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  delivery-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: delivery-service
+    ports:
+      - "${PORT}:5004"
+    depends_on:
+      - mongo
+      - redis
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+
+volumes:
+  mongo_data:
