@@ -1,5 +1,6 @@
 import twilio from "twilio";
 import dotenv from "dotenv";
+import { formatPhoneNumber } from "../utils/phoneFormatter.js";
 
 dotenv.config();
 
@@ -17,9 +18,10 @@ const twilioClient = twilio(
  */
 export const sendSMS = async (to, body) => {
   try {
+    const formattedTo = formatPhoneNumber(to);
     const message = await twilioClient.messages.create({
       body,
-      to,
+      to: formattedTo,
       from: process.env.TWILIO_PHONE_NUMBER,
     });
 
@@ -30,4 +32,3 @@ export const sendSMS = async (to, body) => {
     throw error;
   }
 };
-

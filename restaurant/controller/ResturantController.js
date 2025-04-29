@@ -606,14 +606,14 @@ export const updateRestaurantVerification = async (req, res) => {
       );
 
       // Send SMS notification to restaurant owner (commented as per example)
-      // await axios.post(
-      //   `${global.gConfig.notification_url}/api/notifications/sms`,
-      //   {
-      //     to: restaurant.contactPhone, // assuming restaurant has contactPhone field
-      //     body: text,
-      //   },
-      //   { headers: { Authorization: req.headers.authorization } }
-      // );
+      await axios.post(
+        `${global.gConfig.notification_url}/api/notifications/sms`,
+        {
+          to: restaurant.contact.phone, // assuming restaurant has contactPhone field
+          body: text,
+        },
+        { headers: { Authorization: req.headers.authorization } }
+      );
     } catch (emailError) {
       console.error("Failed to send verification status email:", emailError);
       // Don't fail the whole request if email fails
