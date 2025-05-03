@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:latest
 
 WORKDIR /app
 
@@ -6,13 +6,13 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm install --production
 
 # Copy application code
 COPY . .
 
 # Expose the port the app runs on
-EXPOSE 5005
+EXPOSE 5002
 
 # Command to run the application
 CMD ["node", "index.js"] 
