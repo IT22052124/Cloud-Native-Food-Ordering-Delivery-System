@@ -1,10 +1,18 @@
 FROM node:18-alpine
+
 WORKDIR /app
-COPY restaurant/package*.json ./
-COPY shared-kafka/shared-kafka-1.0.0.tgz ./
-RUN npm install shared-kafka.tgz && \
-    npm ci --only=production
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install --production
+
+# Copy application code
 COPY . .
-ENV PORT=5006
+
+# Expose the port the app runs on
 EXPOSE 5006
-CMD ["node", "index.js"]
+
+# Command to run the application
+CMD ["node", "index.js"] 
