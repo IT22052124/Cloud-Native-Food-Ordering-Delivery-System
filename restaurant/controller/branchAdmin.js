@@ -519,10 +519,10 @@ export const updateRestaurantStatus = async (req, res) => {
       return res.status(404).json({ message: "Restaurant not found!" });
     }
 
-    // Check if the requester is the owner
-    if (restaurant.ownerId.toString() !== req.owner) {
-      return res.status(403).json({ message: "Access denied!" });
-    }
+    // // Check if the requester is the owner
+    // if (restaurant.ownerId.toString() !== req.adminId) {
+    //   return res.status(403).json({ message: "Access denied!" });
+    // }
 
     // Update the status
     restaurant.isActive = isActive;
