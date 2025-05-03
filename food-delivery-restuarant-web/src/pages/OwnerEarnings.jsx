@@ -7,10 +7,17 @@ import Sidebar from '../components/Sidebar';
 import Navbar from '../components/Navbar';
 import LoadingSpinner from '../components/LoadingSpinner';
 
+// Base URL for API calls, configurable via environment variable
+const API_BASE_URL =  'http://localhost:5002';
+
 const getAllOrders = async (startDate, endDate) => {
   try {
     const token = localStorage.getItem('ownerToken');
-    const response = await axios.get('http://localhost:5002/api/orders/restaurant/owner/orders', {
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    const response = await axios.get(`${API_BASE_URL}/api/orders/restaurant/owner/orders`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -19,6 +26,7 @@ const getAllOrders = async (startDate, endDate) => {
         endDate,
       },
     });
+
     console.log('getAllOrders: Response:', response.data.orders);
     return Array.isArray(response.data.orders) ? response.data.orders : [];
   } catch (error) {
@@ -33,6 +41,7 @@ const Earnings = () => {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [error, setError] = useState(null);
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -43,6 +52,8 @@ const Earnings = () => {
     }
 
     const fetchData = async () => {
+      setLoading(true);
+      setError(null);
       try {
         const [restaurantData, orderData] = await Promise.all([
           getRestaurants(),
@@ -51,10 +62,13 @@ const Earnings = () => {
         setRestaurants(Array.isArray(restaurantData) ? restaurantData : []);
         setOrders(Array.isArray(orderData) ? orderData : []);
       } catch (error) {
+        console.error('Error fetching data:', error);
+        setError('Failed to load earnings data. Please try again.');
         setRestaurants([]);
         setOrders([]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchData();
   }, [user, navigate, startDate, endDate]);
@@ -85,6 +99,7 @@ const Earnings = () => {
 
   const handleFilter = () => {
     setLoading(true);
+    setError(null);
     // The useEffect hook will refetch orders with the new date range
   };
 
@@ -104,6 +119,11 @@ const Earnings = () => {
               Total Earnings: ${totalEarnings}
             </h3>
           </div>
+          {error && (
+            <div className="mb-6 p-4 bg-red-600 text-white rounded">
+              {error}
+            </div>
+          )}
           <div className="mb-6 flex space-x-4">
             <div>
               <label className="text-text-primary dark:dark-text">Start Date:</label>

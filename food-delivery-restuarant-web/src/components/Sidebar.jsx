@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { FaHome, FaPlusCircle, FaUsers, FaUtensils,FaInbox } from 'react-icons/fa';
+import { FaHome, FaPlusCircle, FaUsers, FaUtensils,FaInbox ,FaDollarSign} from 'react-icons/fa';
 
 const Sidebar = () => {
   return (
@@ -81,8 +81,22 @@ const Sidebar = () => {
             </li>
             <li>
               <NavLink
-               // to="/user"/owner/earnings
-               to="/owner/earnings"
+                to="/owner/earnings"
+                className={({ isActive }) =>
+                  `flex items-center p-3 rounded-xl transition-all duration-300 ease-in-out ${
+                    isActive
+                      ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-md'
+                      : 'text-gray-300 hover:bg-gray-700 hover:text-white hover:scale-105 hover:shadow-lg'
+                  }`
+                }
+              >
+                <FaDollarSign className="mr-3 text-lg" />
+                <span className="font-medium">Earnings </span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/user"
                 className={({ isActive }) =>
                   `flex items-center p-3 rounded-xl transition-all duration-300 ease-in-out ${
                     isActive
