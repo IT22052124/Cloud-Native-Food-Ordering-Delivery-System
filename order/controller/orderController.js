@@ -1393,7 +1393,7 @@ const getAllOwnerOrders = async (req, res) => {
    }
 
    // Query orders with sorting
-   const orders = await Order.find(query).sort({ createdAt: -1 });
+   const orders = await Order.find({}).sort({ createdAt: -1 });
 
    // Process orders to include relevant information
    const processedOrders = orders.map((order) => ({
@@ -1403,17 +1403,8 @@ const getAllOwnerOrders = async (req, res) => {
      customerPhone: order.customerPhone,
      type: order.type,
      deliveryAddress: order.deliveryAddress,
-     status: order.restaurantOrder.status,
-     items: order.restaurantOrder.items.map((item) => ({
-       itemId: item.itemId,
-       name: item.name,
-       price: item.price,
-       quantity: item.quantity,
-       specialInstructions: item.specialInstructions,
-       portionId: item.portionId,
-       portionName: item.portionName,
-       isPortionItem: item.isPortionItem,
-     })),
+     status: order.status,
+    
      subtotal: order.restaurantOrder.subtotal,
      tax: order.restaurantOrder.tax,
      deliveryFee: order.restaurantOrder.deliveryFee,

@@ -340,3 +340,24 @@ export const updateRestaurantCredentials = async (restaurantId, credentials) => 
   }
 };
 
+export const getAllOwnerOrders = async (startDate, endDate) => {
+  try {
+    const token = localStorage.getItem('ownerToken');
+    if (!token) throw new Error('No admin token found');
+    const response =  await axios.get(`http://localhost:5002/api/orders/restaurant/owner/orders`,  {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      params: {
+        startDate,
+        endDate,
+      },
+    });
+
+    console.log('getAllOrders: Response:', response.data.orders);
+    return Array.isArray(response.data.orders) ? response.data.orders : [];
+  } catch (error) {
+    console.error('updateRestaurantCredentials: Error:', error);
+    throw error.response?.data || { success: false, message: 'Failed to update credentials' };
+  }
+};
