@@ -81,7 +81,8 @@ const Sidebar = () => {
             </li>
             <li>
               <NavLink
-                to="/user"
+               // to="/user"/owner/earnings
+               to="/owner/earnings"
                 className={({ isActive }) =>
                   `flex items-center p-3 rounded-xl transition-all duration-300 ease-in-out ${
                     isActive

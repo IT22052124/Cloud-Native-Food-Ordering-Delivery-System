@@ -1,4 +1,4 @@
-import { Schema, model } from "mongoose";
+import { Schema, model ,Types} from "mongoose";
 
 const orderItemSchema = new Schema({
   itemId: {
@@ -109,6 +109,11 @@ const restaurantOrderSchema = new Schema({
   restaurantName: {
     type: String,
     required: true,
+  },
+
+  ownerId: {
+    type: Types.ObjectId,
+    required: false,
   },
   restaurantLocation: {
     lat: Number,

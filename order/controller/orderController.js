@@ -152,6 +152,7 @@ const createOrder = async (req, res) => {
       type: orderType,
       restaurantOrder: {
         restaurantId,
+        ownerId: restaurant.ownerId,
         restaurantName: restaurant.name,
         restaurantLocation: {
           lat: restaurant.address.coordinates.lat,
@@ -1355,6 +1356,64 @@ const getOrdersByIds = async (req, res) => {
   }
 };
 
+//faizal
+const getAllOwnerOrders = async (req, res) => {
+  try {
+    // Verify user role
+    if (req.user.role !== "restaurant") {
+      return res.status(403).json({
+        status: 403,
+        message: "Access denied. Restaurant role required.",
+      });
+    }
+
+    // Query all orders where the restaurant's ownerId matches the authenticated user's ID
+    const orders = await Order.find({
+      "restaurantOrder.ownerId": req.user.id,
+    }).sort({ createdAt: -1 });
+
+    // Process orders to include relevant information
+    const processedOrders = orders.map((order) => ({
+      orderId: order.orderId,
+      createdAt: order.createdAt,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      type: order.type,
+      deliveryAddress: order.deliveryAddress,
+      status: order.restaurantOrder.status,
+      items: order.restaurantOrder.items.map((item) => ({
+        itemId: item.itemId,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        specialInstructions: item.specialInstructions,
+        portionId: item.portionId,
+        portionName: item.portionName,
+        isPortionItem: item.isPortionItem,
+      })),
+      subtotal: order.restaurantOrder.subtotal,
+      tax: order.restaurantOrder.tax,
+      deliveryFee: order.restaurantOrder.deliveryFee,
+      totalAmount: order.totalAmount,
+      estimatedReadyTime: order.restaurantOrder.estimatedReadyTime,
+      restaurantName: order.restaurantOrder.restaurantName,
+      restaurantId: order.restaurantOrder.restaurantId,
+    }));
+
+    res.status(200).json({
+      status: 200,
+      orders: processedOrders,
+      total: orders.length,
+    });
+  } catch (error) {
+    console.error("Error fetching all owner orders:", error);
+    res.status(500).json({
+      status: 500,
+      message: error.message || "Failed to fetch restaurant owner orders",
+    });
+  }
+};
+
 export {
   createOrder,
   getOrderById,
@@ -1370,4 +1429,5 @@ export {
   updateOrderPaymentStatus,
   getOrdersByIds,
   queryOrders,
+  getAllOwnerOrders
 };
