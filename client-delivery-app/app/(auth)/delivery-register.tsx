@@ -113,6 +113,7 @@ export default function DeliveryRegisterScreen() {
       return;
     }
 
+
     try {
       setLoading(true);
       const user = await register({

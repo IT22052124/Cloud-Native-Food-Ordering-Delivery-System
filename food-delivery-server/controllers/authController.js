@@ -15,6 +15,7 @@ const AUTH_SERVICE_URL =
 
 const register = async (req, res) => {
   try {
+    console.log("hi");
     const { sendKafkaNotification } = await import("shared-kafka");
 
     const response = await axios.post(`${AUTH_SERVICE_URL}/api/auth/register`, {
@@ -46,22 +47,9 @@ const register = async (req, res) => {
         },
       };
 
-      try {
-        await producer.connect();
-        await producer.send({
-          topic: "driver-registrations",
-          messages: [{ value: JSON.stringify(kafkaMessage) }],
-        });
-        console.log("✅ Driver registration event published to Kafka");
-      } catch (kafkaError) {
-        console.error(
-          "❌ Failed to publish driver registration event:",
-          kafkaError
-        );
-        // Don't fail the request, just log the Kafka error
-      } finally {
-        await producer.disconnect();
-      }
+      await sendKafkaNotification(kafkaMessage)
+        .then(() => console.log("✅ Kafka message sent successfully"))
+        .catch((err) => console.error("❌ Kafka send failed:", err));
     }
 
     res.status(201).json(response.data);

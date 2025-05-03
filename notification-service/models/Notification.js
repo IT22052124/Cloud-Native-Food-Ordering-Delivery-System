@@ -7,71 +7,73 @@ const NotificationSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: [
-        'RESTAURANT_REGISTRATION',    // System notification about new restaurant
-        'DRIVER_REGISTRATION',        // System notification about new driver
-        'ORDER_ASSIGNED',            // To driver
-        'ORDER_READY',               // To driver
-        'ORDER_DELAYED',             // To customer
-        'ORDER_COMPLETED',           // To restaurant and customer
-        'NEW_REVIEW',                // To restaurant
-        'ACCOUNT_APPROVED',          // To restaurant or driver
-        'ACCOUNT_SUSPENDED'          // To restaurant or driver
-      ]
+        "RESTAURANT_REGISTRATION", // System notification about new restaurant
+        "DRIVER_REGISTRATION", // System notification about new driver
+        "ORDER_ASSIGNED", // To driver
+        "ORDER_READY", // To driver
+        "ORDER_DELAYED", // To customer
+        "ORDER_COMPLETED", // To restaurant and customer
+        "NEW_REVIEW", // To restaurant
+        "ACCOUNT_APPROVED", // To restaurant or driver
+        "ACCOUNT_SUSPENDED", // To restaurant or driver
+        "SETTLEMENT_PROCESSED", // To restaurant when payment is successful
+        "SETTLEMENT_FAILED", // To restaurant when payment fails
+      ],
     },
-    
+
     // Who should receive this notification
     recipientType: {
       type: String,
-      enum: ['system', 'restaurant', 'driver', 'customer'],
-      required: true
+      enum: ["system", "restaurant", "driver", "customer"],
+      required: true,
     },
-    
+
     // ID of the recipient (if specific)
     recipientId: {
       type: String,
-      required: function() {
-        return this.recipientType !== 'system';
-      }
+      required: function () {
+        return this.recipientType !== "system";
+      },
     },
-    
+
     // Related entity details
     relatedEntity: {
       id: { type: String, required: true },
-      type: { 
+      type: {
         type: String,
-        enum: ['restaurant', 'driver', 'order', 'review'],
-        required: true
-      }
+        enum: ["restaurant", "driver", "order", "review", "settlement"],
+        required: true,
+      },
     },
-    
+
     title: {
       type: String,
-      required: true
+      required: true,
     },
-    
+
     message: {
       type: String,
-      required: true
+      required: true,
     },
-    
+
     // Additional data for the notification
     metadata: {
-      type: mongoose.Schema.Types.Mixed
+      type: mongoose.Schema.Types.Mixed,
     },
-    
+
     status: {
       type: String,
-      enum: ['unread', 'read'],
-      default: 'unread'
+      enum: ["unread", "read"],
+      default: "unread",
     },
-    
+
     expiresAt: {
       type: Date,
-      index: { expires: '30d' } // Keep notifications for 30 days
-    }
+      index: { expires: "30d" }, // Keep notifications for 30 days
+    },
   },
   {
-    timestamps: true
+    timestamps: true,
   }
 );
 
