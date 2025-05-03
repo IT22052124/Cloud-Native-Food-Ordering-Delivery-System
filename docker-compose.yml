@@ -1,9 +1,13 @@
 services:
   # Auth Service
   auth-service:
-    build: ./auth
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
     ports:
       - "5001:5001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway" 
     environment:
       - PORT=5001
       - MONGO_URI=mongodb+srv://Root:root@bookstore.ca33wzl.mongodb.net/ResturantOrder?retryWrites=true&w=majority&appName=BookStore
@@ -13,9 +17,13 @@ services:
 
   # Admin Service
   admin-service:
-    build: ./admin-service
+    build:
+      context: ./admin-service 
+      dockerfile: Dockerfile
     ports:
       - "5008:5008"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - PORT=5008
       - MONGO_URI=mongodb+srv://mufeez45:Mufeez123@itp.9xmfevq.mongodb.net/Food_Admin?retryWrites=true&w=majority&appName=ITP
@@ -27,11 +35,16 @@ services:
 
   # Order Service
   order-service:
-    build: ./order
+    build:
+      context: .
+      dockerfile: order/Dockerfile
     ports:
       - "5002:5002"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - PORT=5002
+      - KAFKA_BROKERS=host.docker.internal:9092
       - MONGODB_URI=mongodb+srv://Dedsec:Admin123@cluster0.oceg8.mongodb.net/food-delivery-order
       - AUTH_SERVICE_URL=http://auth-service:5001
       - RESTAURANT_SERVICE_URL=http://localhost:5006
@@ -42,11 +55,16 @@ services:
 
   #  Payment Service
   payment-service:
-    build: ./payment-service
+    build:
+      context: .
+      dockerfile: payment-service/Dockerfile
     ports:
       - "5004:5004"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - PORT=5004
+      - KAFKA_BROKERS=host.docker.internal:9092
       - MONGODB_URI=mongodb+srv://mufeez45:Mufeez123@itp.9xmfevq.mongodb.net/Food_Payment?retryWrites=true&w=majority&appName=ITP
       - AUTH_SERVICE_URL=http://auth-service:5001
       - RESTAURANT_SERVICE_URL=http://localhost:5006
@@ -60,11 +78,16 @@ services:
 
   #  Restaurant Service
   restaurant-service:
-    build: ./restaurant
+    build:
+      context: .
+      dockerfile: restaurant/Dockerfile
     ports:
       - "5006:5006"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - PORT=5006
+      - KAFKA_BROKERS=host.docker.internal:9092
       - MONGOURL=mongodb+srv://Root:root@bookstore.ca33wzl.mongodb.net/ResturantOrder?retryWrites=true&w=majority&appName=BookStore
       - AUTH_SERVICE_URL=http://auth-service:5001
       - NOTIFICATION_SERVICE_URL=http://localhost:5007
@@ -78,23 +101,34 @@ services:
 
   #  Notification Service
   notification-service:
-    build: ./notification-service
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
     ports:
       - "5007:5007"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - PORT=5007
+      - KAFKA_BROKERS=host.docker.internal:9092
       - MONGO_URI=mongodb+srv://mufeez45:Mufeez123@itp.9xmfevq.mongodb.net/Food_Notification?retryWrites=true&w=majority&appName=ITP
       - AUTH_SERVICE_URL=http://auth-service:5001
+     
     depends_on:
       - auth-service
 
   #  Delivery Service
   delivery-service:
-    build: ./food-delivery-server
+    build:
+      context: .
+      dockerfile: food-delivery-server/Dockerfile
     ports:
       - "5004:5004"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - PORT=5004
+      - KAFKA_BROKERS=host.docker.internal:9092
       - DELIVERY_MONGO_URI=mongodb+srv://it22237118:200229301372@cluster0.kbjtt1p.mongodb.net/PickMe?retryWrites=true&w=majority
       - AUTH_SERVICE_URL=http://auth-service:5001
       - ORDER_SERVICE_URL=http://localhost:5002

@@ -1,13 +1,5 @@
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
-let sendKafkaNotification;
-import("shared-kafka")
-  .then((module) => {
-    sendKafkaNotification = module.sendKafkaNotification;
-  })
-  .catch((err) => {
-    console.error("Failed to import shared-kafka:", err);
-  });
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const AUTH_SERVICE_URL =
@@ -15,42 +7,10 @@ const AUTH_SERVICE_URL =
 
 const register = async (req, res) => {
   try {
-    console.log("hi");
-    const { sendKafkaNotification } = await import("shared-kafka");
-
     const response = await axios.post(`${AUTH_SERVICE_URL}/api/auth/register`, {
       ...req.body,
       role: "delivery", // Force delivery role
     });
-
-    // Only proceed with Kafka message if registration was successful
-    if (response.status === 201) {
-      const driver = response.data; // Assuming the response contains the driver data
-
-      const kafkaMessage = {
-        topic: "driver-registrations",
-        type: "DRIVER_REGISTERED",
-        driverId: driver._id.toString(), // or driver.id depending on your response structure
-        id: driver._id.toString(), // Alternative field for consumer compatibility
-        name: driver.name,
-        email: driver.email,
-        phone: driver.phone,
-        vehicleType: "motorcycle", // You might want to make this dynamic
-        vehiclePlate: driver.vehiclePlate,
-        nic: driver.nic,
-        status: "pending", // Assuming new drivers need approval
-        timestamp: new Date().toISOString(),
-        metadata: {
-          nicImage: driver.nicImage,
-          requiresApproval: true,
-          registrationSource: "web", // Could be "mobile" etc.
-        },
-      };
-
-      await sendKafkaNotification(kafkaMessage)
-        .then(() => console.log("✅ Kafka message sent successfully"))
-        .catch((err) => console.error("❌ Kafka send failed:", err));
-    }
 
     res.status(201).json(response.data);
   } catch (error) {

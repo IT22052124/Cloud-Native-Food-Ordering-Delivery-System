@@ -1,7 +1,9 @@
 FROM node:18-alpine
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
+COPY restaurant/package*.json ./
+COPY shared-kafka/shared-kafka-1.0.0.tgz ./
+RUN npm install shared-kafka.tgz && \
+    npm ci --only=production
 COPY . .
 ENV PORT=5006
 EXPOSE 5006
