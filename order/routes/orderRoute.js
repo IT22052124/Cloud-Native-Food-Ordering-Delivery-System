@@ -15,6 +15,7 @@ import {
   updateOrderPaymentStatus,
   queryOrders,
   getOrdersByIds,
+  getAllOwnerOrders
 } from "../controller/orderController.js";
 
 const router = express.Router();
@@ -49,8 +50,11 @@ router
 // Restaurant routes
 router.route("/restaurant").post(authorize("restaurant"), getRestaurantOrders);
 
+router.route("/restaurant/owner/orders").get(authorize("restaurant"), getAllOwnerOrders);
+
+
 // Admin routes
-router.route("/admin/all").get(authorize("admin"), getAllOrders);
+router.route("/admin/all").get(authorize("admin","restaurant"), getAllOrders);
 
 // Update order status
 router

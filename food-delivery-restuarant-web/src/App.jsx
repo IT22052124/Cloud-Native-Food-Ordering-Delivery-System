@@ -27,6 +27,7 @@ import AdminEditRestaurant from "./pages/Admin/AdminEditRestaurant"
 import Credentialpage from "./pages/Admin/credentialpage"
 import Signup from "./pages/Login/SignUp";
 import SignupConfirmation from "./pages/Login/signupConfirmationpage";
+import OwnerEarnings from "./pages/OwnerEarnings";
 const App = () => {
   return (
     <Router>
@@ -44,6 +45,8 @@ const App = () => {
 
         <Route path="/admin-dashboard" element={<AdminDashboard />} />{" "}
         {/* New */}
+        <Route path="/owner/earnings" element={<OwnerEarnings />} />
+
         <Route path="/restaurants/add" element={<AddRestaurant />} />
         <Route path="/restaurants/" element={<Resturant />} />
         <Route path="/restaurants/admin/profile" element={<RestaurantAdminDetails />} />

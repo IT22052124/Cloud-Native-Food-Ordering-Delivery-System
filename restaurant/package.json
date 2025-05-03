@@ -19,7 +19,8 @@
     "express": "^5.1.0",
     "firebase": "^11.6.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.13.2"
+    "mongoose": "^8.13.2",
+    "shared-kafka": "file:../shared-kafka/shared-kafka-1.0.0.tgz"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

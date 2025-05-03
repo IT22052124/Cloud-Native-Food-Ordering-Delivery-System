@@ -28,6 +28,7 @@ const Resturant = () => {
       setLoading(false);
     };
     fetchRestaurants();
+    console.log('Restaurants:', restaurants);
   }, [user, navigate]);
 
   if (loading) return <LoadingSpinner />;

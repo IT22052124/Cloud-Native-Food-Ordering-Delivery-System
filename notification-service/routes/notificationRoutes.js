@@ -4,6 +4,7 @@ import {
   markAsRead,
   markAllAsRead,
   deleteNotification,
+  createNotification,
 } from "../controllers/notificationController.js";
 import {
   sendEmailNotification,
@@ -21,6 +22,7 @@ router.use(protect);
 
 // Route to get notifications (admin only)
 router.get("/", authorize("admin"), getNotifications);
+router.post("/", authorize("admin"), createNotification);
 router.put("/:id/read", authorize("admin"), markAsRead);
 router.put("/read-all", authorize("admin"), markAllAsRead);
 router.delete("/:id", authorize("admin"), deleteNotification);

@@ -1,6 +1,66 @@
 // controllers/notificationController.js
 import Notification from "../models/Notification.js";
 
+export const createNotification = async (req, res) => {
+  try {
+    const {
+      type,
+      recipientType,
+      recipientId,
+      relatedEntity,
+      title,
+      message,
+      metadata,
+      status = "unread",
+      expiresAt,
+    } = req.body;
+
+    // Validate required fields
+    if (!type || !recipientType || !relatedEntity || !title || !message) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "Missing required fields (type, recipientType, relatedEntity, title, message)",
+      });
+    }
+
+    // Validate recipientId if recipientType is not system
+    if (recipientType !== "system" && !recipientId) {
+      return res.status(400).json({
+        success: false,
+        error: "recipientId is required when recipientType is not system",
+      });
+    }
+
+    // Create the notification
+    const notification = new Notification({
+      type,
+      recipientType,
+      recipientId,
+      relatedEntity,
+      title,
+      message,
+      metadata,
+      status,
+      expiresAt: expiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default 30 days
+    });
+
+    const savedNotification = await notification.save();
+
+    res.status(201).json({
+      success: true,
+      notification: savedNotification,
+    });
+  } catch (error) {
+    console.error("Error creating notification:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to create notification",
+      details: error.message,
+    });
+  }
+};
+
 // Get all notifications for admin
 export const getNotifications = async (req, res) => {
   try {

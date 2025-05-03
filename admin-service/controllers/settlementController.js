@@ -1,5 +1,6 @@
 import Settlement from "../model/restaurantSettlement.js";
 import { bankTransfer } from "../utils/bankTransfer.js";
+import { createNotification } from "../utils/notificationHelper.js";
 
 export const addOrderToSettlement = async (req, res) => {
   try {
@@ -70,7 +71,7 @@ export const processWeeklySettlements = async (req, res) => {
       status: "PENDING",
     });
 
-    // 2. Process each settlement using the imported bankTransfer
+    // 2. Process each settlement
     const results = await Promise.allSettled(
       pendingSettlements.map(async (settlement) => {
         try {
@@ -82,7 +83,8 @@ export const processWeeklySettlements = async (req, res) => {
             }`
           );
 
-          return await Settlement.findByIdAndUpdate(
+          // Update settlement status
+          const updatedSettlement = await Settlement.findByIdAndUpdate(
             settlement._id,
             {
               status: "PAID",
@@ -91,17 +93,64 @@ export const processWeeklySettlements = async (req, res) => {
             },
             { new: true }
           );
+
+          // Create payment notification for restaurant
+          await createNotification({
+            type: "SETTLEMENT_PROCESSED",
+            recipientType: "restaurant",
+            recipientId: settlement.restaurantId,
+            relatedEntity: {
+              id: settlement._id.toString(),
+              type: "settlement",
+            },
+            title: "Weekly Settlement Processed",
+            message: `Your weekly settlement of $${settlement.amountDue.toFixed(
+              2
+            )} has been processed. Transaction ID: ${paymentResult.reference}`,
+            metadata: {
+              amount: settlement.amountDue,
+              transactionId: paymentResult.reference,
+              weekEnding: settlement.weekEnding,
+            },
+            status: "unread",
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+          });
+
+          return updatedSettlement;
         } catch (error) {
           await Settlement.findByIdAndUpdate(settlement._id, {
             status: "FAILED",
             failureReason: error.message,
           });
+
+          // Create failure notification for restaurant
+          await createNotification({
+            type: "SETTLEMENT_FAILED",
+            recipientType: "restaurant",
+            recipientId: settlement.restaurantId,
+            relatedEntity: {
+              id: settlement._id.toString(),
+              type: "settlement",
+            },
+            title: "Settlement Processing Failed",
+            message: `Failed to process your weekly settlement of $${settlement.amountDue.toFixed(
+              2
+            )}. Reason: ${error.message}`,
+            metadata: {
+              amount: settlement.amountDue,
+              weekEnding: settlement.weekEnding,
+              error: error.message,
+            },
+            status: "unread",
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+          });
+
           throw error;
         }
       })
     );
 
-    // 5. Generate report
+    // 3. Generate report
     const successful = results.filter((r) => r.status === "fulfilled").length;
     const failed = results.filter((r) => r.status === "rejected").length;
 
@@ -123,7 +172,6 @@ export const processWeeklySettlements = async (req, res) => {
     });
   }
 };
-
 // Helpers
 function getPreviousSunday() {
   const date = new Date();

@@ -8,7 +8,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "type": "module",
   "dependencies": {
     "kafkajs": "^2.2.4"
@@ -16,5 +15,7 @@
   "exports": {
     ".": "./producer.js",
     "./package.json": "./package.json"
-  }
+  },
+  "devDependencies": {},
+  "description": ""
 }

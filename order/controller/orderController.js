@@ -152,6 +152,7 @@ const createOrder = async (req, res) => {
       type: orderType,
       restaurantOrder: {
         restaurantId,
+        ownerId: restaurant.ownerId,
         restaurantName: restaurant.name,
         restaurantLocation: {
           lat: restaurant.address.coordinates.lat,
@@ -500,6 +501,7 @@ const getRestaurantOrders = async (req, res) => {
       orderId: order.orderId,
       createdAt: order.createdAt,
       customerName: order.customerName,
+      ownerId: order.restaurantOrder.ownerId,
       customerPhone: order.customerPhone,
       type: order.type,
       deliveryAddress: order.deliveryAddress,
@@ -1355,6 +1357,78 @@ const getOrdersByIds = async (req, res) => {
   }
 };
 
+/**
+* Get all orders for the authenticated restaurant owner
+* @route GET /api/orders/restaurant/owner-orders
+* @access Private - Restaurant
+*/
+const getAllOwnerOrders = async (req, res) => {
+ try {
+   // Verify user role
+   if (req.user.role !== "restaurant") {
+     return res.status(403).json({
+       status: 403,
+       message: "Access denied. Restaurant role required.",
+     });
+   }
+
+   // Build query for orders where restaurant's ownerId matches the authenticated user's ID
+   const query = { "restaurantOrder.ownerId": req.user.id };
+
+   if (req.query.startDate || req.query.endDate) {
+    query.createdAt = {};
+    if (req.query.startDate) {
+      query.createdAt.$gte = new Date(req.query.startDate);
+    }
+    if (req.query.endDate) {
+      query.createdAt.$lte = new Date(req.query.endDate);
+    }
+  }
+   // Add date range filter if startDate and endDate are provided
+   if (req.query.startDate && req.query.endDate) {
+     query.createdAt = {
+       $gte: new Date(req.query.startDate),
+       $lte: new Date(req.query.endDate),
+     };
+   }
+
+   // Query orders with sorting
+   const orders = await Order.find({}).sort({ createdAt: -1 });
+
+   // Process orders to include relevant information
+   const processedOrders = orders.map((order) => ({
+     orderId: order.orderId,
+     createdAt: order.createdAt,
+     customerName: order.customerName,
+     customerPhone: order.customerPhone,
+     type: order.type,
+     deliveryAddress: order.deliveryAddress,
+     status: order.status,
+    
+     subtotal: order.restaurantOrder.subtotal,
+     tax: order.restaurantOrder.tax,
+     deliveryFee: order.restaurantOrder.deliveryFee,
+     totalAmount: order.totalAmount,
+     estimatedReadyTime: order.restaurantOrder.estimatedReadyTime,
+     restaurantName: order.restaurantOrder.restaurantName,
+     restaurantId: order.restaurantOrder.restaurantId,
+     restaurantOwnerId: order.restaurantOrder.ownerId,
+   }));
+
+   res.status(200).json({
+     status: 200,
+     orders: processedOrders,
+     total: orders.length,
+   });
+ } catch (error) {
+   console.error("Error fetching all owner orders:", error);
+   res.status(500).json({
+     status: 500,
+     message: error.message || "Failed to fetch restaurant owner orders",
+   });
+ }
+};
+
 export {
   createOrder,
   getOrderById,
@@ -1370,4 +1444,5 @@ export {
   updateOrderPaymentStatus,
   getOrdersByIds,
   queryOrders,
+  getAllOwnerOrders
 };

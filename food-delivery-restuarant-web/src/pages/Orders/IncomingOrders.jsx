@@ -20,6 +20,7 @@ const IncomingOrders = () => {
         setLoading(true);
         const data = await getOrders("PLACED");
         setOrders(data);
+        console.log("Fetched Orders:", data);
 
       } catch (error) {
         toast.error("Failed to fetch incoming orders");
